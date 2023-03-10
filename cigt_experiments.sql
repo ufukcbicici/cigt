@@ -344,7 +344,9 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 07/3/2023
 --Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
+82|0.999983600018311|0.924313999139786|0.0005|1.0|1.0|0.999899999999999|0.1|50
 81|0.9999612|0.917663999597549|0.0005|1.0|1.0|0.999899999999999|0.1|50
+
 
 --Experiments: Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024.
 --weight_decay = 5 * [0.0005]
