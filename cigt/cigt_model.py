@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from randaugment import RandAugment
 from torchvision import transforms
 import torchvision.datasets as datasets
 import time
@@ -13,6 +14,7 @@ import numpy as np
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
 from auxillary.utilities import Utilities
+from cigt.cutout_augmentation import CutoutPIL
 from cigt.routing_layers.info_gain_routing_layer import InfoGainRoutingLayer
 from cigt.moe_layer import MoeLayer
 from cigt.resnet_cigt_constants import ResnetCigtConstants
@@ -89,7 +91,9 @@ class Cigt(nn.Module):
         super().__init__()
         self.runId = run_id
         self.modelDefinition = model_definition
+        self.imageSize = (32, 32)
         self.numClasses = num_classes
+        self.modelFilesRootPath = None
         self.routingStrategyName = ResnetCigtConstants.routing_strategy_name
         self.useStraightThrough = ResnetCigtConstants.use_straight_through
         self.decisionNonLinearity = ResnetCigtConstants.decision_non_linearity
@@ -107,19 +111,21 @@ class Cigt(nn.Module):
         self.doubleStrideLayers = ResnetCigtConstants.double_stride_layers
         self.batchSize = ResnetCigtConstants.batch_size
         self.inputDims = ResnetCigtConstants.input_dims
+        self.advancedAugmentation = ResnetCigtConstants.advanced_augmentation
         self.decisionDimensions = ResnetCigtConstants.decision_dimensions
         self.decisionAveragePoolingStrides = ResnetCigtConstants.decision_average_pooling_strides
         self.routerLayersCount = ResnetCigtConstants.router_layers_count
         self.isInWarmUp = True
         self.temperatureController = ResnetCigtConstants.softmax_decay_controller
         self.decisionLossCoeff = ResnetCigtConstants.decision_loss_coeff
-        self.informationGainBalanceCoeff = ResnetCigtConstants.information_gain_balance_coeff
+        self.informationGainBalanceCoeffList = ResnetCigtConstants.information_gain_balance_coeff_list
         self.classificationWd = ResnetCigtConstants.classification_wd
         self.decisionWd = ResnetCigtConstants.decision_wd
         self.epochCount = ResnetCigtConstants.epoch_count
         self.boostLearningRatesLayerWise = ResnetCigtConstants.boost_learning_rates_layer_wise
         self.multipleCeLosses = ResnetCigtConstants.multiple_ce_losses
         self.perSampleEntropyBalance = ResnetCigtConstants.per_sample_entropy_balance
+        self.evaluationPeriod = ResnetCigtConstants.evaluation_period
         self.pathCounts = [1]
         self.pathCounts.extend([d_["path_count"] for d_ in self.resnetConfigList][1:])
         self.blockParametersList = self.interpret_config_list()
@@ -130,16 +136,31 @@ class Cigt(nn.Module):
         print("Device:{0}".format(self.device))
         # Train and test time augmentations
         self.normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
-        self.transformTrain = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            self.normalize,
-        ])
-        self.transformTest = transforms.Compose([
-            transforms.ToTensor(),
-            self.normalize
-        ])
+
+        if not self.advancedAugmentation:
+            print("WILL BE USING ONLY CROP AND HORIZONTAL FLIP AUGMENTATION")
+            self.transformTrain = transforms.Compose([
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                self.normalize,
+            ])
+            self.transformTest = transforms.Compose([
+                transforms.ToTensor(),
+                self.normalize
+            ])
+        else:
+            print("WILL BE USING RANDOM AUGMENTATION")
+            self.transformTrain = transforms.Compose([
+                transforms.Resize(self.imageSize),
+                CutoutPIL(cutout_factor=0.5),
+                RandAugment(),
+                transforms.ToTensor(),
+            ])
+            self.transformTest = transforms.Compose([
+                transforms.Resize(self.imageSize),
+                transforms.ToTensor(),
+            ])
 
         # Initial layer
         self.in_planes = self.firstConvOutputDim
@@ -237,8 +258,8 @@ class Cigt(nn.Module):
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Decision Wd", value=self.decisionWd,
                                            explanation=explanation, kv_rows=kv_rows)
-        explanation = self.add_explanation(name_of_param="Information Gain Balance Coefficient",
-                                           value=self.informationGainBalanceCoeff,
+        explanation = self.add_explanation(name_of_param="Information Gain Balance Coefficient List",
+                                           value=self.informationGainBalanceCoeffList,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="firstConvKernelSize", value=self.firstConvKernelSize,
                                            explanation=explanation, kv_rows=kv_rows)
@@ -258,6 +279,10 @@ class Cigt(nn.Module):
                                            value=self.boostLearningRatesLayerWise,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="applyMaskToBatchNorm", value=self.applyMaskToBatchNorm,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="advancedAugmentation", value=self.advancedAugmentation,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="evaluationPeriod", value=self.evaluationPeriod,
                                            explanation=explanation, kv_rows=kv_rows)
         # explanation = self.add_explanation(name_of_param="startMovingAveragesFromZero",
         #                                    value=self.startMovingAveragesFromZero,
@@ -342,7 +367,7 @@ class Cigt(nn.Module):
 
     def forward(self, x, labels, temperature):
         moe_probs = 0.0
-        balance_coefficient = self.informationGainBalanceCoeff
+        balance_coefficient_list = self.informationGainBalanceCoeffList
         # Classification loss
         classification_loss = 0.0
         # Information gain losses
@@ -366,7 +391,8 @@ class Cigt(nn.Module):
             if layer_id < len(self.cigtLayers) - 1:
                 information_gain, p_n_given_x = \
                     self.blockEndLayers[layer_id](curr_layer_outputs,
-                                                  routing_matrices, labels, temperature, balance_coefficient)
+                                                  routing_matrices, labels, temperature,
+                                                  balance_coefficient_list[layer_id])
                 information_gain_losses[layer_id] = information_gain
                 # If in warm up, send into all blocks
                 if self.isInWarmUp:
@@ -672,8 +698,7 @@ class Cigt(nn.Module):
 
     def save_cigt_model(self, epoch):
         db_name = DbLogger.log_db_path.split("/")[-1].split(".")[0]
-        checkpoint_file_root = os.path.join(
-            "/clusterusers/can.bicici@boun.edu.tr/cigt", "{0}_{1}".format(db_name, self.runId))
+        checkpoint_file_root = os.path.join(self.modelFilesRootPath, "{0}_{1}".format(db_name, self.runId))
         checkpoint_file_path = checkpoint_file_root + "_epoch{0}.pth".format(epoch)
         torch.save({
             "model_state_dict": self.state_dict(),
@@ -711,22 +736,24 @@ class Cigt(nn.Module):
             # train for one epoch
             train_mean_batch_time = self.train_single_epoch(epoch_id=epoch, train_loader=train_loader)
 
-            print("***************Epoch {0} End, Training Evaluation***************".format(epoch))
-            train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
-            print("***************Epoch {0} End, Test Evaluation***************".format(epoch))
-            test_accuracy = self.validate(loader=val_loader, epoch=epoch, data_kind="test")
-            # if test_accuracy > best_performance:
-            #     self.save_cigt_model(epoch=epoch)
-            #     best_performance = test_accuracy
+            if epoch % self.evaluationPeriod == 0 or epoch >= (total_epoch_count - 10):
+                print("***************Epoch {0} End, Training Evaluation***************".format(epoch))
+                train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
+                print("***************Epoch {0} End, Test Evaluation***************".format(epoch))
+                test_accuracy = self.validate(loader=val_loader, epoch=epoch, data_kind="test")
 
-            DbLogger.write_into_table(
-                rows=[(self.runId,
-                       self.numOfTrainingIterations,
-                       epoch,
-                       train_accuracy,
-                       0.0,
-                       test_accuracy,
-                       train_mean_batch_time,
-                       0.0,
-                       0.0,
-                       "YYY")], table=DbLogger.logsTable)
+                if test_accuracy > best_performance:
+                    self.save_cigt_model(epoch=epoch)
+                    best_performance = test_accuracy
+
+                DbLogger.write_into_table(
+                    rows=[(self.runId,
+                           self.numOfTrainingIterations,
+                           epoch,
+                           train_accuracy,
+                           0.0,
+                           test_accuracy,
+                           train_mean_batch_time,
+                           0.0,
+                           0.0,
+                           "YYY")], table=DbLogger.logsTable)

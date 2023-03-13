@@ -52,6 +52,10 @@ class DbLogger:
     tetam_cigt_db2 = "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
     tetam_cigt_db3 = "/cta/users/ucbicici/cigt/cigt/cigtlogger3.db"
     tetam_cigt_db4 = "/cta/users/ucbicici/cigt/cigt/cigtlogger4.db"
+    tetam_tuna_cigt_db = "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
+    tetam_tuna_cigt_db2 = "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
+    tetam_tuna_cigt_db3 = "/cta/users/hmeral/cigt/cigt/cigtlogger3.db"
+    tetam_tuna_cigt_db4 = "/cta/users/hmeral/cigt/cigt/cigtlogger4.db"
 
     log_db_path = None
 

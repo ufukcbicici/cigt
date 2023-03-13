@@ -25,7 +25,7 @@ class CigtVarianceRouting(CigtIgSoftRouting):
         self.currentLoss = None
         super().__init__(run_id, model_definition)
 
-    def calculate_information_gain_losses(self, routing_matrices, labels, balance_coefficient):
+    def calculate_information_gain_losses(self, routing_matrices, labels, balance_coefficient_list):
         information_gain_list = []
         for p_n_given_x in routing_matrices[1:]:
             weight_vector = torch.ones(size=(p_n_given_x.shape[0],),

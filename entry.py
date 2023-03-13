@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.hpc_db
+    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db2
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -59,8 +59,8 @@ if __name__ == "__main__":
 
         model = CigtIgHardRouting(
             run_id=run_id,
-            model_definition="Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,2. Batch Size 1024.")
-
+            model_definition="Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [5.0, 5.0]. Advanced Augmentation")
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 

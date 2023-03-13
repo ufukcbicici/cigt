@@ -339,14 +339,6 @@ ORDER BY TestAccuracy DESC
 51|0.999698000022888|0.921790000047684|0.0005|1.0|1.0|0.9999|0.1|10
 52|0.999468000007629|0.920849999847412|0.0005|1.0|1.0|0.9999|0.1|10
 
---Experiments: Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,2. Batch Size 1024.
---weight_decay = 5 * [0.0005]
---param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
---Started at 07/3/2023
---Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
-82|0.999983600018311|0.924313999139786|0.0005|1.0|1.0|0.999899999999999|0.1|50
-81|0.9999612|0.917663999597549|0.0005|1.0|1.0|0.999899999999999|0.1|50
-
 
 --Experiments: Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024.
 --weight_decay = 5 * [0.0005]
@@ -369,6 +361,10 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 08/3/2023
 --Started on: HPC - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+9|0.999842291072923|0.922825931549072|0.0005|1.0|1.0|0.999899999999999|0.1|50
+7|0.999838718686785|0.921291732311249|0.0005|1.0|1.0|0.999899999999999|0.1|50
+10|0.999812877616104|0.917785993218422|0.0005|1.0|1.0|0.999899999999999|0.1|50
+8|0.999857452742907|0.916083903908729|0.0005|1.0|1.0|0.999899999999999|0.1|50
 
 
 
@@ -377,3 +373,52 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 08/3/2023
 --Started on: HPC - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
+3|0.999726299363739|0.922110330820083|0.0005|1.0|1.0|0.999899999999999|0.1|50
+2|0.999676294326782|0.918441963553429|0.0005|1.0|1.0|0.999899999999999|0.1|50
+4|0.999661313027752|0.918347655653953|0.0005|1.0|1.0|0.999899999999999|0.1|50
+1|0.999506890579146|0.918038463830948|0.0005|1.0|1.0|0.999899999999999|0.1|50
+
+--Experiments: Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,2. Batch Size 1024.
+--weight_decay = 5 * [0.0005]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--Started at 07/3/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
+82|0.999983600018311|0.924313999139786|0.0005|1.0|1.0|0.999899999999999|0.1|50
+85|0.999978|0.923919999404907|0.0005|1.0|1.0|0.999899999999999|0.1|50
+84|0.9999728|0.922363999300003|0.0005|1.0|1.0|0.999899999999999|0.1|50
+86|0.9999696|0.919331999731064|0.0005|1.0|1.0|0.999899999999999|0.1|50
+81|0.9999612|0.917663999597549|0.0005|1.0|1.0|0.999899999999999|0.1|50
+
+
+
+--Experiments: Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,2. Batch Size 1024. - Classification Wd:0.00075
+--weight_decay = 5 * [0.00075]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--Started at 07/3/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger2.db"
+61|0.999971600027466|0.927533999092102|0.00075|1.0|1.0|0.999899999999999|0.1|50
+60|0.999976000018311|0.924781999301911|0.00075|1.0|1.0|0.999899999999999|0.1|50
+59|0.999972400027466|0.921429998975754|0.00075|1.0|1.0|0.999899999999999|0.1|50
+
+
+
+--Experiments: "Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,2. Batch Size 1024. Advanced Augmentation."
+--weight_decay = 5 * [0.0005]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--Started at 11/3/2023
+--Started on: Tetam - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger3.db"
+
+
+--Experiments: "Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [1.0, 5.0]. Standard Augmentation"
+--weight_decay = 5 * [0.0005]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--Started at 12/3/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+
+
+--Experiments: "Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [5.0, 5.0]. Standard Augmentation"
+--weight_decay = 5 * [0.0005]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--Started at 12/3/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
+

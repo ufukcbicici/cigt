@@ -21,9 +21,9 @@ class CigtIgSoftRouting(CigtSoftRouting):
         entropy = -1.0 * torch.sum(prob_log_prob)
         return entropy, log_prob
 
-    def calculate_information_gain_losses(self, routing_matrices, labels, balance_coefficient):
+    def calculate_information_gain_losses(self, routing_matrices, labels, balance_coefficient_list):
         information_gain_list = []
-        for p_n_given_x in routing_matrices[1:]:
+        for layer_id, p_n_given_x in enumerate(routing_matrices[1:]):
             weight_vector = torch.ones(size=(p_n_given_x.shape[0], ),
                                        dtype=torch.float32,
                                        device=self.device)
@@ -55,6 +55,7 @@ class CigtIgSoftRouting(CigtSoftRouting):
             entropy_p_n, log_prob_p_n = self.calculate_entropy(prob_distribution=marginal_p_n)
             entropy_p_c, log_prob_p_c = self.calculate_entropy(prob_distribution=marginal_p_c)
             # Calculate the information gain
+            balance_coefficient = balance_coefficient_list[layer_id]
             information_gain = (balance_coefficient * entropy_p_n) + entropy_p_c - entropy_p_cn
             information_gain_list.append(information_gain)
         return information_gain_list

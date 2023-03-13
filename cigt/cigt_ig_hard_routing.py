@@ -16,7 +16,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
 
     def forward(self, x, labels, temperature):
         moe_probs = 0.0
-        balance_coefficient = self.informationGainBalanceCoeff
+        balance_coefficient_list = self.informationGainBalanceCoeffList
         # Classification loss
         classification_loss = 0.0
         # Information gain losses
@@ -46,7 +46,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                 p_n_given_x_soft = self.blockEndLayers[layer_id](out,
                                                                  labels,
                                                                  temperature,
-                                                                 balance_coefficient)
+                                                                 balance_coefficient_list[layer_id])
                 # Calculate the hard routing matrix
                 p_n_given_x_hard = torch.zeros_like(p_n_given_x_soft)
                 arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
@@ -117,7 +117,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                     target_var)
                 information_gain_losses = self.calculate_information_gain_losses(
                     routing_matrices=routing_matrices_soft, labels=target_var,
-                    balance_coefficient=self.informationGainBalanceCoeff)
+                    balance_coefficient_list=self.informationGainBalanceCoeffList)
                 total_routing_loss = 0.0
                 for t_loss in information_gain_losses:
                     total_routing_loss += t_loss
@@ -204,7 +204,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                     target_var)
                 information_gain_losses = self.calculate_information_gain_losses(
                     routing_matrices=routing_matrices_soft, labels=target_var,
-                    balance_coefficient=self.informationGainBalanceCoeff)
+                    balance_coefficient_list=self.informationGainBalanceCoeffList)
                 total_routing_loss = 0.0
                 for t_loss in information_gain_losses:
                     total_routing_loss += t_loss
