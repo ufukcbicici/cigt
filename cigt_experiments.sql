@@ -384,7 +384,9 @@ ORDER BY TestAccuracy DESC
 --Started at 07/3/2023
 --Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
 82|0.999983600018311|0.924313999139786|0.0005|1.0|1.0|0.999899999999999|0.1|50
+87|0.999972400009156|0.924067999357223|0.0005|1.0|1.0|0.999899999999999|0.1|50
 85|0.999978|0.923919999404907|0.0005|1.0|1.0|0.999899999999999|0.1|50
+88|0.999960400018311|0.923879999828339|0.0005|1.0|1.0|0.999899999999999|0.1|50
 84|0.9999728|0.922363999300003|0.0005|1.0|1.0|0.999899999999999|0.1|50
 86|0.9999696|0.919331999731064|0.0005|1.0|1.0|0.999899999999999|0.1|50
 81|0.9999612|0.917663999597549|0.0005|1.0|1.0|0.999899999999999|0.1|50
@@ -397,8 +399,11 @@ ORDER BY TestAccuracy DESC
 --Started at 07/3/2023
 --Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger2.db"
 61|0.999971600027466|0.927533999092102|0.00075|1.0|1.0|0.999899999999999|0.1|50
+63|0.999964800000001|0.926003999433518|0.00075|1.0|1.0|0.999899999999999|0.1|50
+62|0.999978000009156|0.925731999361038|0.00075|1.0|1.0|0.999899999999999|0.1|50
 60|0.999976000018311|0.924781999301911|0.00075|1.0|1.0|0.999899999999999|0.1|50
 59|0.999972400027466|0.921429998975754|0.00075|1.0|1.0|0.999899999999999|0.1|50
+
 
 
 
@@ -407,6 +412,10 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 11/3/2023
 --Started on: Tetam - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger3.db"
+57|0.932496799995422|0.920773999219894|0.0005|1.0|1.0|0.999899999999999|0.1|50
+59|0.929410400009155|0.91994999943924|0.0005|1.0|1.0|0.999899999999999|0.1|50
+58|0.929331199992752|0.91827799969101|0.0005|1.0|1.0|0.999899999999999|0.1|50
+
 
 
 --Experiments: "Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [1.0, 5.0]. Standard Augmentation"
@@ -414,6 +423,11 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 12/3/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+16|0.99941285733223|0.911521429204941|0.0005||1.0|0.9999|0.1|14
+14|0.999614285845075|0.911035714742116|0.0005||1.0|0.9999|0.1|14
+13|0.999555714416504|0.910621428101403|0.0005||1.0|0.9999|0.1|14
+15|0.99956000009128|0.906749999727522|0.0005||1.0|0.9999|0.1|14
+
 
 
 --Experiments: "Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [5.0, 5.0]. Standard Augmentation"
@@ -421,4 +435,29 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 12/3/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
+6|0.999441428721292|0.913292856836319|0.0005||1.0|0.9999|0.1|14
+7|0.999472857273647|0.910528570829119|0.0005||1.0|0.9999|0.1|14
+8|0.999560000196184|0.909457142754964|0.0005||1.0|0.9999|0.1|14
+9|0.997880000186648|0.906278571523939|0.0005||1.0|0.9999|0.1|14
+
+
+--Experiments: "Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [1.0, 5.0]. Advanced Augmentation"
+--weight_decay = 5 * [0.0005]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--Started at 12/3/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
+3|0.918055714148113|0.920578571122033|0.0005||1.0|0.9999|0.1|14
+2|0.921645714210783|0.920307143313544|0.0005||1.0|0.9999|0.1|14
+1|0.924847142765863|0.918785713781629|0.0005||1.0|0.9999|0.1|14
+
+
+--Experiments: "Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [5.0, 5.0]. Advanced Augmentation"
+--weight_decay = 5 * [0.0005]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--Started at 12/3/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
+2|0.922420000118528|0.922614285469055|0.0005||1.0|0.9999|0.1|14
+0|0.916751428511483|0.921492856877191|0.0005||1.0|0.9999|0.1|14
+1|0.926791428570066|0.918607142257691|0.0005||1.0|0.9999|0.1|14
+
 

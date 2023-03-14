@@ -32,12 +32,12 @@ if __name__ == "__main__":
     run_id = DbLogger.get_run_id()
     model = CigtIgHardRouting(
         run_id=run_id,
-        model_definition="Resnet Hard Routing - Only Routing - 1.2.2. Batch Size 1024. - Classification Wd:0.00075")
+        model_definition="Resnet Hard Routing - Only Routing - 1.2.4. Batch Size 1024.")
 
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-    checkpoint_pth = "C://Users//asus//Desktop//ConvAig//convnet-aig//dblogger_82_epoch1170.pth"
+    checkpoint_pth = "C://Users//asus//Desktop//ConvAig//convnet-aig//cigtlogger_14_epoch1180.pth"
     checkpoint = torch.load(checkpoint_pth, map_location="cpu")
     model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
@@ -72,68 +72,69 @@ if __name__ == "__main__":
     data_kind = "test"
 
     # switch to evaluate mode
-    model.train()
+    model.eval()
 
-    for i, (input_, target) in tqdm(enumerate(val_loader)):
-        time_begin = time.time()
-        with torch.no_grad():
-            input_var = torch.autograd.Variable(input_).to(device)
-            target_var = torch.autograd.Variable(target).to(device)
-            batch_size = input_var.size(0)
+    for data_type, data_loader in [("train", train_loader), ("test", val_loader)]:
+        for i, (input_, target) in tqdm(enumerate(data_loader)):
+            time_begin = time.time()
+            with torch.no_grad():
+                input_var = torch.autograd.Variable(input_).to(device)
+                target_var = torch.autograd.Variable(target).to(device)
+                batch_size = input_var.size(0)
 
-            # Cigt moe output, information gain losses
-            list_of_logits, routing_matrices_hard, routing_matrices_soft = model(
-                input_var, target_var, temperature)
-            classification_loss, batch_accuracy = model.calculate_classification_loss_and_accuracy(
-                list_of_logits,
-                routing_matrices_hard,
-                target_var)
-            information_gain_losses = model.calculate_information_gain_losses(
-                routing_matrices=routing_matrices_soft, labels=target_var,
-                balance_coefficient=model.informationGainBalanceCoeff)
-            total_routing_loss = 0.0
-            for t_loss in information_gain_losses:
-                total_routing_loss += t_loss
-            total_routing_loss = -1.0 * model.decisionLossCoeff * total_routing_loss
-            total_loss = classification_loss + total_routing_loss
+                # Cigt moe output, information gain losses
+                list_of_logits, routing_matrices_hard, routing_matrices_soft, list_of_last_features = model(
+                    input_var, target_var, temperature)
+                classification_loss, batch_accuracy = model.calculate_classification_loss_and_accuracy(
+                    list_of_logits,
+                    routing_matrices_hard,
+                    target_var)
+                information_gain_losses = model.calculate_information_gain_losses(
+                    routing_matrices=routing_matrices_soft, labels=target_var,
+                    balance_coefficient_list=model.informationGainBalanceCoeffList)
+                total_routing_loss = 0.0
+                for t_loss in information_gain_losses:
+                    total_routing_loss += t_loss
+                total_routing_loss = -1.0 * model.decisionLossCoeff * total_routing_loss
+                total_loss = classification_loss + total_routing_loss
 
-            # print("len(list_of_logits)={0}".format(len(list_of_logits)))
-            # print("multipleCeLosses:{0}".format(self.multipleCeLosses))
-            time_end = time.time()
+                # print("len(list_of_logits)={0}".format(len(list_of_logits)))
+                # print("multipleCeLosses:{0}".format(self.multipleCeLosses))
+                time_end = time.time()
 
-            list_of_labels.append(target_var.cpu().numpy())
-            for idx_, matr_ in enumerate(routing_matrices_soft[1:]):
-                list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
+                list_of_labels.append(target_var.cpu().numpy())
+                for idx_, matr_ in enumerate(routing_matrices_soft[1:]):
+                    list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
 
-            # measure accuracy and record loss
-            losses.update(total_loss.detach().cpu().numpy().item(), 1)
-            losses_c.update(classification_loss.detach().cpu().numpy().item(), 1)
-            accuracy_avg.update(batch_accuracy, batch_size)
-            batch_time.update((time_end - time_begin), 1)
-            losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
-            for lid in range(len(model.pathCounts) - 1):
-                losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
+                # measure accuracy and record loss
+                losses.update(total_loss.detach().cpu().numpy().item(), 1)
+                losses_c.update(classification_loss.detach().cpu().numpy().item(), 1)
+                accuracy_avg.update(batch_accuracy, batch_size)
+                batch_time.update((time_end - time_begin), 1)
+                losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
+                for lid in range(len(model.pathCounts) - 1):
+                    losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
 
-    kv_rows = []
-    list_of_labels = np.concatenate(list_of_labels, axis=0)
-    for idx_ in range(len(list_of_routing_probability_matrices)):
-        list_of_routing_probability_matrices[idx_] = np.concatenate(
-            list_of_routing_probability_matrices[idx_], axis=0)
+        kv_rows = []
+        list_of_labels = np.concatenate(list_of_labels, axis=0)
+        for idx_ in range(len(list_of_routing_probability_matrices)):
+            list_of_routing_probability_matrices[idx_] = np.concatenate(
+                list_of_routing_probability_matrices[idx_], axis=0)
 
-    model.calculate_branch_statistics(
-        run_id=model.runId,
-        iteration=0,
-        dataset_type=data_kind,
-        labels=list_of_labels,
-        routing_probability_matrices=list_of_routing_probability_matrices,
-        write_to_db=True)
+        model.calculate_branch_statistics(
+            run_id=model.runId,
+            iteration=0,
+            dataset_type=data_kind,
+            labels=list_of_labels,
+            routing_probability_matrices=list_of_routing_probability_matrices,
+            write_to_db=True)
 
-    print("total_loss:{0}".format(losses.avg))
-    print("accuracy_avg:{0}".format(accuracy_avg.avg))
-    print("batch_time:{0}".format(batch_time.avg))
-    print("classification_loss:{0}".format(losses_c.avg))
-    print("routing_loss:{0}".format(losses_t.avg))
-    for lid in range(len(model.pathCounts) - 1):
-        print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
+        print("total_loss:{0}".format(losses.avg))
+        print("accuracy_avg:{0}".format(accuracy_avg.avg))
+        print("batch_time:{0}".format(batch_time.avg))
+        print("classification_loss:{0}".format(losses_c.avg))
+        print("routing_loss:{0}".format(losses_t.avg))
+        for lid in range(len(model.pathCounts) - 1):
+            print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
 
-    print("X")
+        print("X")

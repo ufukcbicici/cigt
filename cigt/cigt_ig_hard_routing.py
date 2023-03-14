@@ -29,6 +29,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
         routing_matrices_hard.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         routing_matrices_soft.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         # prev_layer_outputs = {(): out}
+        list_of_last_features = []
         list_of_logits = []
 
         for layer_id, cigt_layer_blocks in enumerate(self.cigtLayers):
@@ -62,11 +63,13 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                                                        tensors=curr_layer_outputs)
                     logits = self.lossLayers[0](out)
                     list_of_logits.append(logits)
+                    for idx, block_x in enumerate(curr_layer_outputs):
+                        list_of_last_features.append(block_x)
                 else:
                     for idx, block_x in enumerate(curr_layer_outputs):
                         logits = self.lossLayers[idx](block_x)
                         list_of_logits.append(logits)
-        return list_of_logits, routing_matrices_hard, routing_matrices_soft
+        return list_of_logits, routing_matrices_hard, routing_matrices_soft, list_of_last_features
 
     def train_single_epoch(self, epoch_id, train_loader):
         """Train for one epoch on the training set"""
@@ -110,7 +113,8 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                 print("Temperature:{0}".format(temperature))
 
                 # Cigt moe output, information gain losses
-                list_of_logits, routing_matrices_hard, routing_matrices_soft = self(input_var, target_var, temperature)
+                list_of_logits, routing_matrices_hard, \
+                routing_matrices_soft, list_of_last_features = self(input_var, target_var, temperature)
                 classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
                     list_of_logits,
                     routing_matrices_hard,
@@ -196,7 +200,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                 batch_size = input_var.size(0)
 
                 # Cigt moe output, information gain losses
-                list_of_logits, routing_matrices_hard, routing_matrices_soft = self(
+                list_of_logits, routing_matrices_hard, routing_matrices_soft, list_of_last_features = self(
                     input_var, target_var, temperature)
                 classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
                     list_of_logits,
