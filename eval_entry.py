@@ -54,27 +54,26 @@ if __name__ == "__main__":
         batch_size=1024, shuffle=False, **kwargs)
 
     """Perform validation on the validation set"""
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    losses_c = AverageMeter()
-    losses_t = AverageMeter()
-    losses_t_layer_wise = [AverageMeter() for _ in range(len(model.pathCounts) - 1)]
-    accuracy_avg = AverageMeter()
-    list_of_labels = []
-    list_of_routing_probability_matrices = []
-    for _ in range(len(model.pathCounts) - 1):
-        list_of_routing_probability_matrices.append([])
 
     # Temperature of Gumble Softmax
     # We simply keep it fixed
     temperature = 0.1
     device = "cpu"
-    data_kind = "test"
-
     # switch to evaluate mode
     model.eval()
 
-    for data_type, data_loader in [("train", train_loader), ("test", val_loader)]:
+    for data_kind, data_loader in [("train", train_loader), ("test", val_loader)]:
+        batch_time = AverageMeter()
+        losses = AverageMeter()
+        losses_c = AverageMeter()
+        losses_t = AverageMeter()
+        losses_t_layer_wise = [AverageMeter() for _ in range(len(model.pathCounts) - 1)]
+        accuracy_avg = AverageMeter()
+        list_of_labels = []
+        list_of_routing_probability_matrices = []
+        for _ in range(len(model.pathCounts) - 1):
+            list_of_routing_probability_matrices.append([])
+
         for i, (input_, target) in tqdm(enumerate(data_loader)):
             time_begin = time.time()
             with torch.no_grad():
