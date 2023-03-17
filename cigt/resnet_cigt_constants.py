@@ -18,7 +18,7 @@ class ResnetCigtConstants:
     softmax_decay_period = 1
     softmax_decay_min_limit = 0.1
     softmax_decay_controllers = {}
-    information_gain_balance_coeff_list = [1.0, 5.0]
+    information_gain_balance_coeff_list = [5.0, 5.0]
     decision_drop_probability = 0.0
     classification_drop_probability = 0.0
     batch_norm_type = "StandardBatchNormalization"
@@ -27,8 +27,8 @@ class ResnetCigtConstants:
     boost_learning_rates_layer_wise = False
     multiple_ce_losses = False
     per_sample_entropy_balance = True
-    advanced_augmentation = False
-    validation_period = 1
+    advanced_augmentation = True
+    validation_period = 10
     # assert batch_norm_type in {"StandardBatchNormalization",
     #                            "CigtBatchNormalization",
     #                            "CigtProbabilisticBatchNormalization"}
