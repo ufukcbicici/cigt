@@ -10,10 +10,21 @@ import numpy as np
 from tqdm import tqdm
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
+from auxillary.utilities import Utilities
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
 
 from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_hard_routing import CigtIgHardRouting
+
+# Algorithm 1:
+# Let each train sample to go its corresponding leaf.
+# Train classifiers on the routed data.
+# Let each test sample to go its corresponding leaf.
+# Test accuracies. Hope: Ensemble effect can reduce overfitting?
+
+def execute_enforced_routing()
+
+
 
 if __name__ == "__main__":
     DbLogger.log_db_path = DbLogger.home_asus
@@ -62,78 +73,105 @@ if __name__ == "__main__":
     # switch to evaluate mode
     model.eval()
 
-    for data_kind, data_loader in [("train", train_loader), ("test", val_loader)]:
-        batch_time = AverageMeter()
-        losses = AverageMeter()
-        losses_c = AverageMeter()
-        losses_t = AverageMeter()
-        losses_t_layer_wise = [AverageMeter() for _ in range(len(model.pathCounts) - 1)]
-        accuracy_avg = AverageMeter()
-        list_of_labels = []
-        list_of_routing_probability_matrices = []
-        for _ in range(len(model.pathCounts) - 1):
-            list_of_routing_probability_matrices.append([])
+    for data_kind, data_loader in [("training", train_loader), ("test", val_loader)]:
+        data_file_path = os.path.join(
+            os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format(data_kind))
+        if not os.path.isfile(data_file_path):
+            batch_time = AverageMeter()
+            losses = AverageMeter()
+            losses_c = AverageMeter()
+            losses_t = AverageMeter()
+            losses_t_layer_wise = [AverageMeter() for _ in range(len(model.pathCounts) - 1)]
+            accuracy_avg = AverageMeter()
+            list_of_labels = []
+            list_of_routing_probability_matrices = []
+            for _ in range(len(model.pathCounts) - 1):
+                list_of_routing_probability_matrices.append([])
+            list_of_last_features_complete = []
+            for _ in range(model.pathCounts[-1]):
+                list_of_last_features_complete.append([])
 
-        for i, (input_, target) in tqdm(enumerate(data_loader)):
-            time_begin = time.time()
-            with torch.no_grad():
-                input_var = torch.autograd.Variable(input_).to(device)
-                target_var = torch.autograd.Variable(target).to(device)
-                batch_size = input_var.size(0)
+            for i, (input_, target) in tqdm(enumerate(data_loader)):
+                time_begin = time.time()
+                with torch.no_grad():
+                    input_var = torch.autograd.Variable(input_).to(device)
+                    target_var = torch.autograd.Variable(target).to(device)
+                    batch_size = input_var.size(0)
 
-                # Cigt moe output, information gain losses
-                list_of_logits, routing_matrices_hard, routing_matrices_soft, list_of_last_features = model(
-                    input_var, target_var, temperature)
-                classification_loss, batch_accuracy = model.calculate_classification_loss_and_accuracy(
-                    list_of_logits,
-                    routing_matrices_hard,
-                    target_var)
-                information_gain_losses = model.calculate_information_gain_losses(
-                    routing_matrices=routing_matrices_soft, labels=target_var,
-                    balance_coefficient_list=model.informationGainBalanceCoeffList)
-                total_routing_loss = 0.0
-                for t_loss in information_gain_losses:
-                    total_routing_loss += t_loss
-                total_routing_loss = -1.0 * model.decisionLossCoeff * total_routing_loss
-                total_loss = classification_loss + total_routing_loss
+                    # Cigt moe output, information gain losses
+                    list_of_logits, routing_matrices_hard, routing_matrices_soft, list_of_last_features = model(
+                        input_var, target_var, temperature)
+                    classification_loss, batch_accuracy = model.calculate_classification_loss_and_accuracy(
+                        list_of_logits,
+                        routing_matrices_hard,
+                        target_var)
+                    information_gain_losses = model.calculate_information_gain_losses(
+                        routing_matrices=routing_matrices_soft, labels=target_var,
+                        balance_coefficient_list=model.informationGainBalanceCoeffList)
+                    total_routing_loss = 0.0
+                    for t_loss in information_gain_losses:
+                        total_routing_loss += t_loss
+                    total_routing_loss = -1.0 * model.decisionLossCoeff * total_routing_loss
+                    total_loss = classification_loss + total_routing_loss
 
-                # print("len(list_of_logits)={0}".format(len(list_of_logits)))
-                # print("multipleCeLosses:{0}".format(self.multipleCeLosses))
-                time_end = time.time()
+                    # print("len(list_of_logits)={0}".format(len(list_of_logits)))
+                    # print("multipleCeLosses:{0}".format(self.multipleCeLosses))
+                    time_end = time.time()
 
-                list_of_labels.append(target_var.cpu().numpy())
-                for idx_, matr_ in enumerate(routing_matrices_soft[1:]):
-                    list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
+                    list_of_labels.append(target_var.cpu().numpy())
+                    for idx_, matr_ in enumerate(routing_matrices_soft[1:]):
+                        list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
 
-                # measure accuracy and record loss
-                losses.update(total_loss.detach().cpu().numpy().item(), 1)
-                losses_c.update(classification_loss.detach().cpu().numpy().item(), 1)
-                accuracy_avg.update(batch_accuracy, batch_size)
-                batch_time.update((time_end - time_begin), 1)
-                losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
-                for lid in range(len(model.pathCounts) - 1):
-                    losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
+                    for idx_, feat_arr in enumerate(list_of_last_features):
+                        list_of_last_features_complete[idx_].append(feat_arr.detach().cpu().numpy())
 
-        kv_rows = []
-        list_of_labels = np.concatenate(list_of_labels, axis=0)
-        for idx_ in range(len(list_of_routing_probability_matrices)):
-            list_of_routing_probability_matrices[idx_] = np.concatenate(
-                list_of_routing_probability_matrices[idx_], axis=0)
+                    # measure accuracy and record loss
+                    losses.update(total_loss.detach().cpu().numpy().item(), 1)
+                    losses_c.update(classification_loss.detach().cpu().numpy().item(), 1)
+                    accuracy_avg.update(batch_accuracy, batch_size)
+                    batch_time.update((time_end - time_begin), 1)
+                    losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
+                    for lid in range(len(model.pathCounts) - 1):
+                        losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
+            kv_rows = []
+            list_of_labels = np.concatenate(list_of_labels, axis=0)
+            for idx_ in range(len(list_of_routing_probability_matrices)):
+                list_of_routing_probability_matrices[idx_] = np.concatenate(
+                    list_of_routing_probability_matrices[idx_], axis=0)
 
-        model.calculate_branch_statistics(
-            run_id=model.runId,
-            iteration=0,
-            dataset_type=data_kind,
-            labels=list_of_labels,
-            routing_probability_matrices=list_of_routing_probability_matrices,
-            write_to_db=True)
+            for idx_ in range(len(list_of_last_features_complete)):
+                list_of_last_features_complete[idx_] = np.concatenate(
+                    list_of_last_features_complete[idx_], axis=0)
 
-        print("total_loss:{0}".format(losses.avg))
-        print("accuracy_avg:{0}".format(accuracy_avg.avg))
-        print("batch_time:{0}".format(batch_time.avg))
-        print("classification_loss:{0}".format(losses_c.avg))
-        print("routing_loss:{0}".format(losses_t.avg))
-        for lid in range(len(model.pathCounts) - 1):
-            print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
+            model.calculate_branch_statistics(
+                run_id=model.runId,
+                iteration=0,
+                dataset_type=data_kind,
+                labels=list_of_labels,
+                routing_probability_matrices=list_of_routing_probability_matrices,
+                write_to_db=True)
 
+            print("total_loss:{0}".format(losses.avg))
+            print("accuracy_avg:{0}".format(accuracy_avg.avg))
+            print("batch_time:{0}".format(batch_time.avg))
+            print("classification_loss:{0}".format(losses_c.avg))
+            print("routing_loss:{0}".format(losses_t.avg))
+            for lid in range(len(model.pathCounts) - 1):
+                print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
+
+            data_dict = {
+                "last_layer_features": list_of_last_features_complete,
+                "routing_matrices": list_of_routing_probability_matrices
+            }
+            Utilities.pickle_save_to_file(file_content=data_dict, path=data_file_path)
         print("X")
+
+    training_files = Utilities.pickle_load_from_file(
+        path=os.path.join(
+            os.path.split(os.path.abspath(__file__))[0],
+            "training_data.sav".format(data_kind)))
+
+    test_files = Utilities.pickle_load_from_file(
+        path=os.path.join(
+            os.path.split(os.path.abspath(__file__))[0],
+            "test_data.sav".format(data_kind)))

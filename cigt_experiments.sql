@@ -425,10 +425,11 @@ ORDER BY TestAccuracy DESC
 --Started at 07/3/2023
 --Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger2.db"
 66|0.999964285746983|0.926514285911832|0.00085||1.0|0.9999|0.1|14
+68|0.999971428571429|0.924807141903468|0.00085||1.0|0.9999|0.1|14
 64|0.999961428571429|0.924571427631378|0.00085||1.0|0.9999|0.1|14
 65|0.999965714285714|0.923135713522775|0.00085||1.0|0.9999|0.1|14
 67|0.999961428604126|0.922535714912414|0.00085||1.0|0.9999|0.1|14
-0.9241892854946
+0.924312856776374
 
 --Experiments: Resnet Hard Routing - 1,2,2. Batch Size 1024. - Classification Wd:0.0009
 --weight_decay = 5 * [0.0009]
@@ -441,6 +442,17 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 07/3/2023
 --Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger3.db"
+69|0.999961428571429|0.925678570617948|0.00095||1.0|0.9999|0.1|14
+71|0.999984285714286|0.925042856822695|0.00095||1.0|0.9999|0.1|14
+65|0.999961428604126|0.924478570188795|0.00095||1.0|0.9999|0.1|14
+63|0.99996714288984|0.924199998950958|0.00095||1.0|0.9999|0.1|14
+64|0.999955714318412|0.923849999209813|0.00095||1.0|0.9999|0.1|14
+70|0.999948571428572|0.923792855923516|0.00095||1.0|0.9999|0.1|14
+66|0.999962857175555|0.923164285060338|0.00095||1.0|0.9999|0.1|14
+67|0.999940000032698|0.922414284985406|0.00095||1.0|0.9999|0.1|14
+62|0.999942857142857|0.922099998664856|0.00095||1.0|0.9999|0.1|14
+68|0.999938571428571|0.92205714242799|0.00095||1.0|0.9999|0.1|14
+0.923677856285231
 
 
 --Experiments: "Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,2. Batch Size 1024. Advanced Augmentation."
@@ -473,6 +485,8 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 12/3/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+18|0.999342857122421|0.908678571244649|0.00075||1.0|0.9999|0.1|14
+19|0.999085714526858|0.906857142754964|0.00075||1.0|0.9999|0.1|14
 
 
 
@@ -492,6 +506,8 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 12/3/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
+12|0.99927571427209|0.911457142904826|0.00075||1.0|0.9999|0.1|14
+11|0.999222857279096|0.910178570999418|0.00075||1.0|0.9999|0.1|14
 
 
 --Experiments: "Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [1.0, 5.0]. Advanced Augmentation"
@@ -510,6 +526,8 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 12/3/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
+7|0.890921428552355|0.888235713134493|0.0||1.0|0.9999|0.1|14
+6|0.89139571424893|0.886742856897627|0.0||1.0|0.9999|0.1|14
 
 
 
@@ -530,4 +548,6 @@ ORDER BY TestAccuracy DESC
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --Started at 12/3/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
+5|0.894412857091086|0.890835715198517|0.0||1.0|0.9999|0.1|14
+6|0.889635714385169|0.887392858178275|0.0||1.0|0.9999|0.1|14
 

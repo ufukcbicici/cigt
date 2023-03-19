@@ -12,6 +12,8 @@ from cigt.routing_layers.hard_routing_layer import HardRoutingLayer
 class CigtIgHardRouting(CigtIgSoftRouting):
     def __init__(self, run_id, model_definition):
         self.classCount = 10
+        self.enforcedRouting = False
+        self.enforcedRoutingMatrices = []
         super().__init__(run_id, model_definition)
 
     def forward(self, x, labels, temperature):
@@ -54,7 +56,11 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                 p_n_given_x_hard[torch.arange(p_n_given_x_hard.shape[0]), arg_max_entries] = 1.0
 
                 routing_matrices_soft.append(p_n_given_x_soft)
-                routing_matrices_hard.append(p_n_given_x_hard)
+                if not self.enforcedRouting:
+                    routing_matrices_hard.append(p_n_given_x_hard)
+                else:
+                    enforced_routing_matrix = self.enforcedRoutingMatrices[layer_id]
+                    routing_matrices_hard.append(enforced_routing_matrix)
             # Logits
             else:
                 if not self.multipleCeLosses:
