@@ -41,6 +41,12 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices):
     for _ in range(model_.pathCounts[-1]):
         list_of_last_features_complete.append([])
 
+    if routing_matrices is None:
+        model_.enforcedRouting = False
+    else:
+        model_.enforcedRouting = True
+        model_.enforcedRoutingMatrices = routing_matrices
+
     for i, (input_, target) in tqdm(enumerate(data_loader)):
         time_begin = time.time()
         with torch.no_grad():
@@ -128,7 +134,7 @@ def execute_enforced_routing(model_, train_data, test_data):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -149,7 +155,7 @@ if __name__ == "__main__":
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-    checkpoint_pth = "C://Users//asus//Desktop//ConvAig//convnet-aig//cigtlogger_14_epoch1180.pth"
+    checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger_14_epoch1180.pth")
     checkpoint = torch.load(checkpoint_pth, map_location="cpu")
     model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
@@ -165,8 +171,9 @@ if __name__ == "__main__":
         datasets.CIFAR10('../data', train=False, transform=transform_test),
         batch_size=1024, shuffle=False, **kwargs)
 
-    execute_routing(model_=model, data_kind="train",
-                    data_loader=train_loader, routing_matrices=None)
+    execute_routing(model_=model, data_kind="train", data_loader=train_loader, routing_matrices=None)
+    execute_routing(model_=model, data_kind="test", data_loader=val_loader, routing_matrices=None)
+    print("X")
 
     # execute_enforced_routing(model_=model, train_data=train_loader, test_data=val_loader)
 

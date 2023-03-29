@@ -56,6 +56,7 @@ class DbLogger:
     tetam_tuna_cigt_db2 = "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
     tetam_tuna_cigt_db3 = "/cta/users/hmeral/cigt/cigt/cigtlogger3.db"
     tetam_tuna_cigt_db4 = "/cta/users/hmeral/cigt/cigt/cigtlogger4.db"
+    jr_cigt = "C://Users//ufuk.bicici//PycharmProjects//cigt//dblogger.db"
 
     log_db_path = None
 
