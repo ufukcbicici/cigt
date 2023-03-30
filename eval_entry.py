@@ -26,7 +26,7 @@ device = "cpu"
 temperature = 0.1
 
 
-def execute_routing(model_, data_loader, data_kind, routing_matrices):
+def execute_routing(model_, data_loader, data_kind, routing_matrices, data_file_path_):
     batch_time = AverageMeter()
     losses = AverageMeter()
     losses_c = AverageMeter()
@@ -47,6 +47,7 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices):
         model_.enforcedRouting = True
         model_.enforcedRoutingMatrices = routing_matrices
 
+    model_.eval()
     for i, (input_, target) in tqdm(enumerate(data_loader)):
         time_begin = time.time()
         with torch.no_grad():
@@ -117,19 +118,23 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices):
     for lid in range(len(model.pathCounts) - 1):
         print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
 
-    # data_dict = {
-    #     "last_layer_features": list_of_last_features_complete,
-    #     "routing_matrices": list_of_routing_probability_matrices
-    # }
-    # Utilities.pickle_save_to_file(file_content=data_dict, path=data_file_path)
+    if data_file_path_ is not None:
+        data_dict = {
+            "last_layer_features": list_of_last_features_complete,
+            "routing_matrices": list_of_routing_probability_matrices
+        }
+        Utilities.pickle_save_to_file(file_content=data_dict, path=data_file_path_)
 
 
-def execute_enforced_routing(model_, train_data, test_data):
+def execute_enforced_routing(model_, data_loader, data_kind, routing_matrices, data_file_path_):
     # All path configurations
     list_of_path_choices = []
     for path_count in model_.pathCounts[1:]:
         list_of_path_choices.append([i_ for i_ in range(path_count)])
     route_combinations = Utilities.get_cartesian_product(list_of_lists=list_of_path_choices)
+
+    # Execute models
+
     print("X")
 
 
@@ -167,12 +172,39 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=True, download=True, transform=transform_train),
         batch_size=1024, shuffle=False, **kwargs)
-    val_loader = torch.utils.data.DataLoader(
+    train_loader_test_time_augmentation = torch.utils.data.DataLoader(
+        datasets.CIFAR10('../data', train=True, download=True, transform=transform_test),
+        batch_size=1024, shuffle=False, **kwargs)
+    test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=False, transform=transform_test),
         batch_size=1024, shuffle=False, **kwargs)
+    test_loader_train_time_augmentation = torch.utils.data.DataLoader(
+        datasets.CIFAR10('../data', train=False, transform=transform_train),
+        batch_size=1024, shuffle=False, **kwargs)
 
-    execute_routing(model_=model, data_kind="train", data_loader=train_loader, routing_matrices=None)
-    execute_routing(model_=model, data_kind="test", data_loader=val_loader, routing_matrices=None)
+    # # Information gain - training
+    # data_file_path = os.path.join(
+    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("train_ig"))
+    # execute_routing(model_=model, data_kind="train", data_loader=train_loader,
+    #                 routing_matrices=None,
+    #                 data_file_path_=data_file_path)
+    # # Information gain - training - with test time augmentation
+    # data_file_path = os.path.join(
+    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("train_ig_test_time_augmentation"))
+    # execute_routing(model_=model, data_kind="train", data_loader=train_loader_test_time_augmentation,
+    #                 routing_matrices=None,
+    #                 data_file_path_=data_file_path)
+    # data_file_path = os.path.join(
+    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("test_ig"))
+    # execute_routing(model_=model, data_kind="test", data_loader=val_loader,
+    #                 routing_matrices=None,
+    #                 data_file_path_=data_file_path)
+
+    # data_file_path = os.path.join(
+    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("test_ig_train_time_augmentation"))
+    # execute_routing(model_=model, data_kind="test", data_loader=test_loader_train_time_augmentation,
+    #                 routing_matrices=None,
+    #                 data_file_path_=data_file_path)
     print("X")
 
     # execute_enforced_routing(model_=model, train_data=train_loader, test_data=val_loader)
