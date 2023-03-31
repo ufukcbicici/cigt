@@ -42,15 +42,16 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices, data_file_
     for _ in range(model_.pathCounts[-1]):
         list_of_last_features_complete.append([])
 
-    if routing_matrices is None:
-        model_.enforcedRouting = False
-    else:
-        model_.enforcedRouting = True
-        model_.enforcedRoutingMatrices = routing_matrices
-
-    model_.train()
+    model_.eval()
     for i, (input_, target) in tqdm(enumerate(data_loader)):
+        actual_batch_size = input_.shape[0]
         time_begin = time.time()
+        if routing_matrices is None:
+            model_.enforcedRouting = False
+        else:
+            model_.enforcedRouting = True
+            model_.enforcedRoutingMatrices = [mat[0:actual_batch_size, :] for mat in routing_matrices]
+
         with torch.no_grad():
             input_var = torch.autograd.Variable(input_).to(device)
             target_var = torch.autograd.Variable(target).to(device)
@@ -58,7 +59,7 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices, data_file_
 
             # Cigt moe output, information gain losses
             list_of_logits, routing_matrices_hard, \
-            routing_matrices_soft, list_of_last_features = model_(
+                routing_matrices_soft, list_of_last_features = model_(
                 input_var, target_var, temperature)
             classification_loss, batch_accuracy = \
                 model_.calculate_classification_loss_and_accuracy(
@@ -127,12 +128,20 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices, data_file_
         Utilities.pickle_save_to_file(file_content=data_dict, path=data_file_path_)
 
 
-def execute_enforced_routing(model_, data_loader, data_kind, routing_matrices, data_file_path_):
+def execute_enforced_routing(model_, data_loader, data_kind, data_root_path_):
     # All path configurations
     list_of_path_choices = []
     for path_count in model_.pathCounts[1:]:
         list_of_path_choices.append([i_ for i_ in range(path_count)])
     route_combinations = Utilities.get_cartesian_product(list_of_lists=list_of_path_choices)
+    for layer_id, selected_routes in enumerate(route_combinations):
+        routing_matrices = []
+        for route_id in selected_routes:
+            routing_matrix = torch.zeros(size=(data_loader.batch_size, model_.pathCounts[layer_id + 1]),
+                                         dtype=torch.float32)
+            routing_matrix[:, route_id] = 1.0
+            routing_matrices.append(routing_matrix)
+        print("X")
 
 
 def record_model_outputs(pretrained_model_path):
@@ -151,36 +160,37 @@ def record_model_outputs(pretrained_model_path):
         datasets.CIFAR10('../data', train=False, transform=transform_test),
         batch_size=1024, shuffle=False, **kwargs)
 
-    model_outputs_root_directory_path =
-    if os.path.isdir()
+    model_outputs_root_directory_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], checkpoint_name)
+    if not os.path.isdir(model_outputs_root_directory_path):
+        os.mkdir(model_outputs_root_directory_path)
 
     # Information gain - training
+    data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format("train_ig"))
+    if not os.path.isfile(data_file_path):
+        execute_routing(model_=model, data_kind="train", data_loader=train_loader,
+                        routing_matrices=None,
+                        data_file_path_=data_file_path)
+    # Information gain - training - with test time augmentation
+    data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format(
+        "train_ig_test_time_augmentation"))
+    if not os.path.isfile(data_file_path):
+        execute_routing(model_=model, data_kind="train", data_loader=train_loader_test_time_augmentation,
+                        routing_matrices=None,
+                        data_file_path_=data_file_path)
+    # Information gain - test
+    data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format("test_ig"))
+    if not os.path.isfile(data_file_path):
+        execute_routing(model_=model, data_kind="test", data_loader=test_loader,
+                        routing_matrices=None,
+                        data_file_path_=data_file_path)
 
-
-
-    # data_file_path = os.path.join(
-    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("train_ig"))
-    # execute_routing(model_=model, data_kind="train", data_loader=train_loader,
-    #                 routing_matrices=None,
-    #                 data_file_path_=data_file_path)
-    # # Information gain - training - with test time augmentation
-    # data_file_path = os.path.join(
-    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("train_ig_test_time_augmentation"))
-    # execute_routing(model_=model, data_kind="train", data_loader=train_loader_test_time_augmentation,
-    #                 routing_matrices=None,
-    #                 data_file_path_=data_file_path)
-    # # Information gain - test
-    # data_file_path = os.path.join(
-    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("test_ig"))
-    # execute_routing(model_=model, data_kind="test", data_loader=test_loader,
-    #                 routing_matrices=None,
-    #                 data_file_path_=data_file_path)
-    #
-    # print("X")
+    execute_enforced_routing(model_=model, data_loader=train_loader, data_kind="train",
+                             data_root_path_=model_outputs_root_directory_path)
+    print("X")
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -209,9 +219,6 @@ if __name__ == "__main__":
     best_performance = 0.0
 
     record_model_outputs(pretrained_model_path=checkpoint_pth)
-
-
-
 
     # execute_enforced_routing(model_=model, train_data=train_loader, test_data=val_loader)
 
