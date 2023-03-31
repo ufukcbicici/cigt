@@ -7,6 +7,7 @@ from torchvision import transforms
 import torchvision.datasets as datasets
 import time
 import numpy as np
+import shutil
 from tqdm import tqdm
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
@@ -47,7 +48,7 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices, data_file_
         model_.enforcedRouting = True
         model_.enforcedRoutingMatrices = routing_matrices
 
-    model_.eval()
+    model_.train()
     for i, (input_, target) in tqdm(enumerate(data_loader)):
         time_begin = time.time()
         with torch.no_grad():
@@ -133,13 +134,53 @@ def execute_enforced_routing(model_, data_loader, data_kind, routing_matrices, d
         list_of_path_choices.append([i_ for i_ in range(path_count)])
     route_combinations = Utilities.get_cartesian_product(list_of_lists=list_of_path_choices)
 
-    # Execute models
 
-    print("X")
+def record_model_outputs(pretrained_model_path):
+    # Get the checkpoint name
+    checkpoint_name = os.path.split(pretrained_model_path)[1].split(".")[0]
+
+    # Cifar 10 Dataset
+    kwargs = {'num_workers': 2, 'pin_memory': True}
+    train_loader = torch.utils.data.DataLoader(
+        datasets.CIFAR10('../data', train=True, download=True, transform=transform_train),
+        batch_size=1024, shuffle=False, **kwargs)
+    train_loader_test_time_augmentation = torch.utils.data.DataLoader(
+        datasets.CIFAR10('../data', train=True, download=True, transform=transform_test),
+        batch_size=1024, shuffle=False, **kwargs)
+    test_loader = torch.utils.data.DataLoader(
+        datasets.CIFAR10('../data', train=False, transform=transform_test),
+        batch_size=1024, shuffle=False, **kwargs)
+
+    model_outputs_root_directory_path =
+    if os.path.isdir()
+
+    # Information gain - training
+
+
+
+    # data_file_path = os.path.join(
+    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("train_ig"))
+    # execute_routing(model_=model, data_kind="train", data_loader=train_loader,
+    #                 routing_matrices=None,
+    #                 data_file_path_=data_file_path)
+    # # Information gain - training - with test time augmentation
+    # data_file_path = os.path.join(
+    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("train_ig_test_time_augmentation"))
+    # execute_routing(model_=model, data_kind="train", data_loader=train_loader_test_time_augmentation,
+    #                 routing_matrices=None,
+    #                 data_file_path_=data_file_path)
+    # # Information gain - test
+    # data_file_path = os.path.join(
+    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("test_ig"))
+    # execute_routing(model_=model, data_kind="test", data_loader=test_loader,
+    #                 routing_matrices=None,
+    #                 data_file_path_=data_file_path)
+    #
+    # print("X")
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -167,45 +208,10 @@ if __name__ == "__main__":
     torch.manual_seed(1)
     best_performance = 0.0
 
-    # Cifar 10 Dataset
-    kwargs = {'num_workers': 2, 'pin_memory': True}
-    train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10('../data', train=True, download=True, transform=transform_train),
-        batch_size=1024, shuffle=False, **kwargs)
-    train_loader_test_time_augmentation = torch.utils.data.DataLoader(
-        datasets.CIFAR10('../data', train=True, download=True, transform=transform_test),
-        batch_size=1024, shuffle=False, **kwargs)
-    test_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10('../data', train=False, transform=transform_test),
-        batch_size=1024, shuffle=False, **kwargs)
-    test_loader_train_time_augmentation = torch.utils.data.DataLoader(
-        datasets.CIFAR10('../data', train=False, transform=transform_train),
-        batch_size=1024, shuffle=False, **kwargs)
+    record_model_outputs(pretrained_model_path=checkpoint_pth)
 
-    # # Information gain - training
-    # data_file_path = os.path.join(
-    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("train_ig"))
-    # execute_routing(model_=model, data_kind="train", data_loader=train_loader,
-    #                 routing_matrices=None,
-    #                 data_file_path_=data_file_path)
-    # # Information gain - training - with test time augmentation
-    # data_file_path = os.path.join(
-    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("train_ig_test_time_augmentation"))
-    # execute_routing(model_=model, data_kind="train", data_loader=train_loader_test_time_augmentation,
-    #                 routing_matrices=None,
-    #                 data_file_path_=data_file_path)
-    # data_file_path = os.path.join(
-    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("test_ig"))
-    # execute_routing(model_=model, data_kind="test", data_loader=val_loader,
-    #                 routing_matrices=None,
-    #                 data_file_path_=data_file_path)
 
-    # data_file_path = os.path.join(
-    #     os.path.split(os.path.abspath(__file__))[0], "{0}_data.sav".format("test_ig_train_time_augmentation"))
-    # execute_routing(model_=model, data_kind="test", data_loader=test_loader_train_time_augmentation,
-    #                 routing_matrices=None,
-    #                 data_file_path_=data_file_path)
-    print("X")
+
 
     # execute_enforced_routing(model_=model, train_data=train_loader, test_data=val_loader)
 
