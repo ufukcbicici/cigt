@@ -59,7 +59,7 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices, data_file_
 
             # Cigt moe output, information gain losses
             list_of_logits, routing_matrices_hard, \
-                routing_matrices_soft, list_of_last_features = model_(
+            routing_matrices_soft, list_of_last_features = model_(
                 input_var, target_var, temperature)
             classification_loss, batch_accuracy = \
                 model_.calculate_classification_loss_and_accuracy(
@@ -104,8 +104,8 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices, data_file_
         list_of_last_features_complete[idx_] = np.concatenate(
             list_of_last_features_complete[idx_], axis=0)
 
-    model.calculate_branch_statistics(
-        run_id=model.runId,
+    model_.calculate_branch_statistics(
+        run_id=model_.runId,
         iteration=0,
         dataset_type=data_kind,
         labels=list_of_labels,
@@ -117,14 +117,16 @@ def execute_routing(model_, data_loader, data_kind, routing_matrices, data_file_
     print("batch_time:{0}".format(batch_time.avg))
     print("classification_loss:{0}".format(losses_c.avg))
     print("routing_loss:{0}".format(losses_t.avg))
-    for lid in range(len(model.pathCounts) - 1):
+    for lid in range(len(model_.pathCounts) - 1):
         print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
 
     if data_file_path_ is not None:
         data_dict = {
             "last_layer_features": list_of_last_features_complete,
-            "routing_matrices": list_of_routing_probability_matrices
+            "list_of_labels": list_of_labels,
+            "routing_matrices": list_of_routing_probability_matrices,
         }
+        print(list_of_labels[0:100])
         Utilities.pickle_save_to_file(file_content=data_dict, path=data_file_path_)
 
 
@@ -134,17 +136,27 @@ def execute_enforced_routing(model_, data_loader, data_kind, data_root_path_):
     for path_count in model_.pathCounts[1:]:
         list_of_path_choices.append([i_ for i_ in range(path_count)])
     route_combinations = Utilities.get_cartesian_product(list_of_lists=list_of_path_choices)
-    for layer_id, selected_routes in enumerate(route_combinations):
+    for selected_routes in route_combinations:
+        print("Executing route selection:{0}".format(selected_routes))
+        data_file_path = os.path.join(data_root_path_,
+                                      "{0}_{1}_data.sav".format(data_kind, selected_routes))
+        if os.path.isfile(data_file_path):
+            continue
         routing_matrices = []
-        for route_id in selected_routes:
+        for layer_id, route_id in enumerate(selected_routes):
             routing_matrix = torch.zeros(size=(data_loader.batch_size, model_.pathCounts[layer_id + 1]),
                                          dtype=torch.float32)
             routing_matrix[:, route_id] = 1.0
             routing_matrices.append(routing_matrix)
+
+        execute_routing(model_=model_, data_kind=data_kind, data_loader=data_loader,
+                        routing_matrices=routing_matrices,
+                        data_file_path_=data_file_path)
+
         print("X")
 
 
-def record_model_outputs(pretrained_model_path):
+def record_model_outputs(model_, pretrained_model_path):
     # Get the checkpoint name
     checkpoint_name = os.path.split(pretrained_model_path)[1].split(".")[0]
 
@@ -165,32 +177,59 @@ def record_model_outputs(pretrained_model_path):
         os.mkdir(model_outputs_root_directory_path)
 
     # Information gain - training
-    data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format("train_ig"))
-    if not os.path.isfile(data_file_path):
-        execute_routing(model_=model, data_kind="train", data_loader=train_loader,
-                        routing_matrices=None,
-                        data_file_path_=data_file_path)
+    # data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format("train_ig"))
+    # if not os.path.isfile(data_file_path):
+    #     execute_routing(model_=model, data_kind="train", data_loader=train_loader,
+    #                     routing_matrices=None,
+    #                     data_file_path_=data_file_path)
     # Information gain - training - with test time augmentation
     data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format(
         "train_ig_test_time_augmentation"))
     if not os.path.isfile(data_file_path):
-        execute_routing(model_=model, data_kind="train", data_loader=train_loader_test_time_augmentation,
+        execute_routing(model_=model_, data_kind="train", data_loader=train_loader_test_time_augmentation,
                         routing_matrices=None,
                         data_file_path_=data_file_path)
     # Information gain - test
     data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format("test_ig"))
     if not os.path.isfile(data_file_path):
-        execute_routing(model_=model, data_kind="test", data_loader=test_loader,
+        execute_routing(model_=model_, data_kind="test", data_loader=test_loader,
                         routing_matrices=None,
                         data_file_path_=data_file_path)
 
-    execute_enforced_routing(model_=model, data_loader=train_loader, data_kind="train",
+    execute_enforced_routing(model_=model_, data_loader=train_loader_test_time_augmentation,
+                             data_kind="train",
                              data_root_path_=model_outputs_root_directory_path)
     print("X")
 
 
+# def compare_model_outputs_for_consistency(model_, pretrained_model_path):
+#     checkpoint_name = os.path.split(pretrained_model_path)[1].split(".")[0]
+#     model_outputs_root_directory_path = os.path.join(os.path.split(os.path.abspath(
+#         __file__))[0], checkpoint_name)
+#     assert os.path.isdir(model_outputs_root_directory_path)
+#
+#     # Load all path configurations
+#     list_of_path_choices = []
+#     for path_count in model_.pathCounts[1:]:
+#         list_of_path_choices.append([i_ for i_ in range(path_count)])
+#     route_combinations = Utilities.get_cartesian_product(list_of_lists=list_of_path_choices)
+#
+#     for selected_routes in route_combinations:
+#         print("Executing route selection:{0}".format(selected_routes))
+#         data_file_path = os.path.join(data_root_path_,
+#                                       "{0}_{1}_data.sav".format(data_kind, selected_routes))
+
+    # if data_file_path_ is not None:
+    #     data_dict = {
+    #         "last_layer_features": list_of_last_features_complete,
+    #         "list_of_labels": list_of_labels,
+    #         "routing_matrices": list_of_routing_probability_matrices,
+    #     }
+    #
+
+
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -204,21 +243,23 @@ if __name__ == "__main__":
     ])
 
     run_id = DbLogger.get_run_id()
-    model = CigtIgHardRouting(
+    trained_model = CigtIgHardRouting(
         run_id=run_id,
         model_definition="Resnet Hard Routing - Only Routing - 1.2.4. Batch Size 1024.")
 
-    explanation = model.get_explanation_string()
+    explanation = trained_model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
     checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger_14_epoch1180.pth")
     checkpoint = torch.load(checkpoint_pth, map_location="cpu")
-    model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    trained_model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
     torch.manual_seed(1)
     best_performance = 0.0
 
-    record_model_outputs(pretrained_model_path=checkpoint_pth)
+    record_model_outputs(model_=trained_model, pretrained_model_path=checkpoint_pth)
+
+    # compare_model_outputs_for_consistency(pretrained_model_path=checkpoint_pth)
 
     # execute_enforced_routing(model_=model, train_data=train_loader, test_data=val_loader)
 
