@@ -202,30 +202,52 @@ def record_model_outputs(model_, pretrained_model_path):
     print("X")
 
 
-# def compare_model_outputs_for_consistency(model_, pretrained_model_path):
-#     checkpoint_name = os.path.split(pretrained_model_path)[1].split(".")[0]
-#     model_outputs_root_directory_path = os.path.join(os.path.split(os.path.abspath(
-#         __file__))[0], checkpoint_name)
-#     assert os.path.isdir(model_outputs_root_directory_path)
-#
-#     # Load all path configurations
-#     list_of_path_choices = []
-#     for path_count in model_.pathCounts[1:]:
-#         list_of_path_choices.append([i_ for i_ in range(path_count)])
-#     route_combinations = Utilities.get_cartesian_product(list_of_lists=list_of_path_choices)
-#
-#     for selected_routes in route_combinations:
-#         print("Executing route selection:{0}".format(selected_routes))
-#         data_file_path = os.path.join(data_root_path_,
-#                                       "{0}_{1}_data.sav".format(data_kind, selected_routes))
+def compare_model_outputs_for_consistency(model_, pretrained_model_path):
+    checkpoint_name = os.path.split(pretrained_model_path)[1].split(".")[0]
+    model_outputs_root_directory_path = os.path.join(os.path.split(os.path.abspath(
+        __file__))[0], checkpoint_name)
+    assert os.path.isdir(model_outputs_root_directory_path)
 
-    # if data_file_path_ is not None:
-    #     data_dict = {
-    #         "last_layer_features": list_of_last_features_complete,
-    #         "list_of_labels": list_of_labels,
-    #         "routing_matrices": list_of_routing_probability_matrices,
-    #     }
-    #
+    # Load regular IG routing results
+    data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format(
+        "train_ig_test_time_augmentation"))
+    ig_routing_results = Utilities.pickle_load_from_file(path=data_file_path)
+    ig_routes_arr = []
+    for routing_matrix in ig_routing_results["routing_matrices"]:
+        ig_routes_arr.append(np.argmax(routing_matrix, axis=1))
+    ig_routes_arr = np.stack(ig_routes_arr, axis=1)
+    routes_to_samples_map = {}
+    for sample_id in range(ig_routes_arr.shape[0]):
+        route_tpl = tuple(ig_routes_arr[sample_id])
+        if route_tpl not in routes_to_samples_map:
+            routes_to_samples_map[route_tpl] = []
+        routes_to_samples_map[route_tpl].append(sample_id)
+
+    # Load all path configurations
+    list_of_path_choices = []
+    for path_count in model_.pathCounts[1:]:
+        list_of_path_choices.append([i_ for i_ in range(path_count)])
+    route_combinations = Utilities.get_cartesian_product(list_of_lists=list_of_path_choices)
+
+    # enforced_data = {}
+    for selected_routes in route_combinations:
+        print("Executing route selection:{0}".format(selected_routes))
+        data_file_path = os.path.join(model_outputs_root_directory_path,
+                                      "{0}_{1}_data.sav".format("train", selected_routes))
+        enforced_data = Utilities.pickle_load_from_file(path=data_file_path)
+        if selected_routes not in routes_to_samples_map:
+            continue
+        samples_for_route = routes_to_samples_map[selected_routes]
+        assert np.array_equal(ig_routing_results["list_of_labels"][samples_for_route],
+                              enforced_data["list_of_labels"][samples_for_route])
+        ig_features = ig_routing_results["last_layer_features"][selected_routes[-1]][samples_for_route]
+        enforced_features = enforced_data["last_layer_features"][selected_routes[-1]][samples_for_route]
+        assert np.allclose(ig_features, enforced_features)
+        print("X")
+
+        # Get only routing data for this route
+
+    print("X")
 
 
 if __name__ == "__main__":
@@ -259,7 +281,8 @@ if __name__ == "__main__":
 
     record_model_outputs(model_=trained_model, pretrained_model_path=checkpoint_pth)
 
-    # compare_model_outputs_for_consistency(pretrained_model_path=checkpoint_pth)
+    compare_model_outputs_for_consistency(model_=trained_model,
+                                          pretrained_model_path=checkpoint_pth)
 
     # execute_enforced_routing(model_=model, train_data=train_loader, test_data=val_loader)
 
