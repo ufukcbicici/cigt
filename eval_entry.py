@@ -3,6 +3,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from sklearn.decomposition import PCA
+from sklearn.metrics import classification_report
+from sklearn.model_selection import GridSearchCV
+from sklearn.neural_network import MLPClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 from torchvision import transforms
 import torchvision.datasets as datasets
 import time
@@ -16,12 +22,6 @@ from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
 
 from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_hard_routing import CigtIgHardRouting
-
-# Algorithm 1:
-# Let each train sample to go its corresponding leaf.
-# Train classifiers on the routed data.
-# Let each test sample to go its corresponding leaf.
-# Test accuracies. Hope: Ensemble effect can reduce overfitting?
 
 device = "cpu"
 temperature = 0.1
@@ -202,15 +202,19 @@ def record_model_outputs(model_, pretrained_model_path):
     print("X")
 
 
-def compare_model_outputs_for_consistency(model_, pretrained_model_path):
+def load_ig_routing_outputs(pretrained_model_path, is_train):
     checkpoint_name = os.path.split(pretrained_model_path)[1].split(".")[0]
     model_outputs_root_directory_path = os.path.join(os.path.split(os.path.abspath(
         __file__))[0], checkpoint_name)
     assert os.path.isdir(model_outputs_root_directory_path)
 
     # Load regular IG routing results
-    data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format(
-        "train_ig_test_time_augmentation"))
+    if is_train:
+        data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format(
+            "train_ig_test_time_augmentation"))
+    else:
+        data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format(
+            "test_ig"))
     ig_routing_results = Utilities.pickle_load_from_file(path=data_file_path)
     ig_routes_arr = []
     for routing_matrix in ig_routing_results["routing_matrices"]:
@@ -222,6 +226,17 @@ def compare_model_outputs_for_consistency(model_, pretrained_model_path):
         if route_tpl not in routes_to_samples_map:
             routes_to_samples_map[route_tpl] = []
         routes_to_samples_map[route_tpl].append(sample_id)
+
+    return ig_routing_results, ig_routes_arr, routes_to_samples_map
+
+
+def compare_model_outputs_for_consistency(model_, pretrained_model_path):
+    checkpoint_name = os.path.split(pretrained_model_path)[1].split(".")[0]
+    model_outputs_root_directory_path = os.path.join(os.path.split(os.path.abspath(
+        __file__))[0], checkpoint_name)
+    assert os.path.isdir(model_outputs_root_directory_path)
+    ig_routing_results, ig_routes_arr, routes_to_samples_map = load_ig_routing_outputs(
+        pretrained_model_path=pretrained_model_path, is_train=True)
 
     # Load all path configurations
     list_of_path_choices = []
@@ -243,15 +258,93 @@ def compare_model_outputs_for_consistency(model_, pretrained_model_path):
         ig_features = ig_routing_results["last_layer_features"][selected_routes[-1]][samples_for_route]
         enforced_features = enforced_data["last_layer_features"][selected_routes[-1]][samples_for_route]
         assert np.allclose(ig_features, enforced_features)
+    print("Model outputs are consistent!!!")
+
+
+# Algorithm 1:
+# Let each train sample to go its corresponding leaf.
+# Train classifiers on the routed data.
+# Let each test sample to go its corresponding leaf.
+# Test accuracies. Hope: Ensemble effect can reduce overfitting?
+def algorithm_1(model_, pretrained_model_path):
+    checkpoint_name = os.path.split(pretrained_model_path)[1].split(".")[0]
+    model_outputs_root_directory_path = os.path.join(os.path.split(os.path.abspath(
+        __file__))[0], checkpoint_name)
+    assert os.path.isdir(model_outputs_root_directory_path)
+    ig_routing_results_train, ig_routes_arr_train, routes_to_samples_map_train = load_ig_routing_outputs(
+        pretrained_model_path=pretrained_model_path, is_train=True)
+    ig_routing_results_test, ig_routes_arr_test, routes_to_samples_map_est = load_ig_routing_outputs(
+        pretrained_model_path=pretrained_model_path, is_train=False)
+
+    avg_pool = torch.nn.AvgPool2d(kernel_size=8)
+    flatten = torch.nn.Flatten()
+
+    ig_final_features_train = []
+    for idx, features in enumerate(ig_routing_results_train["last_layer_features"]):
+        pooled_features = avg_pool(torch.from_numpy(features))
+        flattened_features = flatten(pooled_features)
+        ig_final_features_train.append(flattened_features)
+
+    ig_final_features_test = []
+    for idx, features in enumerate(ig_routing_results_test["last_layer_features"]):
+        pooled_features = avg_pool(torch.from_numpy(features))
+        flattened_features = flatten(pooled_features)
+        ig_final_features_test.append(flattened_features)
+
+    for block_id in range(len(ig_final_features_train)):
+        print("Training Block {0}".format(block_id))
+        # Get all samples that reach into this final block
+        # train_block_X = ig_final_features_train[idx][ig_routes_arr_train[:, -1] == idx]
+        # train_block_y = ig_routing_results_train["list_of_labels"][ig_routes_arr_train[:, -1] == idx]
+        train_block_X = ig_final_features_train[block_id]
+        train_block_y = ig_routing_results_train["list_of_labels"]
+        train_block_X = train_block_X.numpy()
+
+        test_block_X = ig_final_features_test[block_id][ig_routes_arr_test[:, -1] == block_id]
+        test_block_y = ig_routing_results_test["list_of_labels"][ig_routes_arr_test[:, -1] == block_id]
+        test_block_X = test_block_X.numpy()
+
+        # MLP
+        alpha_list = [0.00005 * i__ for i__ in range(200)]
+        param_grid = \
+            {
+                "pca__n_components": [None],
+                "mlp__hidden_layer_sizes": [(16, )],
+                "mlp__activation": ["relu"],
+                "mlp__solver": ["adam"],
+                # "mlp__learning_rate": ["adaptive"],
+                "mlp__alpha": alpha_list,
+                "mlp__max_iter": [10000],
+                "mlp__early_stopping": [True],
+                "mlp__n_iter_no_change": [100]
+            }
+        standard_scaler = StandardScaler()
+        pca = PCA()
+        mlp = MLPClassifier()
+        pipe = Pipeline(steps=[("scaler", standard_scaler),
+                               ('pca', pca),
+                               ('mlp', mlp)])
+        search = GridSearchCV(pipe, param_grid, n_jobs=8, cv=10, verbose=10,
+                              scoring=["accuracy", "f1_weighted", "f1_micro", "f1_macro",
+                                       "balanced_accuracy"],
+                              refit="accuracy")
+        search.fit(train_block_X, train_block_y)
+
+        y_pred = {"training": search.best_estimator_.predict(train_block_X),
+                  "test": search.best_estimator_.predict(test_block_X)}
+        print("*************Training*************")
+        print(classification_report(y_pred=y_pred["training"], y_true=train_block_y))
+        print("*************Test*************")
+        print(classification_report(y_pred=y_pred["test"], y_true=test_block_y))
+
+        # Save the search results
+        model_path = os.path.join(model_outputs_root_directory_path, "block_{0}_model.sav".format(block_id))
+        Utilities.pickle_save_to_file(path=model_path, file_content=search)
         print("X")
-
-        # Get only routing data for this route
-
-    print("X")
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.hpc_db
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -283,6 +376,8 @@ if __name__ == "__main__":
 
     compare_model_outputs_for_consistency(model_=trained_model,
                                           pretrained_model_path=checkpoint_pth)
+
+    algorithm_1(model_=trained_model, pretrained_model_path=checkpoint_pth)
 
     # execute_enforced_routing(model_=model, train_data=train_loader, test_data=val_loader)
 
