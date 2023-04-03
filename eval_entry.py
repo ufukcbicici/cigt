@@ -266,7 +266,7 @@ def compare_model_outputs_for_consistency(model_, pretrained_model_path):
 # Train classifiers on the routed data.
 # Let each test sample to go its corresponding leaf.
 # Test accuracies. Hope: Ensemble effect can reduce overfitting?
-def algorithm_1(model_, pretrained_model_path):
+def algorithm_1(model_, pretrained_model_path, retrain_models):
     checkpoint_name = os.path.split(pretrained_model_path)[1].split(".")[0]
     model_outputs_root_directory_path = os.path.join(os.path.split(os.path.abspath(
         __file__))[0], checkpoint_name)
@@ -291,60 +291,85 @@ def algorithm_1(model_, pretrained_model_path):
         flattened_features = flatten(pooled_features)
         ig_final_features_test.append(flattened_features)
 
+    if retrain_models:
+        for block_id in range(len(ig_final_features_train)):
+            print("Training Block {0}".format(block_id))
+            # Get all samples that reach into this final block
+            # train_block_X = ig_final_features_train[idx][ig_routes_arr_train[:, -1] == idx]
+            # train_block_y = ig_routing_results_train["list_of_labels"][ig_routes_arr_train[:, -1] == idx]
+            train_block_X = ig_final_features_train[block_id]
+            train_block_y = ig_routing_results_train["list_of_labels"]
+            train_block_X = train_block_X.numpy()
+
+            test_block_X = ig_final_features_test[block_id][ig_routes_arr_test[:, -1] == block_id]
+            test_block_y = ig_routing_results_test["list_of_labels"][ig_routes_arr_test[:, -1] == block_id]
+            test_block_X = test_block_X.numpy()
+
+            # MLP
+            alpha_list = [0.0005 * i__ for i__ in range(20)]
+            param_grid = \
+                {
+                    "pca__n_components": [None],
+                    "mlp__hidden_layer_sizes": [(16, )],
+                    "mlp__activation": ["relu"],
+                    "mlp__solver": ["adam"],
+                    # "mlp__learning_rate": ["adaptive"],
+                    "mlp__alpha": alpha_list,
+                    "mlp__max_iter": [10000],
+                    "mlp__early_stopping": [True],
+                    "mlp__n_iter_no_change": [100]
+                }
+            standard_scaler = StandardScaler()
+            pca = PCA()
+            mlp = MLPClassifier()
+            pipe = Pipeline(steps=[("scaler", standard_scaler),
+                                   ('pca', pca),
+                                   ('mlp', mlp)])
+            search = GridSearchCV(pipe, param_grid, n_jobs=8, cv=10, verbose=10,
+                                  scoring=["accuracy", "f1_weighted", "f1_micro", "f1_macro",
+                                           "balanced_accuracy"],
+                                  refit="accuracy")
+            search.fit(train_block_X, train_block_y)
+
+            y_pred = {"training": search.best_estimator_.predict(train_block_X),
+                      "test": search.best_estimator_.predict(test_block_X)}
+            print("*************Training*************")
+            print(classification_report(y_pred=y_pred["training"], y_true=train_block_y))
+            print("*************Test*************")
+            print(classification_report(y_pred=y_pred["test"], y_true=test_block_y))
+
+            # Save the search results
+            model_path = os.path.join(model_outputs_root_directory_path, "block_{0}_model.sav".format(block_id))
+            Utilities.pickle_save_to_file(path=model_path, file_content=search)
+
+    # Load models
+    classifiers = []
+    for block_id in range(len(ig_final_features_train)):
+        model_path = os.path.join(model_outputs_root_directory_path, "block_{0}_model.sav".format(block_id))
+        classifiers.append(Utilities.pickle_load_from_file(path=model_path))
+
+    # Get sample features for train, test
+
+    train_block_y = ig_routing_results_train["list_of_labels"]
+    test_block_y = ig_routing_results_test["list_of_labels"]
+    train_features_X_tensor = np.stack(ig_final_features_train, axis=-1)
+    test_features_X_tensor = np.stack(ig_final_features_test, axis=-1)
+
     for block_id in range(len(ig_final_features_train)):
         print("Training Block {0}".format(block_id))
-        # Get all samples that reach into this final block
-        # train_block_X = ig_final_features_train[idx][ig_routes_arr_train[:, -1] == idx]
-        # train_block_y = ig_routing_results_train["list_of_labels"][ig_routes_arr_train[:, -1] == idx]
         train_block_X = ig_final_features_train[block_id]
-        train_block_y = ig_routing_results_train["list_of_labels"]
+
         train_block_X = train_block_X.numpy()
 
-        test_block_X = ig_final_features_test[block_id][ig_routes_arr_test[:, -1] == block_id]
-        test_block_y = ig_routing_results_test["list_of_labels"][ig_routes_arr_test[:, -1] == block_id]
-        test_block_X = test_block_X.numpy()
 
-        # MLP
-        alpha_list = [0.00005 * i__ for i__ in range(200)]
-        param_grid = \
-            {
-                "pca__n_components": [None],
-                "mlp__hidden_layer_sizes": [(16, )],
-                "mlp__activation": ["relu"],
-                "mlp__solver": ["adam"],
-                # "mlp__learning_rate": ["adaptive"],
-                "mlp__alpha": alpha_list,
-                "mlp__max_iter": [10000],
-                "mlp__early_stopping": [True],
-                "mlp__n_iter_no_change": [100]
-            }
-        standard_scaler = StandardScaler()
-        pca = PCA()
-        mlp = MLPClassifier()
-        pipe = Pipeline(steps=[("scaler", standard_scaler),
-                               ('pca', pca),
-                               ('mlp', mlp)])
-        search = GridSearchCV(pipe, param_grid, n_jobs=8, cv=10, verbose=10,
-                              scoring=["accuracy", "f1_weighted", "f1_micro", "f1_macro",
-                                       "balanced_accuracy"],
-                              refit="accuracy")
-        search.fit(train_block_X, train_block_y)
+        # test_block_X = ig_final_features_test[block_id][ig_routes_arr_test[:, -1] == block_id]
+        # test_block_y = ig_routing_results_test["list_of_labels"][ig_routes_arr_test[:, -1] == block_id]
+        # test_block_X = test_block_X.numpy()
 
-        y_pred = {"training": search.best_estimator_.predict(train_block_X),
-                  "test": search.best_estimator_.predict(test_block_X)}
-        print("*************Training*************")
-        print(classification_report(y_pred=y_pred["training"], y_true=train_block_y))
-        print("*************Test*************")
-        print(classification_report(y_pred=y_pred["test"], y_true=test_block_y))
-
-        # Save the search results
-        model_path = os.path.join(model_outputs_root_directory_path, "block_{0}_model.sav".format(block_id))
-        Utilities.pickle_save_to_file(path=model_path, file_content=search)
-        print("X")
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.hpc_db
+    DbLogger.log_db_path = DbLogger.jr_cigt
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -377,7 +402,7 @@ if __name__ == "__main__":
     compare_model_outputs_for_consistency(model_=trained_model,
                                           pretrained_model_path=checkpoint_pth)
 
-    algorithm_1(model_=trained_model, pretrained_model_path=checkpoint_pth)
+    algorithm_1(model_=trained_model, pretrained_model_path=checkpoint_pth, retrain_models=False)
 
     # execute_enforced_routing(model_=model, train_data=train_loader, test_data=val_loader)
 

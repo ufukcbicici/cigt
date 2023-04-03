@@ -10,3 +10,9 @@
 -JR: Uav Validation:
 -JR: Geotiff Validation:
 -Phd: Enforced Routing:4
+
+03.04.2023
+
+-JR: Geotiff Unpatching:
+-JR: Geotiff CRS Problem: 7
+-Phd: Enforced Routing:5
