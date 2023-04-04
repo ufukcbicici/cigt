@@ -7,11 +7,15 @@ from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
 from cigt.cigt_soft_routing import CigtSoftRouting
 from cigt.routing_layers.hard_routing_layer import HardRoutingLayer
+from randaugment import RandAugment
+from torchvision import transforms
+import torchvision.datasets as datasets
 
 
 class CigtIgHardRouting(CigtIgSoftRouting):
     def __init__(self, run_id, model_definition):
         self.classCount = 10
+        self.randomFineTuning = False
         self.enforcedRouting = False
         self.enforcedRoutingMatrices = []
         super().__init__(run_id, model_definition)
@@ -50,12 +54,14 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                                                                  labels,
                                                                  temperature,
                                                                  balance_coefficient_list[layer_id])
+                if
                 # Calculate the hard routing matrix
                 p_n_given_x_hard = torch.zeros_like(p_n_given_x_soft)
                 arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
                 p_n_given_x_hard[torch.arange(p_n_given_x_hard.shape[0]), arg_max_entries] = 1.0
 
                 routing_matrices_soft.append(p_n_given_x_soft)
+
                 if not self.enforcedRouting:
                     routing_matrices_hard.append(p_n_given_x_hard)
                 else:
@@ -291,3 +297,54 @@ class CigtIgHardRouting(CigtIgSoftRouting):
 
         DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
         return accuracy_avg.avg
+
+    def random_fine_tuning(self):
+        self.isInWarmUp = False
+        self.randomFineTuning = True
+        self.decisionLossCoeff = 0.0
+
+        self.to(self.device)
+        torch.manual_seed(1)
+        best_performance = 0.0
+
+        # Cifar 10 Dataset
+        kwargs = {'num_workers': 2, 'pin_memory': True}
+        train_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('../data', train=True, download=True, transform=self.transformTrain),
+            batch_size=self.batchSize, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('../data', train=False, transform=self.transformTest),
+            batch_size=self.batchSize, shuffle=False, **kwargs)
+
+        print("Type of optimizer:{0}".format(self.modelOptimizer))
+        total_epoch_count = self.epochCount
+        for epoch in range(0, total_epoch_count):
+            self.adjust_learning_rate(epoch)
+            print("***************Random Fine Tuning "
+                  "Epoch {0} End, Test Evaluation***************".format(epoch))
+            # test_accuracy = self.validate(loader=val_loader, epoch=epoch, data_kind="test")
+
+            # train for one epoch
+            train_mean_batch_time = self.train_single_epoch(epoch_id=epoch, train_loader=train_loader)
+
+            if epoch % self.evaluationPeriod == 0 or epoch >= (total_epoch_count - 10):
+                print("***************Epoch {0} End, Training Evaluation***************".format(epoch))
+                train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
+                print("***************Epoch {0} End, Test Evaluation***************".format(epoch))
+                test_accuracy = self.validate(loader=val_loader, epoch=epoch, data_kind="test")
+
+                if test_accuracy > best_performance:
+                    self.save_cigt_model(epoch=epoch)
+                    best_performance = test_accuracy
+
+                DbLogger.write_into_table(
+                    rows=[(self.runId,
+                           self.numOfTrainingIterations,
+                           epoch,
+                           train_accuracy,
+                           0.0,
+                           test_accuracy,
+                           train_mean_batch_time,
+                           0.0,
+                           0.0,
+                           "YYY")], table=DbLogger.logsTable)
