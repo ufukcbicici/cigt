@@ -310,7 +310,7 @@ def algorithm_1(model_, pretrained_model_path, retrain_models):
             param_grid = \
                 {
                     "pca__n_components": [None],
-                    "mlp__hidden_layer_sizes": [(16, )],
+                    "mlp__hidden_layer_sizes": [(16,)],
                     "mlp__activation": ["relu"],
                     "mlp__solver": ["adam"],
                     # "mlp__learning_rate": ["adaptive"],
@@ -355,21 +355,94 @@ def algorithm_1(model_, pretrained_model_path, retrain_models):
     train_features_X_tensor = np.stack(ig_final_features_train, axis=-1)
     test_features_X_tensor = np.stack(ig_final_features_test, axis=-1)
 
+    train_last_routing_matrix = ig_routing_results_train["routing_matrices"][-1]
+    test_last_routing_matrix = ig_routing_results_test["routing_matrices"][-1]
+
+    train_routes = np.argmax(train_last_routing_matrix, axis=-1)
+    test_routes = np.argmax(test_last_routing_matrix, axis=-1)
+
+    # predictions = []
+    # for sample_id in tqdm(range(train_block_y.shape[0])):
+    #     block_id = train_routes[sample_id]
+    #     sample_x = ig_final_features_train[block_id][sample_id].numpy()
+    #     classifier = classifiers[block_id]
+    #     predicted_y = classifier.predict_proba(np.expand_dims(sample_x, axis=0))
+    #     predicted_y = np.argmax(np.squeeze(predicted_y))
+    #     predictions.append(predicted_y == train_block_y[sample_id])
+    #
+    # print(np.mean(predictions))
+
+    predictions = []
+    for sample_id in tqdm(range(test_block_y.shape[0])):
+        block_id = test_routes[sample_id]
+        sample_x = ig_final_features_test[block_id][sample_id].numpy()
+        classifier = classifiers[block_id]
+        predicted_y = classifier.predict_proba(np.expand_dims(sample_x, axis=0))
+        predicted_y = np.argmax(np.squeeze(predicted_y))
+        predictions.append(predicted_y == test_block_y[sample_id])
+
+    print(np.mean(predictions))
+
+    predictions = []
+    for block_id in range(len(classifiers)):
+        predicted_y = classifiers[block_id].predict_proba(ig_final_features_test[block_id])
+        predictions.append(predicted_y)
+    predictions = np.stack(predictions, axis=-1)
+    predictions_mean = np.mean(predictions, axis=-1)
+    predictions_final = np.argmax(predictions_mean, axis=-1)
+    result = np.mean((predictions_final == test_block_y))
+    print(result)
+
+    # predictions = []
+    # for sample_id in tqdm(range(test_block_y.shape[0])):
+    #     for block_id in range(len(classifiers)):
+    #         block_id = test_routes[sample_id]
+    #         sample_x = ig_final_features_test[block_id][sample_id].numpy()
+    #         classifier = classifiers[block_id]
+    #         predicted_y = classifier.predict_proba(np.expand_dims(sample_x, axis=0))
+    #         predicted_y = np.argmax(np.squeeze(predicted_y))
+    #         predictions.append(predicted_y == test_block_y[sample_id])
+
+    print(np.mean(predictions))
+
+    train_features_routed = train_features_X_tensor[
+                            np.arange(train_features_X_tensor.shape[0]), :, train_routes]
+    test_features_routed = test_features_X_tensor[
+                           np.arange(test_features_X_tensor.shape[0]), :, test_routes]
+
+    train_results = []
+    test_results = []
     for block_id in range(len(ig_final_features_train)):
-        print("Training Block {0}".format(block_id))
-        train_block_X = ig_final_features_train[block_id]
+        train_results.append(classifiers[block_id].predict_proba(train_features_routed))
+        test_results.append(classifiers[block_id].predict_proba(test_features_routed))
 
-        train_block_X = train_block_X.numpy()
+    train_results = np.stack(train_results, axis=-1)
+    test_results = np.stack(test_results, axis=-1)
 
+    train_results = np.mean(train_results, axis=-1)
+    test_results = np.mean(test_results, axis=-1)
 
-        # test_block_X = ig_final_features_test[block_id][ig_routes_arr_test[:, -1] == block_id]
-        # test_block_y = ig_routing_results_test["list_of_labels"][ig_routes_arr_test[:, -1] == block_id]
-        # test_block_X = test_block_X.numpy()
+    train_predicted_y = np.argmax(train_results, axis=-1)
+    test_predicted_y = np.argmax(test_results, axis=-1)
 
+    train_accuracy = np.mean(train_predicted_y == train_block_y)
+    test_accuracy = np.mean(test_predicted_y == test_block_y)
+
+    print("X")
+
+    # for block_id in range(len(ig_final_features_train)):
+    #     print("Training Block {0}".format(block_id))
+    #     train_block_X = ig_final_features_train[block_id]
+    #
+    #     train_block_X = train_block_X.numpy()
+
+    # test_block_X = ig_final_features_test[block_id][ig_routes_arr_test[:, -1] == block_id]
+    # test_block_y = ig_routing_results_test["list_of_labels"][ig_routes_arr_test[:, -1] == block_id]
+    # test_block_X = test_block_X.numpy()
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
