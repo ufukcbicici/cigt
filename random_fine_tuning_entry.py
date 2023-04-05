@@ -27,6 +27,7 @@ if __name__ == "__main__":
         ResnetCigtConstants.classification_wd = param_tpl[0]
         ResnetCigtConstants.softmax_decay_initial = 0.1
         ResnetCigtConstants.advanced_augmentation = False
+        ResnetCigtConstants.evaluationPeriod = 1
         ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
             initial_value=ResnetCigtConstants.softmax_decay_initial,
