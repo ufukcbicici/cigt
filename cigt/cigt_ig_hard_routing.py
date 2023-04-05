@@ -142,7 +142,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                 total_routing_loss = 0.0
                 for t_loss in information_gain_losses:
                     total_routing_loss += t_loss
-                total_routing_loss = -1.0 * self.decisionLossCoeff * total_routing_loss
+                total_routing_loss = -1.0 * decision_loss_coeff * total_routing_loss
                 total_loss = classification_loss + total_routing_loss
                 print("len(list_of_logits)={0}".format(len(list_of_logits)))
                 print("multipleCeLosses:{0}".format(self.multipleCeLosses))
@@ -305,9 +305,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
 
     def random_fine_tuning(self):
         self.isInWarmUp = False
-        self.randomFineTuning = True
-        self.decisionLossCoeff = 0.0
-
+        original_decision_coeff = self.decisionLossCoeff
         self.to(self.device)
         torch.manual_seed(1)
         best_performance = 0.0
@@ -330,10 +328,14 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                   "Epoch {0} End, Test Evaluation***************".format(epoch))
             # test_accuracy = self.validate(loader=val_loader, epoch=epoch, data_kind="test")
 
-            # train for one epoch
+            # train for one epoch, disabling information gain, randomly routing samples
+            self.randomFineTuning = True
+            self.decisionLossCoeff = 0.0
             train_mean_batch_time = self.train_single_epoch(epoch_id=epoch, train_loader=train_loader)
 
             if epoch % self.evaluationPeriod == 0 or epoch >= (total_epoch_count - 10):
+                self.randomFineTuning = False
+                self.decisionLossCoeff = original_decision_coeff
                 print("***************Epoch {0} End, Training Evaluation***************".format(epoch))
                 train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
                 print("***************Epoch {0} End, Test Evaluation***************".format(epoch))

@@ -20,9 +20,9 @@ if __name__ == "__main__":
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 
     for param_tpl in param_grid:
-        ResnetCigtConstants.epoch_count = 350
+        ResnetCigtConstants.epoch_count = 500
         ResnetCigtConstants.initial_lr = 0.001
-        ResnetCigtConstants.learning_schedule = [(200, 0.1)]
+        ResnetCigtConstants.learning_schedule = [(300, 0.1)]
         ResnetCigtConstants.optimizer_type = "SGD"
         ResnetCigtConstants.classification_wd = param_tpl[0]
         ResnetCigtConstants.softmax_decay_initial = 0.1
