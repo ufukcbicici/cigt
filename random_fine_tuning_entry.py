@@ -1,5 +1,7 @@
 import os
 import torch
+from torchvision import datasets, transforms
+
 from auxillary.db_logger import DbLogger
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_hard_routing import CigtIgHardRouting
@@ -8,10 +10,9 @@ from cigt.resnet_cigt_constants import ResnetCigtConstants
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 
 if __name__ == "__main__":
-
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = [0.0005]
     weight_decay = sorted(weight_decay)
@@ -24,6 +25,8 @@ if __name__ == "__main__":
         ResnetCigtConstants.learning_schedule = [(200, 0.1)]
         ResnetCigtConstants.optimizer_type = "SGD"
         ResnetCigtConstants.classification_wd = param_tpl[0]
+        ResnetCigtConstants.softmax_decay_initial = 0.1
+        ResnetCigtConstants.advanced_augmentation = False
         ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
             initial_value=ResnetCigtConstants.softmax_decay_initial,
@@ -44,6 +47,7 @@ if __name__ == "__main__":
         explanation = trained_model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
+        # trained_model.fit()
         trained_model.random_fine_tuning()
 
         # with tf.device("GPU"):

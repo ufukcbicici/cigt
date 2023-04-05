@@ -54,19 +54,24 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                                                                  labels,
                                                                  temperature,
                                                                  balance_coefficient_list[layer_id])
-                if
                 # Calculate the hard routing matrix
                 p_n_given_x_hard = torch.zeros_like(p_n_given_x_soft)
                 arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
                 p_n_given_x_hard[torch.arange(p_n_given_x_hard.shape[0]), arg_max_entries] = 1.0
-
                 routing_matrices_soft.append(p_n_given_x_soft)
 
-                if not self.enforcedRouting:
-                    routing_matrices_hard.append(p_n_given_x_hard)
+                if not self.randomFineTuning:
+                    if not self.enforcedRouting:
+                        routing_matrices_hard.append(p_n_given_x_hard)
+                    else:
+                        enforced_routing_matrix = self.enforcedRoutingMatrices[layer_id]
+                        routing_matrices_hard.append(enforced_routing_matrix)
                 else:
-                    enforced_routing_matrix = self.enforcedRoutingMatrices[layer_id]
-                    routing_matrices_hard.append(enforced_routing_matrix)
+                    random_routing_matrix = torch.rand(size=p_n_given_x_soft.shape)
+                    arg_max_entries = torch.argmax(random_routing_matrix, dim=1)
+                    random_routing_matrix_hard = torch.zeros_like(p_n_given_x_soft)
+                    random_routing_matrix_hard[torch.arange(random_routing_matrix_hard.shape[0]), arg_max_entries] = 1.0
+                    routing_matrices_hard.append(random_routing_matrix_hard)
             # Logits
             else:
                 if not self.multipleCeLosses:
@@ -317,6 +322,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
             batch_size=self.batchSize, shuffle=False, **kwargs)
 
         print("Type of optimizer:{0}".format(self.modelOptimizer))
+
         total_epoch_count = self.epochCount
         for epoch in range(0, total_epoch_count):
             self.adjust_learning_rate(epoch)

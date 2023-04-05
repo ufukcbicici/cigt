@@ -172,16 +172,18 @@ def record_model_outputs(model_, pretrained_model_path):
         datasets.CIFAR10('../data', train=False, transform=transform_test),
         batch_size=1024, shuffle=False, **kwargs)
 
+    train_accuracy = model_.validate(loader=train_loader, epoch=0, data_kind="train")
+
     model_outputs_root_directory_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], checkpoint_name)
     if not os.path.isdir(model_outputs_root_directory_path):
         os.mkdir(model_outputs_root_directory_path)
 
     # Information gain - training
-    # data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format("train_ig"))
-    # if not os.path.isfile(data_file_path):
-    #     execute_routing(model_=model, data_kind="train", data_loader=train_loader,
-    #                     routing_matrices=None,
-    #                     data_file_path_=data_file_path)
+    data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format("train_ig"))
+    if not os.path.isfile(data_file_path):
+        execute_routing(model_=model_, data_kind="train", data_loader=train_loader,
+                        routing_matrices=None,
+                        data_file_path_=data_file_path)
     # Information gain - training - with test time augmentation
     data_file_path = os.path.join(model_outputs_root_directory_path, "{0}_data.sav".format(
         "train_ig_test_time_augmentation"))
@@ -442,7 +444,7 @@ def algorithm_1(model_, pretrained_model_path, retrain_models):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -470,12 +472,27 @@ if __name__ == "__main__":
     torch.manual_seed(1)
     best_performance = 0.0
 
-    record_model_outputs(model_=trained_model, pretrained_model_path=checkpoint_pth)
+    # Cifar 10 Dataset
+    kwargs = {'num_workers': 2, 'pin_memory': True}
+    train_loader = torch.utils.data.DataLoader(
+        datasets.CIFAR10('../data', train=True, download=True, transform=transform_train),
+        batch_size=1024, shuffle=False, **kwargs)
+    train_loader_test_time_augmentation = torch.utils.data.DataLoader(
+        datasets.CIFAR10('../data', train=True, download=True, transform=transform_test),
+        batch_size=1024, shuffle=False, **kwargs)
+    test_loader = torch.utils.data.DataLoader(
+        datasets.CIFAR10('../data', train=False, transform=transform_test),
+        batch_size=1024, shuffle=False, **kwargs)
 
-    compare_model_outputs_for_consistency(model_=trained_model,
-                                          pretrained_model_path=checkpoint_pth)
+    train_accuracy = trained_model.validate(loader=train_loader, epoch=0, data_kind="train")
+    print("X")
 
-    algorithm_1(model_=trained_model, pretrained_model_path=checkpoint_pth, retrain_models=False)
+    # record_model_outputs(model_=trained_model, pretrained_model_path=checkpoint_pth)
+    #
+    # compare_model_outputs_for_consistency(model_=trained_model,
+    #                                       pretrained_model_path=checkpoint_pth)
+    #
+    # algorithm_1(model_=trained_model, pretrained_model_path=checkpoint_pth, retrain_models=False)
 
     # execute_enforced_routing(model_=model, train_data=train_loader, test_data=val_loader)
 

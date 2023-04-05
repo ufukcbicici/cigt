@@ -16,3 +16,15 @@
 -JR: Geotiff Unpatching:
 -JR: Geotiff CRS Problem: 8
 -Phd: Enforced Routing:5
+
+04.04.2023
+
+-JR: Geotiff Unpatching:
+-JR: Geotiff CRS Problem:10
+-Phd: Enforced Routing:
+
+05.04.2023
+
+-JR: Geotiff Unpatching:
+-JR: Geotiff CRS Problem:3
+-Phd: Random Routing:6
