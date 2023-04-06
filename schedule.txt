@@ -28,3 +28,10 @@
 -JR: Geotiff Unpatching:
 -JR: Geotiff CRS Problem:4
 -Phd: Random Routing:7
+
+06.04.2023
+
+-JR: Geotiff Backprojection: 1
+-Phd: Improve Routing simulation: 0
+-Phd: Multiple Losses: 2
+-Phd: Refactor Cigt Hard Ig Router: 6
