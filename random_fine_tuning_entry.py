@@ -12,7 +12,7 @@ from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDeca
 if __name__ == "__main__":
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db2
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = [0.0005]
     weight_decay = sorted(weight_decay)
@@ -20,14 +20,15 @@ if __name__ == "__main__":
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 
     for param_tpl in param_grid:
-        ResnetCigtConstants.epoch_count = 500
-        ResnetCigtConstants.initial_lr = 0.001
-        ResnetCigtConstants.learning_schedule = [(300, 0.1)]
-        ResnetCigtConstants.optimizer_type = "SGD"
+        ResnetCigtConstants.epoch_count = 1400
+        ResnetCigtConstants.initial_lr = 0.1
+        # ResnetCigtConstants.learning_schedule = [(300, 0.1)]
+        ResnetCigtConstants.learning_schedule = [(600, 0.1), (1000, 0.01)]
+        ResnetCigtConstants.optimizer_type = "Adam"
         ResnetCigtConstants.classification_wd = param_tpl[0]
         ResnetCigtConstants.softmax_decay_initial = 0.1
         ResnetCigtConstants.advanced_augmentation = False
-        ResnetCigtConstants.evaluationPeriod = 1
+        ResnetCigtConstants.evaluation_period = 1
         ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
             initial_value=ResnetCigtConstants.softmax_decay_initial,
