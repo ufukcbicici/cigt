@@ -27,7 +27,7 @@ class ResnetCigtConstants:
     boost_learning_rates_layer_wise = False
     multiple_ce_losses = False
     per_sample_entropy_balance = True
-    advanced_augmentation = True
+    advanced_augmentation = False
     validation_period = 10
     # assert batch_norm_type in {"StandardBatchNormalization",
     #                            "CigtBatchNormalization",
@@ -52,7 +52,7 @@ class ResnetCigtConstants:
     first_conv_stride = 1
     learning_schedule = [(600 + warm_up_period, 0.1), (1000 + warm_up_period, 0.01)]
     hard_routing_algorithm_kind = "InformationGainRouting"
-    loss_calculation_kind = "MultipleLogitsMultipleLosses"
+    loss_calculation_kind = "SingleLogitSingleLoss"
 
     model_file_root_path_hpc = "/clusterusers/can.bicici@boun.edu.tr/cigt"
     model_file_root_path_tetam = "/cta/users/ucbicici/cigt"

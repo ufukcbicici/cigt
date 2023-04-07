@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import torch
 import time
 import numpy as np
@@ -20,6 +22,7 @@ from torchvision import transforms
 import torchvision.datasets as datasets
 
 from cigt.routing_layers.info_gain_routing_layer import InfoGainRoutingLayer
+from cigt.routing_layers.soft_routing_layer import SoftRoutingLayer
 
 
 class CigtIgHardRoutingX(nn.Module):
@@ -29,6 +32,13 @@ class CigtIgHardRoutingX(nn.Module):
         self.modelDefinition = model_definition
         self.imageSize = (32, 32)
         self.numClasses = num_classes
+        self.classCount = 10
+        self.hardRoutingAlgorithmTypes = {"InformationGainRouting", "RandomRouting", "EnforcedRouting"}
+        self.hardRoutingAlgorithmKind = ResnetCigtConstants.hard_routing_algorithm_kind
+        self.enforcedRoutingMatrices = []
+        self.lossCalculationTypes = {"SingleLogitSingleLoss", "MultipleLogitsMultipleLosses"}
+        self.lossCalculationKind = ResnetCigtConstants.loss_calculation_kind
+        self.lossLayers = None
         self.modelFilesRootPath = None
         self.routingStrategyName = ResnetCigtConstants.routing_strategy_name
         self.useStraightThrough = ResnetCigtConstants.use_straight_through
@@ -113,6 +123,8 @@ class CigtIgHardRoutingX(nn.Module):
         self.logSoftmax = nn.LogSoftmax(dim=1)
         self.nllLoss = nn.NLLLoss()
         self.crossEntropyLoss = nn.CrossEntropyLoss()
+        self.identityLayer = nn.Identity()
+        self.crossEntropyLosses = [nn.CrossEntropyLoss(reduction='none') for _ in range(self.pathCounts[-1])]
 
         self.numOfTrainingIterations = 0
         self.warmUpFinalIteration = 0
@@ -120,19 +132,13 @@ class CigtIgHardRoutingX(nn.Module):
         self.layerCoefficients = []
         self.modelOptimizer = self.create_optimizer()
 
-        self.classCount = 10
-        self.hardRoutingAlgorithmTypes = {"InformationGainRouting", "RandomRouting", "EnforcedRouting"}
-        self.hardRoutingAlgorithmKind = ResnetCigtConstants.hard_routing_algorithm_kind
-        self.enforcedRoutingMatrices = []
-
-        self.lossCalculationTypes = {"SingleLogitSingleLoss", "MultipleLogitsMultipleLosses"}
-        self.lossCalculationKind = ResnetCigtConstants.loss_calculation_kind
-
+    # OK
     def add_explanation(self, name_of_param, value, explanation, kv_rows):
         explanation += "{0}:{1}\n".format(name_of_param, value)
         kv_rows.append((self.runId, name_of_param, "{0}".format(value)))
         return explanation
 
+    # OK
     def get_explanation_string(self):
         kv_rows = []
         explanation = ""
@@ -244,6 +250,7 @@ class CigtIgHardRoutingX(nn.Module):
         DbLogger.write_into_table(rows=kv_rows, table="run_parameters")
         return explanation
 
+    # OK
     def interpret_config_list(self):
         block_list = []
         # Unravel the configuration information into a complete block by block list.
@@ -281,6 +288,19 @@ class CigtIgHardRoutingX(nn.Module):
         block_parameters_list = sorted([(k, v) for k, v in block_parameters_dict.items()], key=lambda tpl: tpl[0])
         return block_parameters_list
 
+    # OK
+    def get_routing_layer(self, cigt_layer_id, input_feature_map_size, input_feature_map_count):
+        routing_layer = SoftRoutingLayer(
+            feature_dim=self.decisionDimensions[cigt_layer_id],
+            avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],
+            path_count=self.pathCounts[cigt_layer_id + 1],
+            class_count=self.numClasses,
+            input_feature_map_size=input_feature_map_size,
+            input_feature_map_count=input_feature_map_count,
+            device=self.device)
+        return routing_layer
+
+    # OK
     def create_cigt_blocks(self):
         curr_input_shape = (self.batchSize, *self.inputDims)
         feature_edge_size = curr_input_shape[-1]
@@ -294,31 +314,43 @@ class CigtIgHardRoutingX(nn.Module):
                                        planes=inner_block_info["out_dimension"],
                                        stride=inner_block_info["stride"])
                     layers.append(block)
-                if cigt_layer_id == len(self.blockParametersList) - 1:
-                    last_dim = cigt_layer_info[-1]["out_dimension"]
-                    layers.append(torch.nn.AvgPool2d(kernel_size=8))
-                    layers.append(torch.nn.Flatten())
-                    layers.append(torch.nn.Linear(in_features=last_dim, out_features=self.numClasses))
                 block_obj = Sequential_ext(*layers)
                 # block_obj.name = "block_{0}_{1}".format(cigt_layer_id, path_id)
                 cigt_layer_blocks.append(block_obj)
-            # cigt_layer_blocks[0].eval()
-            # cigt_layer_output_dummy = cigt_layer_blocks[0]()
             self.cigtLayers.append(cigt_layer_blocks)
             # Block end layers: Routing layers for inner layers, loss layer for the last one.
             if cigt_layer_id < len(self.blockParametersList) - 1:
                 for inner_block_info in cigt_layer_info:
                     feature_edge_size = int(feature_edge_size / inner_block_info["stride"])
-                routing_layer = InfoGainRoutingLayer(
-                    feature_dim=self.decisionDimensions[cigt_layer_id],
-                    avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],
-                    path_count=self.pathCounts[cigt_layer_id + 1],
-                    class_count=self.numClasses,
-                    input_feature_map_size=feature_edge_size,
-                    input_feature_map_count=cigt_layer_info[-1]["out_dimension"],
-                    device=self.device)
+                routing_layer = self.get_routing_layer(cigt_layer_id=cigt_layer_id,
+                                                       input_feature_map_size=feature_edge_size,
+                                                       input_feature_map_count=cigt_layer_info[-1]["out_dimension"])
                 self.blockEndLayers.append(routing_layer)
+        # if cigt_layer_id == len(self.blockParametersList) - 1:
+        self.get_loss_layer()
 
+    # OK
+    def get_loss_layer(self):
+        self.lossLayers = nn.ModuleList()
+        final_feature_dimension = self.blockParametersList[-1][-1][-1]["out_dimension"]
+        if self.lossCalculationKind == "SingleLogitSingleLoss":
+            end_module = nn.Sequential(OrderedDict([
+                ('avg_pool', torch.nn.AvgPool2d(kernel_size=8)),
+                ('flatten', torch.nn.Flatten()),
+                ('logits', torch.nn.Linear(in_features=final_feature_dimension, out_features=self.numClasses))
+            ]))
+            self.lossLayers.append(end_module)
+        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses":
+            for block_id in range(self.pathCounts[-1]):
+                end_module = nn.Sequential(OrderedDict([
+                    ('avg_pool_{0}'.format(block_id), torch.nn.AvgPool2d(kernel_size=8)),
+                    ('flatten_{0}'.format(block_id), torch.nn.Flatten()),
+                    ('logits_{0}'.format(block_id), torch.nn.Linear(
+                        in_features=final_feature_dimension, out_features=self.numClasses))
+                ]))
+                self.lossLayers.append(end_module)
+
+    # OK
     def create_optimizer(self):
         paths = []
         for pc in self.pathCounts:
@@ -371,6 +403,7 @@ class CigtIgHardRoutingX(nn.Module):
             raise ValueError("{0} is not supported as optimizer.".format(self.optimizerType))
         return model_optimizer
 
+    # OK
     def get_hard_routing_matrix(self, layer_id, p_n_given_x_soft):
         if self.hardRoutingAlgorithmKind == "InformationGainRouting":
             p_n_given_x_hard = torch.zeros_like(p_n_given_x_soft)
@@ -390,6 +423,7 @@ class CigtIgHardRoutingX(nn.Module):
 
         return p_n_given_x_hard
 
+    # OK
     def calculate_logits(self, p_n_given_x_hard, loss_block_outputs):
         list_of_logits = []
         # Unify all last layer block outputs into a single output and calculate logits with only that output
@@ -405,6 +439,20 @@ class CigtIgHardRoutingX(nn.Module):
         else:
             raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
         return list_of_logits
+
+    # OK
+    def weighted_sum_of_tensors(self, routing_matrix, tensors):
+        block_output_shape = tensors[0].shape
+        weighted_tensors = []
+        for block_id in range(routing_matrix.shape[1]):
+            probs_exp = self.identityLayer(routing_matrix[:, block_id])
+            for _ in range(len(block_output_shape) - len(probs_exp.shape)):
+                probs_exp = torch.unsqueeze(probs_exp, -1)
+            block_output_weighted = probs_exp * tensors[block_id]
+            weighted_tensors.append(block_output_weighted)
+        weighted_tensors = torch.stack(weighted_tensors, dim=1)
+        weighted_sum_tensor = torch.sum(weighted_tensors, dim=1)
+        return weighted_sum_tensor
 
     def forward(self, x, labels, temperature):
         balance_coefficient_list = self.informationGainBalanceCoeffList
@@ -527,7 +575,7 @@ class CigtIgHardRoutingX(nn.Module):
                 # Run the Cigt model, get the hard routing matrices, the soft matrices, the output of every block and
                 # each of the logits
                 routing_matrices_hard, routing_matrices_soft, \
-                    block_outputs, list_of_logits = self(input_var, target_var, temperature)
+                block_outputs, list_of_logits = self(input_var, target_var, temperature)
                 classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
                     list_of_logits,
                     routing_matrices_hard,

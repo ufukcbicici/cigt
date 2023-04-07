@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from auxillary.db_logger import DbLogger
 from auxillary.utilities import Utilities
 from cigt.cigt_constant_routing_weights import CigtConstantRoutingWeights
@@ -22,7 +23,7 @@ if __name__ == "__main__":
 
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0]
     weight_decay = sorted(weight_decay)
@@ -72,6 +73,10 @@ if __name__ == "__main__":
         model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
+        checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger_14_epoch1180.pth")
+        checkpoint = torch.load(checkpoint_pth, map_location="cpu")
+        model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
         # checkpoint_pth = "C://Users//asus//Desktop//ConvAig//convnet-aig//cigt//dblogger2_45_epoch165.pth"
         # checkpoint = torch.load(checkpoint_pth, map_location="cpu")

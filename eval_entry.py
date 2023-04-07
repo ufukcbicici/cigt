@@ -444,7 +444,7 @@ def algorithm_1(model_, pretrained_model_path, retrain_models):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
