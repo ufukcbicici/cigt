@@ -3,10 +3,13 @@ import time
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import optim
+
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
+from auxillary.utilities import Utilities
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
-from cigt.cigt_model import conv3x3
+from cigt.cigt_model import conv3x3, BasicBlock, Sequential_ext
 from cigt.cigt_soft_routing import CigtSoftRouting
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.moe_layer import MoeLayer
@@ -16,8 +19,10 @@ from randaugment import RandAugment
 from torchvision import transforms
 import torchvision.datasets as datasets
 
+from cigt.routing_layers.info_gain_routing_layer import InfoGainRoutingLayer
 
-class CigtIgHardRouting(nn.Module):
+
+class CigtIgHardRoutingX(nn.Module):
     def __init__(self, run_id, model_definition, num_classes):
         super().__init__()
         self.runId = run_id
@@ -117,11 +122,254 @@ class CigtIgHardRouting(nn.Module):
 
         self.classCount = 10
         self.hardRoutingAlgorithmTypes = {"InformationGainRouting", "RandomRouting", "EnforcedRouting"}
-        self.hardRoutingAlgorithmKind = None
+        self.hardRoutingAlgorithmKind = ResnetCigtConstants.hard_routing_algorithm_kind
         self.enforcedRoutingMatrices = []
 
         self.lossCalculationTypes = {"SingleLogitSingleLoss", "MultipleLogitsMultipleLosses"}
-        self.lossCalculationKind = None
+        self.lossCalculationKind = ResnetCigtConstants.loss_calculation_kind
+
+    def add_explanation(self, name_of_param, value, explanation, kv_rows):
+        explanation += "{0}:{1}\n".format(name_of_param, value)
+        kv_rows.append((self.runId, name_of_param, "{0}".format(value)))
+        return explanation
+
+    def get_explanation_string(self):
+        kv_rows = []
+        explanation = ""
+        explanation = self.add_explanation(name_of_param="Model Definition",
+                                           value=self.modelDefinition,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Batch Size", value=self.batchSize,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Path Counts", value=self.pathCounts,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Routing Strategy", value=self.routingStrategyName,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Use Straight Through", value=self.useStraightThrough,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Decision Nonlinearity", value=self.decisionNonLinearity,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Warm Up Period", value=self.warmUpPeriod,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Optimizer Type", value=self.optimizerType,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Lr Settings",
+                                           value=self.learningRateSchedule,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Initial Lr", value=self.initialLr,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.temperatureController.get_explanation(network=self,
+                                                                 explanation=explanation,
+                                                                 kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Decision Loss Coeff", value=self.decisionLossCoeff,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Batch Norm Decay", value=self.bnMomentum,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Classification Wd", value=self.classificationWd,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Decision Wd", value=self.decisionWd,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Information Gain Balance Coefficient List",
+                                           value=self.informationGainBalanceCoeffList,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="firstConvKernelSize", value=self.firstConvKernelSize,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="firstConvStride", value=self.firstConvStride,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="firstConvOutputDim", value=self.firstConvOutputDim,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="decisionAveragePoolingStrides",
+                                           value=self.decisionAveragePoolingStrides,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="decisionDimensions", value=self.decisionDimensions,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="boostLearningRatesLayerWise",
+                                           value=self.boostLearningRatesLayerWise,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="multiple_ce_losses",
+                                           value=self.boostLearningRatesLayerWise,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="applyMaskToBatchNorm", value=self.applyMaskToBatchNorm,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="advancedAugmentation", value=self.advancedAugmentation,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="evaluationPeriod", value=self.evaluationPeriod,
+                                           explanation=explanation, kv_rows=kv_rows)
+        # explanation = self.add_explanation(name_of_param="startMovingAveragesFromZero",
+        #                                    value=self.startMovingAveragesFromZero,
+        #                                    explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="batchNormType", value=self.batchNormType,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="doubleStrideLayers", value=self.doubleStrideLayers,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="hardRoutingAlgorithmKind",
+                                           value=self.hardRoutingAlgorithmKind,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="lossCalculationKind", value=self.lossCalculationKind,
+                                           explanation=explanation, kv_rows=kv_rows)
+        # Explanation for block configurations
+        block_params = [(block_id, block_config_list)
+                        for block_id, block_config_list in self.blockParametersList]
+        block_params = sorted(block_params, key=lambda t__: t__[0])
+
+        layer_id = 0
+        for t_ in block_params:
+            block_id = t_[0]
+            block_config_list = t_[1]
+            for block_config_dict in block_config_list:
+                explanation = self.add_explanation(name_of_param="BasicBlock_{0} in_dimension".format(layer_id),
+                                                   value=block_config_dict["in_dimension"],
+                                                   explanation=explanation, kv_rows=kv_rows)
+                explanation = self.add_explanation(name_of_param="BasicBlock_{0} input_path_count".format(layer_id),
+                                                   value=block_config_dict["input_path_count"],
+                                                   explanation=explanation, kv_rows=kv_rows)
+                explanation = self.add_explanation(name_of_param="BasicBlock_{0} layer_id".format(layer_id),
+                                                   value=layer_id,
+                                                   explanation=explanation, kv_rows=kv_rows)
+                assert block_id == block_config_dict["block_id"]
+                explanation = self.add_explanation(name_of_param="BasicBlock_{0} block_id".format(layer_id),
+                                                   value=block_config_dict["block_id"],
+                                                   explanation=explanation, kv_rows=kv_rows)
+                explanation = self.add_explanation(name_of_param="BasicBlock_{0} out_dimension".format(layer_id),
+                                                   value=block_config_dict["out_dimension"],
+                                                   explanation=explanation, kv_rows=kv_rows)
+                explanation = self.add_explanation(name_of_param="BasicBlock_{0} output_path_count".format(layer_id),
+                                                   value=block_config_dict["output_path_count"],
+                                                   explanation=explanation, kv_rows=kv_rows)
+                explanation = self.add_explanation(name_of_param="BasicBlock_{0} stride".format(layer_id),
+                                                   value=block_config_dict["stride"],
+                                                   explanation=explanation, kv_rows=kv_rows)
+                layer_id += 1
+
+        DbLogger.write_into_table(rows=kv_rows, table="run_parameters")
+        return explanation
+
+    def interpret_config_list(self):
+        block_list = []
+        # Unravel the configuration information into a complete block by block list.
+        for block_id, block_config_dict in enumerate(self.resnetConfigList):
+            path_count = block_config_dict["path_count"]
+            for idx, d_ in enumerate(block_config_dict["layer_structure"]):
+                for idy in range(d_["layer_count"]):
+                    block_list.append((block_id, path_count, d_["feature_map_count"]))
+
+        block_parameters_dict = {}
+        for layer_id, layer_info in enumerate(block_list):
+            block_id = layer_info[0]
+            path_count = layer_info[1]
+            feature_map_count = layer_info[2]
+            if block_id not in block_parameters_dict:
+                block_parameters_dict[block_id] = []
+            block_options = {}
+            if layer_id == 0:
+                block_options["in_dimension"] = self.firstConvOutputDim
+                block_options["input_path_count"] = 1
+            else:
+                path_count_prev = block_list[layer_id - 1][1]
+                feature_map_count_prev = block_list[layer_id - 1][2]
+                block_options["in_dimension"] = feature_map_count_prev
+                block_options["input_path_count"] = path_count_prev
+            block_options["layer_id"] = layer_id
+            block_options["block_id"] = block_id
+            block_options["out_dimension"] = feature_map_count
+            block_options["output_path_count"] = path_count
+            if layer_id in self.doubleStrideLayers:
+                block_options["stride"] = 2
+            else:
+                block_options["stride"] = 1
+            block_parameters_dict[block_id].append(block_options)
+        block_parameters_list = sorted([(k, v) for k, v in block_parameters_dict.items()], key=lambda tpl: tpl[0])
+        return block_parameters_list
+
+    def create_cigt_blocks(self):
+        curr_input_shape = (self.batchSize, *self.inputDims)
+        feature_edge_size = curr_input_shape[-1]
+        for cigt_layer_id, cigt_layer_info in self.blockParametersList:
+            path_count_in_layer = self.pathCounts[cigt_layer_id]
+            cigt_layer_blocks = nn.ModuleList()
+            for path_id in range(path_count_in_layer):
+                layers = []
+                for inner_block_info in cigt_layer_info:
+                    block = BasicBlock(in_planes=inner_block_info["in_dimension"],
+                                       planes=inner_block_info["out_dimension"],
+                                       stride=inner_block_info["stride"])
+                    layers.append(block)
+                if cigt_layer_id == len(self.blockParametersList) - 1:
+                    last_dim = cigt_layer_info[-1]["out_dimension"]
+                    layers.append(torch.nn.AvgPool2d(kernel_size=8))
+                    layers.append(torch.nn.Flatten())
+                    layers.append(torch.nn.Linear(in_features=last_dim, out_features=self.numClasses))
+                block_obj = Sequential_ext(*layers)
+                # block_obj.name = "block_{0}_{1}".format(cigt_layer_id, path_id)
+                cigt_layer_blocks.append(block_obj)
+            # cigt_layer_blocks[0].eval()
+            # cigt_layer_output_dummy = cigt_layer_blocks[0]()
+            self.cigtLayers.append(cigt_layer_blocks)
+            # Block end layers: Routing layers for inner layers, loss layer for the last one.
+            if cigt_layer_id < len(self.blockParametersList) - 1:
+                for inner_block_info in cigt_layer_info:
+                    feature_edge_size = int(feature_edge_size / inner_block_info["stride"])
+                routing_layer = InfoGainRoutingLayer(
+                    feature_dim=self.decisionDimensions[cigt_layer_id],
+                    avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],
+                    path_count=self.pathCounts[cigt_layer_id + 1],
+                    class_count=self.numClasses,
+                    input_feature_map_size=feature_edge_size,
+                    input_feature_map_count=cigt_layer_info[-1]["out_dimension"],
+                    device=self.device)
+                self.blockEndLayers.append(routing_layer)
+
+    def create_optimizer(self):
+        paths = []
+        for pc in self.pathCounts:
+            paths.append([i_ for i_ in range(pc)])
+        path_variaties = Utilities.get_cartesian_product(list_of_lists=paths)
+
+        for idx in range(len(self.pathCounts)):
+            cnt = len([tpl for tpl in path_variaties if tpl[idx] == 0])
+            self.layerCoefficients.append(len(path_variaties) / cnt)
+
+        # Create parameter groups per CIGT layer and shared parameters
+        shared_parameters = []
+        parameters_per_cigt_layers = []
+        for idx in range(len(self.pathCounts)):
+            parameters_per_cigt_layers.append([])
+
+        for name, param in self.named_parameters():
+            if "cigtLayers" not in name:
+                shared_parameters.append(param)
+            else:
+                param_name_splitted = name.split(".")
+                layer_id = int(param_name_splitted[1])
+                assert 0 <= layer_id <= len(self.pathCounts) - 1
+                parameters_per_cigt_layers[layer_id].append(param)
+        num_shared_parameters = len(shared_parameters)
+        num_cigt_layer_parameters = sum([len(arr) for arr in parameters_per_cigt_layers])
+        num_all_parameters = len([tpl for tpl in self.named_parameters()])
+        assert num_shared_parameters + num_cigt_layer_parameters == num_all_parameters
+
+        parameter_groups = []
+        # Add parameter groups with respect to their cigt layers
+        for layer_id in range(len(self.pathCounts)):
+            parameter_groups.append(
+                {'params': parameters_per_cigt_layers[layer_id],
+                 # 'lr': self.initialLr * self.layerCoefficients[layer_id],
+                 'lr': self.initialLr,
+                 'weight_decay': self.classificationWd})
+
+        # Shared parameters, always the group
+        parameter_groups.append(
+            {'params': shared_parameters,
+             'lr': self.initialLr,
+             'weight_decay': self.classificationWd})
+
+        if self.optimizerType == "SGD":
+            model_optimizer = optim.SGD(parameter_groups, momentum=0.9)
+        elif self.optimizerType == "Adam":
+            model_optimizer = optim.Adam(parameter_groups)
+        else:
+            raise ValueError("{0} is not supported as optimizer.".format(self.optimizerType))
+        return model_optimizer
 
     def get_hard_routing_matrix(self, layer_id, p_n_given_x_soft):
         if self.hardRoutingAlgorithmKind == "InformationGainRouting":
@@ -212,12 +460,9 @@ class CigtIgHardRouting(nn.Module):
             # Independently calculate loss for every block, by selecting the samples that are routed into these blocks.
             for idx, logit in enumerate(list_of_logits):
                 sample_selection_vector = routing_matrices[:, idx]
-
-
-
-
-
-
+                selected_logits = list_of_logits[idx][sample_selection_vector]
+                selected_labels = target_var[sample_selection_vector]
+                classification_loss = self.crossEntropyLoss(list_of_logits[0], target_var)
 
         # if not self.multipleCeLosses:
         #     classification_loss = self.crossEntropyLoss(list_of_logits[0], target_var)
@@ -339,6 +584,61 @@ class CigtIgHardRouting(nn.Module):
         # print("grad_magnitude:{0}".format(grad_magnitude.avg))
         # print("*************Epoch:{0} Ending Measurements*************".format(epoch_id))
         # return batch_time.avg
+
+    def fit(self):
+        self.to(self.device)
+        torch.manual_seed(1)
+        best_performance = 0.0
+
+        # Cifar 10 Dataset
+        kwargs = {'num_workers': 2, 'pin_memory': True}
+        train_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('../data', train=True, download=True, transform=self.transformTrain),
+            batch_size=self.batchSize, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('../data', train=False, transform=self.transformTest),
+            batch_size=self.batchSize, shuffle=False, **kwargs)
+
+        print("Type of optimizer:{0}".format(self.modelOptimizer))
+        self.validate(loader=train_loader, data_kind="train", epoch=0)
+        self.validate(loader=train_loader, data_kind="test", epoch=0)
+
+        total_epoch_count = self.epochCount + self.warmUpPeriod
+        for epoch in range(0, total_epoch_count):
+            self.adjust_learning_rate(epoch)
+
+            if epoch >= self.warmUpPeriod and self.isInWarmUp:
+                print("Warmup is ending!")
+                self.isInWarmUp = False
+                self.warmUpFinalIteration = self.numOfTrainingIterations
+
+            print("***************Epoch {0} End, Test Evaluation***************".format(epoch))
+            # test_accuracy = self.validate(loader=val_loader, epoch=epoch, data_kind="test")
+
+            # train for one epoch
+            train_mean_batch_time = self.train_single_epoch(epoch_id=epoch, train_loader=train_loader)
+
+            if epoch % self.evaluationPeriod == 0 or epoch >= (total_epoch_count - 10):
+                print("***************Epoch {0} End, Training Evaluation***************".format(epoch))
+                train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
+                print("***************Epoch {0} End, Test Evaluation***************".format(epoch))
+                test_accuracy = self.validate(loader=val_loader, epoch=epoch, data_kind="test")
+
+                if test_accuracy > best_performance:
+                    self.save_cigt_model(epoch=epoch)
+                    best_performance = test_accuracy
+
+                DbLogger.write_into_table(
+                    rows=[(self.runId,
+                           self.numOfTrainingIterations,
+                           epoch,
+                           train_accuracy,
+                           0.0,
+                           test_accuracy,
+                           train_mean_batch_time,
+                           0.0,
+                           0.0,
+                           "YYY")], table=DbLogger.logsTable)
 
     def validate(self, loader, epoch, data_kind):
         """Perform validation on the validation set"""

@@ -7,6 +7,7 @@ from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
 from cigt.cigt_ig_hard_routing import CigtIgHardRouting
 from cigt.cigt_ig_hard_routing_with_random_batches import CigtIgHardRoutingWithRandomBatches
 from cigt.cigt_ig_iterative_training import CigtIgIterativeTraining
+from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
 from cigt.cigt_model import Cigt
 from cigt.cigt_soft_routing import CigtSoftRouting
@@ -21,7 +22,7 @@ if __name__ == "__main__":
 
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db2
+    DbLogger.log_db_path = DbLogger.jr_cigt
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0]
     weight_decay = sorted(weight_decay)
@@ -57,9 +58,17 @@ if __name__ == "__main__":
         #     run_id=run_id,
         #     model_definition="Resnet Hard Routing - 1,2,4. Random Routing Regularization. Batch Size 1024.")
 
-        model = CigtIgHardRouting(
+        # model = CigtIgHardRouting(
+        #     run_id=run_id,
+        #     model_definition="Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [5.0, 5.0]. Advanced Augmentation. Classification Wd:0.0")
+        # model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
+        # explanation = model.get_explanation_string()
+        # DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
+        model = CigtIgHardRoutingX(
             run_id=run_id,
-            model_definition="Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,4. Batch Size 1024. Balance Coefficients: [5.0, 5.0]. Advanced Augmentation. Classification Wd:0.0")
+            model_definition="Cigt Refactored",
+            num_classes=10)
         model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)

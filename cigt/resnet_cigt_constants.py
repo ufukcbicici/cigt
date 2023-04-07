@@ -51,6 +51,8 @@ class ResnetCigtConstants:
     first_conv_output_dim = 16
     first_conv_stride = 1
     learning_schedule = [(600 + warm_up_period, 0.1), (1000 + warm_up_period, 0.01)]
+    hard_routing_algorithm_kind = "InformationGainRouting"
+    loss_calculation_kind = "MultipleLogitsMultipleLosses"
 
     model_file_root_path_hpc = "/clusterusers/can.bicici@boun.edu.tr/cigt"
     model_file_root_path_tetam = "/cta/users/ucbicici/cigt"

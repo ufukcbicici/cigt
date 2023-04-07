@@ -35,3 +35,10 @@
 -Phd: Improve Routing simulation: 0
 -Phd: Multiple Losses: 2
 -Phd: Refactor Cigt Hard Ig Router: 6
+
+07.04.2023
+
+-JR: Geotiff Backprojection: 1
+-Phd: Improve Routing simulation: 0
+-Phd: Multiple Losses: 0
+-Phd: Refactor Cigt Hard Ig Router: 1
