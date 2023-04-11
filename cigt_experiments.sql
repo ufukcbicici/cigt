@@ -551,3 +551,33 @@ ORDER BY TestAccuracy DESC
 5|0.894412857091086|0.890835715198517|0.0||1.0|0.9999|0.1|14
 6|0.889635714385169|0.887392858178275|0.0||1.0|0.9999|0.1|14
 
+
+--Experiments: "Cigt - [1,2,4] - Batch Size:1024 - Random Distribution Augmentation in Warm up: Classification Wd:0.0005"
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--hard_routing_algorithm_kind = "InformationGainRouting"
+--loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--Started at 9/4/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+32|0.9226
+
+
+--Experiments: "Cigt - [1,2,4] - Batch Size:1024 - MultipleLogitsMultipleLosses - information_gain_balance_coeff_list = [1.0, 1.0] - initial_lr = 0.025 - Wd:0.0005"
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [1.0, 1.0]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--hard_routing_algorithm_kind = "InformationGainRouting"
+--loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--Started at 11/4/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+
+
+--Experiments: "Cigt - [1,2,4] - Batch Size:1024 - MultipleLogitsMultipleLosses - information_gain_balance_coeff_list = [5.0, 5.0] - initial_lr = 0.025 - Wd:0.0005"
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--hard_routing_algorithm_kind = "InformationGainRouting"
+--loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--Started at 11/4/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
