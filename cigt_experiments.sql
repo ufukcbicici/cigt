@@ -571,6 +571,12 @@ ORDER BY TestAccuracy DESC
 --loss_calculation_kind = "MultipleLogitsMultipleLosses"
 --Started at 11/4/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+0.188200000056624|34
+0.90710000050664|36
+0.8983999994874|37
+0.906800003516674|38
+0.742900001186132|39
+
 
 
 --Experiments: "Cigt - [1,2,4] - Batch Size:1024 - MultipleLogitsMultipleLosses - information_gain_balance_coeff_list = [5.0, 5.0] - initial_lr = 0.025 - Wd:0.0005"
@@ -581,3 +587,48 @@ ORDER BY TestAccuracy DESC
 --loss_calculation_kind = "MultipleLogitsMultipleLosses"
 --Started at 11/4/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
+0.902499999409914|21
+0.909099999970198|22
+0.902899999564886|23
+0.856200006043911|24
+
+
+
+--Experiments: "Cigt - [1,2,4] - epoch_count:350 - Batch Size:1024 - MultipleLogitsMultipleLosses - information_gain_balance_coeff_list = [5.0, 5.0] - initial_lr = 0.1 - Wd:0.0005"
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--hard_routing_algorithm_kind = "InformationGainRouting"
+--loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--Started at 11/4/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
+0.897800000315905|15
+0.901700002104044|16
+0.879599997425079|17
+0.893300001490116|18
+0.883199995130301|19
+
+
+--Experiments: "Cigt - [1,2,4] - epoch_count:350 - Batch Size:1024 - MultipleLogitsMultipleLosses - information_gain_balance_coeff_list = [5.0, 5.0] - initial_lr = 0.025 - Wd:0.0005"
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--hard_routing_algorithm_kind = "InformationGainRouting"
+--loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--Started at 11/4/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
+0.876699997383356|10
+0.877099999326468|11
+0.877900000780821|12
+0.883200002115965|13
+0.880100001263618|14
+
+
+--Experiments: "Cigt - [1,2,4] - Batch Size:2048 - MultipleLogitsMultipleLosses - information_gain_balance_coeff_list = [5.0, 5.0] - initial_lr = 0.1 - Wd:0.0005"
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--hard_routing_algorithm_kind = "InformationGainRouting"
+--loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--Started at 13/4/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"

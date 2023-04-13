@@ -19,6 +19,7 @@ class ResnetCigtConstants:
     batch_size = 1024
     warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size)
     epoch_count = adjust_to_batch_size(original_value=1400, target_batch_size=batch_size)
+    data_parallelism = False
     classification_wd = 0.0
     decision_wd = 0.0
     softmax_decay_initial = 25.0
@@ -36,16 +37,16 @@ class ResnetCigtConstants:
     multiple_ce_losses = False
     per_sample_entropy_balance = True
     advanced_augmentation = False
-    validation_period = 5
+    validation_period = adjust_to_batch_size(original_value=5, target_batch_size=batch_size)
     # assert batch_norm_type in {"StandardBatchNormalization",
     #                            "CigtBatchNormalization",
     #                            "CigtProbabilisticBatchNormalization"}
     bn_momentum = 0.9
-    evaluation_period = 5
+    evaluation_period = adjust_to_batch_size(original_value=5, target_batch_size=batch_size)
     measurement_start = 11
     decision_dimensions = [128, 128]
     decision_average_pooling_strides = [4, 2]
-    initial_lr = 0.025
+    initial_lr = 0.1
     iteration_count_per_epoch = floor(50000 / batch_size) + 1 if 50000 % batch_size != 0 else 50000 / batch_size
 
     decision_loss_coeff = 1.0

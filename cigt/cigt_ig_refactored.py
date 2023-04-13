@@ -34,6 +34,7 @@ class CigtIgHardRoutingX(nn.Module):
         self.imageSize = (32, 32)
         self.numClasses = num_classes
         self.classCount = 10
+        self.useDataParallelism = ResnetCigtConstants.data_parallelism
         self.hardRoutingAlgorithmTypes = {"InformationGainRouting", "RandomRouting", "EnforcedRouting"}
         self.hardRoutingAlgorithmKind = ResnetCigtConstants.hard_routing_algorithm_kind
         self.enforcedRoutingMatrices = []
@@ -113,6 +114,9 @@ class CigtIgHardRoutingX(nn.Module):
         self.in_planes = self.firstConvOutputDim
         self.conv1 = conv3x3(3, self.firstConvOutputDim, self.firstConvStride)
         self.bn1 = nn.BatchNorm2d(self.firstConvOutputDim)
+        if self.useDataParallelism:
+            self.conv1 = nn.DataParallel(self.conv1)
+            self.bn1 = nn.DataParallel(self.bn1)
 
         # Build Cigt Blocks
         self.cigtLayers = nn.ModuleList()
@@ -159,6 +163,8 @@ class CigtIgHardRoutingX(nn.Module):
         explanation = self.add_explanation(name_of_param="Warm Up Period", value=self.warmUpPeriod,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Optimizer Type", value=self.optimizerType,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Data Parallelism", value=self.useDataParallelism,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Lr Settings",
                                            value=self.learningRateSchedule,
@@ -316,6 +322,8 @@ class CigtIgHardRoutingX(nn.Module):
                                        stride=inner_block_info["stride"])
                     layers.append(block)
                 block_obj = Sequential_ext(*layers)
+                if self.useDataParallelism:
+                    block_obj = nn.DataParallel(block_obj)
                 # block_obj.name = "block_{0}_{1}".format(cigt_layer_id, path_id)
                 cigt_layer_blocks.append(block_obj)
             self.cigtLayers.append(cigt_layer_blocks)
@@ -326,6 +334,8 @@ class CigtIgHardRoutingX(nn.Module):
                 routing_layer = self.get_routing_layer(cigt_layer_id=cigt_layer_id,
                                                        input_feature_map_size=feature_edge_size,
                                                        input_feature_map_count=cigt_layer_info[-1]["out_dimension"])
+                if self.useDataParallelism:
+                    routing_layer = nn.DataParallel(routing_layer)
                 self.blockEndLayers.append(routing_layer)
         # if cigt_layer_id == len(self.blockParametersList) - 1:
         self.get_loss_layer()
