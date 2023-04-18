@@ -55,4 +55,10 @@
 -JR: Geotiff Backprojection: 11
 -Phd: Improve Routing simulation: 0
 
+17.04.2023
+JR Backprojection:16
 
+18.04.2023
+JR Backprojection:7
+Segformer:4
+Phd Tests:2
