@@ -38,7 +38,9 @@ class CigtIgHardRoutingX(nn.Module):
         self.hardRoutingAlgorithmTypes = {"InformationGainRouting", "RandomRouting", "EnforcedRouting"}
         self.hardRoutingAlgorithmKind = ResnetCigtConstants.hard_routing_algorithm_kind
         self.enforcedRoutingMatrices = []
-        self.lossCalculationTypes = {"SingleLogitSingleLoss", "MultipleLogitsMultipleLosses"}
+        self.lossCalculationTypes = {"SingleLogitSingleLoss",
+                                     "MultipleLogitsMultipleLosses",
+                                     "MultipleLogitsMultipleLossesAveraged"}
         self.lossCalculationKind = ResnetCigtConstants.loss_calculation_kind
         self.lossLayers = None
         self.modelFilesRootPath = None
@@ -351,7 +353,8 @@ class CigtIgHardRoutingX(nn.Module):
                 ('logits', torch.nn.Linear(in_features=final_feature_dimension, out_features=self.numClasses))
             ]))
             self.lossLayers.append(end_module)
-        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses":
+        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses" \
+                or self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
             for block_id in range(self.pathCounts[-1]):
                 end_module = nn.Sequential(OrderedDict([
                     ('avg_pool_{0}'.format(block_id), torch.nn.AvgPool2d(kernel_size=8)),
@@ -443,7 +446,8 @@ class CigtIgHardRoutingX(nn.Module):
             logits = self.lossLayers[0](out)
             list_of_logits.append(logits)
         # Calculate logits with all block separately
-        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses":
+        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses" \
+                or self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
             for idx, block_x in enumerate(loss_block_outputs):
                 logits = self.lossLayers[idx](block_x)
                 list_of_logits.append(logits)
@@ -515,7 +519,7 @@ class CigtIgHardRoutingX(nn.Module):
         if self.lossCalculationKind == "SingleLogitSingleLoss":
             classification_loss = self.crossEntropyLoss(list_of_logits[0], target_var)
             batch_accuracy = self.measure_accuracy(list_of_logits[0].detach().cpu(), target_var.cpu())
-        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses":
+        elif self.lossCalculationKind in {"MultipleLogitsMultipleLosses", "MultipleLogitsMultipleLossesAveraged"}:
             # Independently calculate loss for every block, by selecting the samples that are routed into these blocks.
             classification_loss = 0.0
             batch_accuracy = 0.0
@@ -542,6 +546,8 @@ class CigtIgHardRoutingX(nn.Module):
                 block_accuracy = self.measure_accuracy(selected_logits.detach().cpu(), selected_labels.cpu())
                 batch_coefficient = (new_shape[0] / target_var.shape[0])
                 batch_accuracy += batch_coefficient * block_accuracy
+            if self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
+                classification_loss = classification_loss / len(list_of_logits)
         else:
             raise ValueError("Unknown loss calculation method:{0}".format(self.lossCalculationKind))
         return classification_loss, batch_accuracy

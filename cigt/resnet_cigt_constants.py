@@ -3,7 +3,7 @@ from math import ceil, floor
 # from auxillary.parameters import DiscreteParameter
 # from tf_2_cign.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
-
+# DONT TOUCH THIS!!!
 base_batch_size = 1024
 
 
@@ -62,7 +62,7 @@ class ResnetCigtConstants:
         (adjust_to_batch_size(original_value=600, target_batch_size=batch_size) + warm_up_period, 0.1),
         (adjust_to_batch_size(original_value=1000, target_batch_size=batch_size) + warm_up_period, 0.01)]
     hard_routing_algorithm_kind = "InformationGainRouting"
-    loss_calculation_kind = "MultipleLogitsMultipleLosses"
+    loss_calculation_kind = "MultipleLogitsMultipleLossesAveraged"
 
     model_file_root_path_hpc = "/clusterusers/can.bicici@boun.edu.tr/cigt"
     model_file_root_path_tetam = "/cta/users/ucbicici/cigt"
