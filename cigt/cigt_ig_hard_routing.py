@@ -189,7 +189,7 @@ class CigtIgHardRouting(CigtIgSoftRouting):
         print("*************Epoch:{0} Ending Measurements*************".format(epoch_id))
         return batch_time.avg
 
-    def validate(self, loader, epoch, data_kind):
+    def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()
         losses = AverageMeter()
@@ -204,7 +204,8 @@ class CigtIgHardRouting(CigtIgSoftRouting):
 
         # Temperature of Gumble Softmax
         # We simply keep it fixed
-        temperature = self.temperatureController.get_value()
+        if temperature is None:
+            temperature = self.temperatureController.get_value()
 
         # switch to evaluate mode
         self.eval()
@@ -248,6 +249,10 @@ class CigtIgHardRouting(CigtIgSoftRouting):
                 losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
                 for lid in range(len(self.pathCounts) - 1):
                     losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
+                if print_avg_measurements:
+                    print("Iteration:{0}".format(i))
+                    print("losses_c:{0}".format(losses_c.avg))
+                    print("losses_t:{0}".format(losses_t.avg))
 
         kv_rows = []
         list_of_labels = np.concatenate(list_of_labels, axis=0)

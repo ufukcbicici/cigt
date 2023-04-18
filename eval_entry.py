@@ -484,7 +484,9 @@ if __name__ == "__main__":
         datasets.CIFAR10('../data', train=False, transform=transform_test),
         batch_size=1024, shuffle=False, **kwargs)
 
-    train_accuracy = trained_model.validate(loader=train_loader, epoch=0, data_kind="train")
+    # trained_model.temperatureController.initialValue = 0.1
+    train_accuracy = trained_model.validate(loader=train_loader, epoch=0, data_kind="train", temperature=0.1,
+                                            print_avg_measurements=True)
     print("X")
 
     # record_model_outputs(model_=trained_model, pretrained_model_path=checkpoint_pth)
