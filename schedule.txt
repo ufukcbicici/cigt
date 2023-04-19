@@ -60,5 +60,10 @@ JR Backprojection:16
 
 18.04.2023
 JR Backprojection:7
-Segformer:4
+JR Segformer:4
 Phd Tests:2
+
+19.04.2023
+JR Backprojection:3
+Segformer:4
+Phd Tests:
