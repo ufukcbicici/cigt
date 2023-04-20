@@ -67,3 +67,9 @@ Phd Tests:2
 JR Backprojection:3
 Segformer:4
 Phd Tests:
+
+20.04.2023
+JR Backprojection - Tests:11
+JR Numba:2
+Segformer:
+Phd Tests:
