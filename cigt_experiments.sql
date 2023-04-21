@@ -665,30 +665,30 @@ ORDER BY TestAccuracy DESC
 41|0.900599998807907
 42|0.884799997109175
 
---Experiments: "Cigt - [1,2,4] - Batch Size:1024 - MultipleLogitsMultipleLossesAveraged - information_gain_balance_coeff_list = [5.0, 5.0] - initial_lr = 0.1 - Wd:0.001"
---weight_decay = 5 * [0.001]
---information_gain_balance_coeff_list = [5.0, 5.0]
---param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
---hard_routing_algorithm_kind = "InformationGainRouting"
---loss_calculation_kind = "MultipleLogitsMultipleLossesAveraged"
---Started at 16/4/2023
---Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
-
-
---Experiments: "Cigt - [1,2,4] - Batch Size:1024 - MultipleLogitsMultipleLosses - information_gain_balance_coeff_list = [5.0, 5.0] - initial_lr = 0.1 - Wd:0.0005"
+--Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005"
 --weight_decay = 5 * [0.0005]
 --information_gain_balance_coeff_list = [5.0, 5.0]
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --hard_routing_algorithm_kind = "InformationGainRouting"
 --loss_calculation_kind = "MultipleLogitsMultipleLosses"
---Started at 16/4/2023
---Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
+--Started at 21/4/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005%";
+--SELECT * FROM run_kv_store WHERE RunID = 45 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
+--SELECT * FROM run_kv_store WHERE RunID = 45 AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
+--SELECT * FROM run_kv_store WHERE RunID = 45 AND Key LIKE "%Path Distribution%";
 
---Experiments: "Cigt - [1,2,4] - Batch Size:1024 - MultipleLogitsMultipleLosses - information_gain_balance_coeff_list = [5.0, 5.0] - initial_lr = 0.1 - Wd:0.001"
---weight_decay = 5 * [0.001]
+
+--Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - With 350 Epoch WarmUp"
+--weight_decay = 5 * [0.0005]
 --information_gain_balance_coeff_list = [5.0, 5.0]
 --param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 --hard_routing_algorithm_kind = "InformationGainRouting"
 --loss_calculation_kind = "MultipleLogitsMultipleLosses"
---Started at 16/4/2023
---Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 21/4/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
+
+
+
+

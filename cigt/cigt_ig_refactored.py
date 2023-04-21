@@ -827,9 +827,11 @@ class CigtIgHardRoutingX(nn.Module):
             train_mean_batch_time = self.train_single_epoch(epoch_id=epoch, train_loader=train_loader)
 
             if epoch % self.evaluationPeriod == 0 or epoch >= (total_epoch_count - 10):
-                print("***************Epoch {0} End, Training Evaluation***************".format(epoch))
+                print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
+                    DbLogger.log_db_path, self.runId, epoch))
                 train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
-                print("***************Epoch {0} End, Test Evaluation***************".format(epoch))
+                print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
+                    DbLogger.log_db_path, self.runId, epoch))
                 test_accuracy = self.validate(loader=test_loader, epoch=epoch, data_kind="test")
 
                 if test_accuracy > best_performance:

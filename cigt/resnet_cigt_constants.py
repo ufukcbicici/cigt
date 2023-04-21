@@ -17,7 +17,7 @@ class ResnetCigtConstants:
     input_dims = (3, 32, 32)
     class_count = 10
     batch_size = 1024
-    warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size)
+    warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
     epoch_count = adjust_to_batch_size(original_value=1400, target_batch_size=batch_size)
     data_parallelism = False
     classification_wd = 0.0
@@ -62,7 +62,7 @@ class ResnetCigtConstants:
         (adjust_to_batch_size(original_value=600, target_batch_size=batch_size) + warm_up_period, 0.1),
         (adjust_to_batch_size(original_value=1000, target_batch_size=batch_size) + warm_up_period, 0.01)]
     hard_routing_algorithm_kind = "InformationGainRouting"
-    loss_calculation_kind = "MultipleLogitsMultipleLossesAveraged"
+    loss_calculation_kind = "MultipleLogitsMultipleLosses"
 
     model_file_root_path_hpc = "/clusterusers/can.bicici@boun.edu.tr/cigt"
     model_file_root_path_tetam = "/cta/users/ucbicici/cigt"
