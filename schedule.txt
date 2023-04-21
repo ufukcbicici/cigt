@@ -73,3 +73,9 @@ JR Backprojection - Tests:11
 JR Numba:2
 Segformer:
 Phd Tests:
+
+21.04.2023
+JR Backprojection - Optimization:5
+JR Numba:
+Segformer:
+Phd Tests:1
