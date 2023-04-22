@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.hpc_db
+    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -69,15 +69,15 @@ if __name__ == "__main__":
 
         model = CigtIgHardRoutingX(
             run_id=run_id,
-            model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - With 350 Epoch WarmUp",
+            model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - Starting from random_cigtlogger2_29_epoch350.pth",
             num_classes=10)
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_hpc
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        # checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger_14_epoch1180.pth")
-        # checkpoint = torch.load(checkpoint_pth, map_location="cpu")
-        # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+        checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "random_cigtlogger2_29_epoch350.pth")
+        checkpoint = torch.load(checkpoint_pth)
+        model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
         # checkpoint_pth = "C://Users//asus//Desktop//ConvAig//convnet-aig//cigt//dblogger2_45_epoch165.pth"
         # checkpoint = torch.load(checkpoint_pth, map_location="cpu")

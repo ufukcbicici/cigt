@@ -850,7 +850,7 @@ class CigtIgHardRoutingX(nn.Module):
                            0.0,
                            "YYY")], table=DbLogger.logsTable)
 
-    def validate(self, loader, epoch, data_kind):
+    def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()
         losses = AverageMeter()
@@ -865,7 +865,8 @@ class CigtIgHardRoutingX(nn.Module):
 
         # Temperature of Gumble Softmax
         # We simply keep it fixed
-        temperature = self.temperatureController.get_value()
+        if temperature is None:
+            temperature = self.temperatureController.get_value()
 
         # switch to evaluate mode
         self.eval()

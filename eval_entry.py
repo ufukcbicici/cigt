@@ -18,6 +18,7 @@ from tqdm import tqdm
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
 from auxillary.utilities import Utilities
+from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
 
 from auxillary.db_logger import DbLogger
@@ -458,14 +459,18 @@ if __name__ == "__main__":
     ])
 
     run_id = DbLogger.get_run_id()
-    trained_model = CigtIgHardRouting(
+    # trained_model = CigtIgHardRouting(
+    #     run_id=run_id,
+    #     model_definition="Resnet Random Routing Debug.")
+    trained_model = CigtIgHardRoutingX(
         run_id=run_id,
-        model_definition="Resnet Hard Routing - Only Routing - 1.2.4. Batch Size 1024.")
+        model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - With 350 Epoch WarmUp",
+        num_classes=10)
 
     explanation = trained_model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-    checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger_14_epoch1180.pth")
+    checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "random_cigtlogger2_29_epoch1645.pth")
     checkpoint = torch.load(checkpoint_pth, map_location="cpu")
     trained_model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
