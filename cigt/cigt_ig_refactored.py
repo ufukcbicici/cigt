@@ -35,8 +35,12 @@ class CigtIgHardRoutingX(nn.Module):
         self.numClasses = num_classes
         self.classCount = 10
         self.useDataParallelism = ResnetCigtConstants.data_parallelism
-        self.hardRoutingAlgorithmTypes = {"InformationGainRouting", "RandomRouting", "EnforcedRouting"}
+        self.hardRoutingAlgorithmTypes = {"InformationGainRouting",
+                                          "RandomRouting",
+                                          "RandomRoutingButInformationGainOptimizationEnabled"
+                                          "EnforcedRouting"}
         self.hardRoutingAlgorithmKind = ResnetCigtConstants.hard_routing_algorithm_kind
+        self.warmupRoutingAlgorithmKind = ResnetCigtConstants.warmup_routing_algorithm_kind
         self.enforcedRoutingMatrices = []
         self.lossCalculationTypes = {"SingleLogitSingleLoss",
                                      "MultipleLogitsMultipleLosses",
@@ -134,7 +138,7 @@ class CigtIgHardRoutingX(nn.Module):
         self.crossEntropyLosses = [nn.CrossEntropyLoss() for _ in range(self.pathCounts[-1])]
 
         self.numOfTrainingIterations = 0
-        self.warmUpFinalIteration = 0
+        self.temperatureDecayStartIteration = 0
 
         self.layerCoefficients = []
         self.modelOptimizer = self.create_optimizer()
@@ -423,7 +427,8 @@ class CigtIgHardRoutingX(nn.Module):
             p_n_given_x_hard = torch.zeros_like(p_n_given_x_soft)
             arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
             p_n_given_x_hard[torch.arange(p_n_given_x_hard.shape[0]), arg_max_entries] = 1.0
-        elif self.hardRoutingAlgorithmKind == "RandomRouting":
+        elif self.hardRoutingAlgorithmKind == "RandomRouting" or \
+                self.hardRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled":
             random_routing_matrix = torch.rand(size=p_n_given_x_soft.shape)
             arg_max_entries = torch.argmax(random_routing_matrix, dim=1)
             random_routing_matrix_hard = torch.zeros_like(p_n_given_x_soft)
@@ -673,20 +678,59 @@ class CigtIgHardRoutingX(nn.Module):
             for p_group in self.modelOptimizer.param_groups:
                 assert p_group["lr"] == base_lr
 
+    # *************** Scenario 0: No Warmup Period ***************
+    # warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size) - CORRECT
+    # if self.warmupRoutingAlgorithmKind == "RandomRouting" then
+    # self.temperatureDecayStartIteration = self.numOfTrainingIterations
+    # However, self.numOfTrainingIterations is already 0 from the constructor.
+    # if self.warmupRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled" then
+    # Again, self.numOfTrainingIterations is already 0 from the constructor.
+    # decay_t = self.numOfTrainingIterations - self.temperatureDecayStartIteration will always start from 0.
+
+    # *************** Scenario 1: With Warmup Period, self.warmupRoutingAlgorithmKind == "RandomRouting" ***************
+    # CORRECT
+
+    # *************** Scenario 2: With Warmup Period,
+    # self.warmupRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled" ***************
+    # CORRECT
+
     def adjust_warmup(self, epoch):
         if self.isInWarmUp:
             if epoch >= self.warmUpPeriod:
                 print("Warmup is ending!")
                 self.isInWarmUp = False
-                self.warmUpFinalIteration = self.numOfTrainingIterations
+                if self.warmupRoutingAlgorithmKind == "RandomRouting":
+                    self.temperatureDecayStartIteration = self.numOfTrainingIterations
                 self.hardRoutingAlgorithmKind = "InformationGainRouting"
             else:
                 print("Still in warm up!")
                 self.isInWarmUp = True
-                self.hardRoutingAlgorithmKind = "RandomRouting"
+                self.hardRoutingAlgorithmKind = self.warmupRoutingAlgorithmKind
         else:
             print("Warmup has ended!")
         print("Epoch:{0} Routing Kind:{1}".format(epoch, self.hardRoutingAlgorithmKind))
+
+    def adjust_decision_loss_coeff(self):
+        if self.hardRoutingAlgorithmKind == "InformationGainRouting" or \
+                self.hardRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled":
+            decision_loss_coeff = self.decisionLossCoeff
+        elif self.hardRoutingAlgorithmKind == "RandomRouting" or self.hardRoutingAlgorithmKind == "EnforcedRouting":
+            decision_loss_coeff = 0.0
+        else:
+            raise ValueError("Unknown Hard routing algorithm:{0}".format(self.hardRoutingAlgorithmKind))
+        return decision_loss_coeff
+
+    def adjust_temperature(self):
+        if self.hardRoutingAlgorithmKind == "InformationGainRouting" or \
+                self.hardRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled":
+            decay_t = self.numOfTrainingIterations - self.temperatureDecayStartIteration
+            self.temperatureController.update(iteration=decay_t)
+            temperature = self.temperatureController.get_value()
+        elif self.hardRoutingAlgorithmKind == "RandomRouting" or self.hardRoutingAlgorithmKind == "EnforcedRouting":
+            temperature = 1.0
+        else:
+            raise ValueError("Unknown Hard routing algorithm:{0}".format(self.hardRoutingAlgorithmKind))
+        return temperature
 
     def train_single_epoch(self, epoch_id, train_loader):
         """Train for one epoch on the training set"""
@@ -720,13 +764,9 @@ class CigtIgHardRoutingX(nn.Module):
                 target_var = torch.autograd.Variable(target).to(self.device)
                 batch_size = input_var.size(0)
 
-                if not self.isInWarmUp:
-                    decay_t = self.numOfTrainingIterations - self.warmUpFinalIteration
-                    self.temperatureController.update(iteration=decay_t)
-                    decision_loss_coeff = self.decisionLossCoeff
-                else:
-                    decision_loss_coeff = 0.0
-                temperature = self.temperatureController.get_value()
+                decision_loss_coeff = self.adjust_decision_loss_coeff()
+                temperature = self.adjust_temperature()
+
                 print("temperature:{0}".format(temperature))
                 print("decision_loss_coeff:{0}".format(decision_loss_coeff))
 

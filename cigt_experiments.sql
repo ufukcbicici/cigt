@@ -719,6 +719,8 @@ ORDER BY TestAccuracy DESC
 --SELECT * FROM run_kv_store WHERE RunID = 95 AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT * FROM run_kv_store WHERE RunID = 95 AND Key LIKE "%Path Distribution%";
 --SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (95,96) GROUP BY RunID;
+95|0.934000000286102
+96|0.929099997997284
 
 
 --Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - Starting from random_cigtlogger2_29_epoch350.pth"
@@ -731,6 +733,16 @@ ORDER BY TestAccuracy DESC
 --Started at 22/4/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
 
+--Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled"
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
+--hard_routing_algorithm_kind = "InformationGainRouting"
+--warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 23/4/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
 
 
 
