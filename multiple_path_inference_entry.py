@@ -7,6 +7,7 @@ import torchvision.datasets as datasets
 
 from auxillary.rump_dataset import RumpDataset
 from auxillary.similar_dataset_division_algorithm import SimilarDatasetDivisionAlgorithm
+from auxillary.utilities import Utilities
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 
 
@@ -14,10 +15,6 @@ class MultiplePathOptimizer(object):
     def __init__(self, model, dataset):
         self.model = model
         self.dataset = dataset
-
-
-
-
 
 
 if __name__ == "__main__":
@@ -57,14 +54,24 @@ if __name__ == "__main__":
     explanation = trained_model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-    checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger_32_epoch1119.pth")
+    checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "randig_cigtlogger2_23_epoch1390.pth")
     checkpoint = torch.load(checkpoint_pth, map_location="cpu")
     trained_model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
-    SimilarDatasetDivisionAlgorithm.run(model=trained_model, parent_loader=test_loader,
-                                        save_path=os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                                                               "multiple_inference_data.sav"),
-                                        division_ratio=0.5, max_accuracy_dif=0.002)
+    dataset_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "multiple_inference_data.sav")
+    if not os.path.isfile(dataset_path):
+        dataset_0, dataset_1 = SimilarDatasetDivisionAlgorithm.run(model=trained_model, parent_loader=test_loader,
+                                                                   save_path=dataset_path,
+                                                                   division_ratio=0.5, max_accuracy_dif=0.002)
+    else:
+        d_ = Utilities.pickle_load_from_file(path=dataset_path)
+        dataset_0 = d_["dataset_0"]
+        dataset_1 = d_["dataset_1"]
 
-    # trained_model.validate(loader=rump_loader, temperature=0.1, epoch=0, data_kind="test")
+    print("X")
+
+    # trained_model.validate(loader=test_loader, temperature=0.1, epoch=0, data_kind="test",
+    #                        enforced_hard_routing_kind="InformationGainRouting")
+    # trained_model.validate(loader=test_loader, temperature=0.1, epoch=0, data_kind="test",
+    #                        enforced_hard_routing_kind="RandomRouting")
     # print("X")

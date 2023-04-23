@@ -890,7 +890,8 @@ class CigtIgHardRoutingX(nn.Module):
                            0.0,
                            "YYY")], table=DbLogger.logsTable)
 
-    def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False):
+    def validate(self, loader, epoch, data_kind, temperature=None,
+                 enforced_hard_routing_kind=None, print_avg_measurements=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()
         losses = AverageMeter()
@@ -910,7 +911,11 @@ class CigtIgHardRoutingX(nn.Module):
 
         # switch to evaluate mode
         self.eval()
-        self.hardRoutingAlgorithmKind = "InformationGainRouting"
+        if enforced_hard_routing_kind is None:
+            self.hardRoutingAlgorithmKind = "InformationGainRouting"
+        else:
+            assert enforced_hard_routing_kind in self.hardRoutingAlgorithmTypes
+            self.hardRoutingAlgorithmKind = enforced_hard_routing_kind
 
         for i, (input_, target) in enumerate(loader):
             time_begin = time.time()
