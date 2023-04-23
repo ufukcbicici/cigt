@@ -730,8 +730,11 @@ ORDER BY TestAccuracy DESC
 --hard_routing_algorithm_kind = "InformationGainRouting"
 --loss_calculation_kind = "MultipleLogitsMultipleLosses"
 --warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size)
---Started at 22/4/2023
+--Started at 23/4/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - Starting from random_cigtlogger2_29_epoch350.pth%";
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (29,30) GROUP BY RunID;
+--SELECT * FROM run_kv_store WHERE RunID = 30 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 
 --Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled"
 --weight_decay = 5 * [0.0005]
@@ -743,7 +746,7 @@ ORDER BY TestAccuracy DESC
 --warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
 --Started at 23/4/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
-
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled%";
 
 
 
