@@ -484,6 +484,7 @@ class CigtIgHardRoutingX(nn.Module):
         routing_matrices_hard.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         routing_matrices_soft.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         block_outputs = []
+        routing_activations_list = []
         list_of_logits = None
 
         for layer_id, cigt_layer_blocks in enumerate(self.cigtLayers):
@@ -498,11 +499,13 @@ class CigtIgHardRoutingX(nn.Module):
                 out = self.weighted_sum_of_tensors(routing_matrix=routing_matrices_hard[-1],
                                                    tensors=block_outputs[-1])
                 # Calculate routing weights for the next layer
-                p_n_given_x_soft = self.blockEndLayers[layer_id](out,
-                                                                 labels,
-                                                                 temperature,
-                                                                 balance_coefficient_list[layer_id])
+                p_n_given_x_soft, routing_activations = self.blockEndLayers[layer_id](out,
+                                                                                      labels,
+                                                                                      temperature,
+                                                                                      balance_coefficient_list[
+                                                                                          layer_id])
                 routing_matrices_soft.append(p_n_given_x_soft)
+                routing_activations_list.append(routing_activations)
                 # Calculate the hard routing matrix
                 p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id, p_n_given_x_soft=p_n_given_x_soft)
                 routing_matrices_hard.append(p_n_given_x_hard)
@@ -511,7 +514,7 @@ class CigtIgHardRoutingX(nn.Module):
                 list_of_logits = self.calculate_logits(p_n_given_x_hard=routing_matrices_hard[-1],
                                                        loss_block_outputs=block_outputs[-1])
 
-        return routing_matrices_hard, routing_matrices_soft, block_outputs, list_of_logits
+        return routing_matrices_hard, routing_matrices_soft, block_outputs, list_of_logits, routing_activations_list
 
     def measure_accuracy(self, probs, target):
         """Computes the precision@k for the specified values of k"""
@@ -771,8 +774,8 @@ class CigtIgHardRoutingX(nn.Module):
                 print("decision_loss_coeff:{0}".format(decision_loss_coeff))
 
                 # Cigt moe output, information gain losses
-                routing_matrices_hard, routing_matrices_soft, block_outputs, list_of_logits = self(
-                    input_var, target_var, temperature)
+                routing_matrices_hard, routing_matrices_soft, \
+                    block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
                 classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
                     list_of_logits,
                     routing_matrices_hard,
@@ -891,7 +894,7 @@ class CigtIgHardRoutingX(nn.Module):
                            "YYY")], table=DbLogger.logsTable)
 
     def validate(self, loader, epoch, data_kind, temperature=None,
-                 enforced_hard_routing_kind=None, print_avg_measurements=False):
+                 enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()
         losses = AverageMeter()
@@ -925,8 +928,8 @@ class CigtIgHardRoutingX(nn.Module):
                 batch_size = input_var.size(0)
 
                 # Cigt moe output, information gain losses
-                routing_matrices_hard, routing_matrices_soft, block_outputs, list_of_logits = self(
-                    input_var, target_var, temperature)
+                routing_matrices_hard, routing_matrices_soft, \
+                    block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
                 classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
                     list_of_logits,
                     routing_matrices_hard,

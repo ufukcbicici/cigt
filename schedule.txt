@@ -79,3 +79,16 @@ JR Backprojection - Optimization:5
 JR Numba:
 Segformer:
 Phd Tests:1
+
+
+24.04.2023
+JR Backprojection and Rendering Test with high resolution:10
+JR Codebase Refactoring:
+JR Adding Layer Support:
+JR Add Filename and Debugging Support:
+Phd: Optimal Routing Simulations:
+Phd: Multiple Path Inference:1
+JR Segformer:
+Phd Tests:
+VAEs for SSL:
+SSL documents:

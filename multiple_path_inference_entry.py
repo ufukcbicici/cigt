@@ -68,10 +68,10 @@ if __name__ == "__main__":
         dataset_0 = d_["dataset_0"]
         dataset_1 = d_["dataset_1"]
 
-    print("X")
-
-    # trained_model.validate(loader=test_loader, temperature=0.1, epoch=0, data_kind="test",
-    #                        enforced_hard_routing_kind="InformationGainRouting")
-    # trained_model.validate(loader=test_loader, temperature=0.1, epoch=0, data_kind="test",
-    #                        enforced_hard_routing_kind="RandomRouting")
+    dataset_0_loader = torch.utils.data.DataLoader(dataset_0, batch_size=1024, shuffle=False, **kwargs)
+    dataset_1_loader = torch.utils.data.DataLoader(dataset_1, batch_size=1024, shuffle=False, **kwargs)
+    trained_model.validate(loader=dataset_0_loader, temperature=0.1, epoch=0, data_kind="test",
+                           enforced_hard_routing_kind="InformationGainRouting")
+    trained_model.validate(loader=dataset_1_loader, temperature=0.1, epoch=0, data_kind="test",
+                           enforced_hard_routing_kind="RandomRouting")
     # print("X")

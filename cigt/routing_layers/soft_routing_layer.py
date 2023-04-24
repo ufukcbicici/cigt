@@ -50,4 +50,4 @@ class SoftRoutingLayer(nn.Module):
         else:
             p_n_given_x = self.identityLayer(activations)
 
-        return p_n_given_x
+        return p_n_given_x, activations
