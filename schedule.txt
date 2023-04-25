@@ -87,7 +87,20 @@ JR Codebase Refactoring:
 JR Adding Layer Support:
 JR Add Filename and Debugging Support:
 Phd: Optimal Routing Simulations:
-Phd: Multiple Path Inference:1
+Phd: Multiple Path Inference:3
+JR Segformer:
+Phd Tests:
+VAEs for SSL:
+SSL documents:
+
+
+25.04.2023
+JR Backprojection and Rendering with high resolution:8
+JR Codebase Refactoring:
+JR Adding Layer Support:
+JR Add Filename and Debugging Support:
+Phd: Optimal Routing Simulations:
+Phd: Multiple Path Inference:
 JR Segformer:
 Phd Tests:
 VAEs for SSL:

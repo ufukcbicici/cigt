@@ -18,7 +18,7 @@ class MultiplePathOptimizer(object):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -57,6 +57,8 @@ if __name__ == "__main__":
     checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "randig_cigtlogger2_23_epoch1390.pth")
     checkpoint = torch.load(checkpoint_pth, map_location="cpu")
     trained_model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    trained_model.validate(loader=test_loader, temperature=0.1, epoch=0, data_kind="test",
+                           enforced_hard_routing_kind="InformationGainRouting")
 
     dataset_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "multiple_inference_data.sav")
     if not os.path.isfile(dataset_path):

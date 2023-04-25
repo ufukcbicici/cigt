@@ -893,6 +893,33 @@ class CigtIgHardRoutingX(nn.Module):
                            0.0,
                            "YYY")], table=DbLogger.logsTable)
 
+    def add_list_of_arrays(self, list_of_arrays, batch):
+        if len(list_of_arrays) > 0:
+            assert isinstance(list_of_arrays, list)
+            assert isinstance(batch, list)
+            assert len(list_of_arrays) == len(batch)
+            for idx in range(len(list_of_arrays)):
+                assert isinstance(list_of_arrays[idx], list)
+                assert isinstance(batch[idx], list)
+                assert len(list_of_arrays[idx]) == len(batch[idx])
+                for elem in batch[idx]:
+                    assert isinstance(elem, torch.Tensor)
+        else:
+            assert isinstance(batch, list)
+            for idx in range(len(batch)):
+                assert isinstance(batch[idx], list) or isinstance(batch[idx], torch.Tensor)
+                list_of_arrays.append([])
+                if isinstance(batch[idx], list):
+                    for jdx in range(len(batch[idx])):
+                        list_of_arrays[idx].append([])
+
+        for idx in range(len(batch)):
+            if isinstance(batch[idx], list):
+                for jdx in range(len(batch[idx])):
+                    list_of_arrays[idx][jdx].append(batch[idx][jdx])
+            elif isinstance(batch[idx], torch.Tensor):
+                list_of_arrays[idx].append(batch[idx])
+
     def validate(self, loader, epoch, data_kind, temperature=None,
                  enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
         """Perform validation on the validation set"""
@@ -904,8 +931,8 @@ class CigtIgHardRoutingX(nn.Module):
         accuracy_avg = AverageMeter()
         list_of_labels = []
         list_of_routing_probability_matrices = []
-        for _ in range(len(self.pathCounts) - 1):
-            list_of_routing_probability_matrices.append([])
+        # for _ in range(len(self.pathCounts) - 1):
+        #     list_of_routing_probability_matrices.append([])
 
         # Temperature of Gumble Softmax
         # We simply keep it fixed
@@ -948,8 +975,10 @@ class CigtIgHardRoutingX(nn.Module):
                 time_end = time.time()
 
                 list_of_labels.append(target_var.cpu().numpy())
-                for idx_, matr_ in enumerate(routing_matrices_soft[1:]):
-                    list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
+                # for idx_, matr_ in enumerate(routing_matrices_soft[1:]):
+                #     list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
+                self.add_list_of_arrays(list_of_arrays=list_of_routing_probability_matrices,
+                                        batch=routing_matrices_soft[1:])
 
                 # measure accuracy and record loss
                 losses.update(total_loss.detach().cpu().numpy().item(), 1)
