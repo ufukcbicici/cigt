@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db
+    DbLogger.log_db_path = DbLogger.home_asus
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)

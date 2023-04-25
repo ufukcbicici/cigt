@@ -245,4 +245,3 @@ class Utilities:
     def convert_trajectory_array_to_indices(trajectory_array):
         path_indices = tuple([trajectory_array[:, idx] for idx in range(trajectory_array.shape[1])])
         return path_indices
-

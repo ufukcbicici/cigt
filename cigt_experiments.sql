@@ -736,10 +736,12 @@ ORDER BY TestAccuracy DESC
 --Started at 23/4/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - Starting from random_cigtlogger2_29_epoch350.pth%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (29,30,31) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (29,30,31,32,33) GROUP BY RunID;
 --SELECT * FROM run_kv_store WHERE RunID = 31 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 30|0.933299997711182
 31|0.923999998766184
+32|0.869099996548891
+33|0.828100002974272
 
 
 --Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled"
@@ -753,7 +755,7 @@ ORDER BY TestAccuracy DESC
 --Started at 23/4/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (23,24) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (23,24,25) GROUP BY RunID;
 --SELECT * FROM run_kv_store WHERE RunID = 23 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT Epoch,TestAccuracy FROM logs_table WHERE RunID = 23 ORDER BY TestAccuracy DESC;
 23|0.925400000804663 (1390) randig_cigtlogger2_23_epoch1390

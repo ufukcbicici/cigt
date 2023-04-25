@@ -898,12 +898,6 @@ class CigtIgHardRoutingX(nn.Module):
             assert isinstance(list_of_arrays, list)
             assert isinstance(batch, list)
             assert len(list_of_arrays) == len(batch)
-            for idx in range(len(list_of_arrays)):
-                assert isinstance(list_of_arrays[idx], list)
-                assert isinstance(batch[idx], list)
-                assert len(list_of_arrays[idx]) == len(batch[idx])
-                for elem in batch[idx]:
-                    assert isinstance(elem, torch.Tensor)
         else:
             assert isinstance(batch, list)
             for idx in range(len(batch)):
@@ -920,6 +914,19 @@ class CigtIgHardRoutingX(nn.Module):
             elif isinstance(batch[idx], torch.Tensor):
                 list_of_arrays[idx].append(batch[idx])
 
+    def concatenate_list_of_arrays(self, list_of_arrays):
+        for idx in range(len(list_of_arrays)):
+            assert isinstance(list_of_arrays[idx], list)
+
+            for elem in list_of_arrays[idx]:
+                assert all([isinstance(x, torch.Tensor) for x in elem]) or all([isinstance(x, list) for x in elem])
+                if all([isinstance(x, torch.Tensor) for x in elem]):
+                    list_of_arrays[idx] = np.concatenate([x.cpu().numpy() for x in elem], axis=0)
+                elif all([isinstance(x, list) for x in elem]):
+                    for jdx in range(len(elem)):
+                        assert all([isinstance(y, torch.Tensor) for y in elem[jdx]])
+                        elem[jdx] = np.concatenate([y.cpu().numpy() for y in elem[jdx]], axis=0)
+
     def validate(self, loader, epoch, data_kind, temperature=None,
                  enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
         """Perform validation on the validation set"""
@@ -931,8 +938,13 @@ class CigtIgHardRoutingX(nn.Module):
         accuracy_avg = AverageMeter()
         list_of_labels = []
         list_of_routing_probability_matrices = []
-        # for _ in range(len(self.pathCounts) - 1):
-        #     list_of_routing_probability_matrices.append([])
+        list_of_routing_activations = []
+        list_of_logits_complete = []
+        for _ in range(len(self.pathCounts) - 1):
+            list_of_routing_probability_matrices.append([])
+            list_of_routing_activations.append([])
+        for _ in range(self.pathCounts[-1]):
+            list_of_logits_complete.append([])
 
         # Temperature of Gumble Softmax
         # We simply keep it fixed
@@ -975,10 +987,12 @@ class CigtIgHardRoutingX(nn.Module):
                 time_end = time.time()
 
                 list_of_labels.append(target_var.cpu().numpy())
-                # for idx_, matr_ in enumerate(routing_matrices_soft[1:]):
-                #     list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
-                self.add_list_of_arrays(list_of_arrays=list_of_routing_probability_matrices,
-                                        batch=routing_matrices_soft[1:])
+                for idx_, matr_ in enumerate(routing_matrices_soft[1:]):
+                    list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
+                for idx_, matr_ in enumerate(routing_activations_list):
+                    list_of_routing_activations[idx_].append(matr_.detach().cpu().numpy())
+                for idx_, matr_ in enumerate(list_of_logits):
+                    list_of_logits_complete[idx_].append(matr_.detach().cpu().numpy())
 
                 # measure accuracy and record loss
                 losses.update(total_loss.detach().cpu().numpy().item(), 1)
@@ -994,6 +1008,10 @@ class CigtIgHardRoutingX(nn.Module):
         for idx_ in range(len(list_of_routing_probability_matrices)):
             list_of_routing_probability_matrices[idx_] = np.concatenate(
                 list_of_routing_probability_matrices[idx_], axis=0)
+        for idx_ in range(len(list_of_routing_activations)):
+            list_of_routing_activations[idx_] = np.concatenate(list_of_routing_activations[idx_], axis=0)
+        for idx_ in range(len(list_of_logits_complete)):
+            list_of_logits_complete[idx_] = np.concatenate(list_of_logits_complete[idx_], axis=0)
 
         self.calculate_branch_statistics(
             run_id=self.runId,
