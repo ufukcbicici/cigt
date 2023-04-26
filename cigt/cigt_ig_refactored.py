@@ -893,39 +893,39 @@ class CigtIgHardRoutingX(nn.Module):
                            0.0,
                            "YYY")], table=DbLogger.logsTable)
 
-    def add_list_of_arrays(self, list_of_arrays, batch):
-        if len(list_of_arrays) > 0:
-            assert isinstance(list_of_arrays, list)
-            assert isinstance(batch, list)
-            assert len(list_of_arrays) == len(batch)
-        else:
-            assert isinstance(batch, list)
-            for idx in range(len(batch)):
-                assert isinstance(batch[idx], list) or isinstance(batch[idx], torch.Tensor)
-                list_of_arrays.append([])
-                if isinstance(batch[idx], list):
-                    for jdx in range(len(batch[idx])):
-                        list_of_arrays[idx].append([])
-
-        for idx in range(len(batch)):
-            if isinstance(batch[idx], list):
-                for jdx in range(len(batch[idx])):
-                    list_of_arrays[idx][jdx].append(batch[idx][jdx])
-            elif isinstance(batch[idx], torch.Tensor):
-                list_of_arrays[idx].append(batch[idx])
-
-    def concatenate_list_of_arrays(self, list_of_arrays):
-        for idx in range(len(list_of_arrays)):
-            assert isinstance(list_of_arrays[idx], list)
-
-            for elem in list_of_arrays[idx]:
-                assert all([isinstance(x, torch.Tensor) for x in elem]) or all([isinstance(x, list) for x in elem])
-                if all([isinstance(x, torch.Tensor) for x in elem]):
-                    list_of_arrays[idx] = np.concatenate([x.cpu().numpy() for x in elem], axis=0)
-                elif all([isinstance(x, list) for x in elem]):
-                    for jdx in range(len(elem)):
-                        assert all([isinstance(y, torch.Tensor) for y in elem[jdx]])
-                        elem[jdx] = np.concatenate([y.cpu().numpy() for y in elem[jdx]], axis=0)
+    # def add_list_of_arrays(self, list_of_arrays, batch):
+    #     if len(list_of_arrays) > 0:
+    #         assert isinstance(list_of_arrays, list)
+    #         assert isinstance(batch, list)
+    #         assert len(list_of_arrays) == len(batch)
+    #     else:
+    #         assert isinstance(batch, list)
+    #         for idx in range(len(batch)):
+    #             assert isinstance(batch[idx], list) or isinstance(batch[idx], torch.Tensor)
+    #             list_of_arrays.append([])
+    #             if isinstance(batch[idx], list):
+    #                 for jdx in range(len(batch[idx])):
+    #                     list_of_arrays[idx].append([])
+    #
+    #     for idx in range(len(batch)):
+    #         if isinstance(batch[idx], list):
+    #             for jdx in range(len(batch[idx])):
+    #                 list_of_arrays[idx][jdx].append(batch[idx][jdx])
+    #         elif isinstance(batch[idx], torch.Tensor):
+    #             list_of_arrays[idx].append(batch[idx])
+    #
+    # def concatenate_list_of_arrays(self, list_of_arrays):
+    #     for idx in range(len(list_of_arrays)):
+    #         assert isinstance(list_of_arrays[idx], list)
+    #
+    #         for elem in list_of_arrays[idx]:
+    #             assert all([isinstance(x, torch.Tensor) for x in elem]) or all([isinstance(x, list) for x in elem])
+    #             if all([isinstance(x, torch.Tensor) for x in elem]):
+    #                 list_of_arrays[idx] = np.concatenate([x.cpu().numpy() for x in elem], axis=0)
+    #             elif all([isinstance(x, list) for x in elem]):
+    #                 for jdx in range(len(elem)):
+    #                     assert all([isinstance(y, torch.Tensor) for y in elem[jdx]])
+    #                     elem[jdx] = np.concatenate([y.cpu().numpy() for y in elem[jdx]], axis=0)
 
     def validate(self, loader, epoch, data_kind, temperature=None,
                  enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
