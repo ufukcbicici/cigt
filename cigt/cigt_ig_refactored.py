@@ -1059,7 +1059,18 @@ class CigtIgHardRoutingX(nn.Module):
                             "{0}".format(losses_t_layer_wise[lid].avg)))
 
         DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
-        return accuracy_avg.avg
+        if not return_network_outputs:
+            return accuracy_avg.avg
+        else:
+            res_dict = {
+                "accuracy": accuracy_avg.avg,
+                "list_of_labels": list_of_labels,
+                "list_of_routing_probability_matrices": list_of_routing_probability_matrices,
+                "list_of_routing_activations": list_of_routing_activations,
+                "list_of_logits_complete": list_of_logits_complete
+            }
+            return res_dict
+
 
     # def random_fine_tuning(self):
     #     self.isInWarmUp = False

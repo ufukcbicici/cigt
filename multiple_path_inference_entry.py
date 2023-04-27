@@ -55,11 +55,17 @@ if __name__ == "__main__":
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
     checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "randig_cigtlogger2_23_epoch1390.pth")
+    data_root_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "randig_cigtlogger2_23_epoch1390_data")
+    if not os.path.isdir(data_root_path):
+        os.mkdir(data_root_path)
+
     checkpoint = torch.load(checkpoint_pth, map_location="cpu")
     trained_model.load_state_dict(state_dict=checkpoint["model_state_dict"])
     trained_model.validate(loader=test_loader, temperature=0.1, epoch=0, data_kind="test",
-                           enforced_hard_routing_kind="InformationGainRouting")
+                           enforced_hard_routing_kind="InformationGainRouting",
+                           return_network_outputs=True)
 
+    # Load evenly divided datasets
     dataset_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "multiple_inference_data.sav")
     if not os.path.isfile(dataset_path):
         dataset_0, dataset_1 = SimilarDatasetDivisionAlgorithm.run(model=trained_model, parent_loader=test_loader,
@@ -72,8 +78,26 @@ if __name__ == "__main__":
 
     dataset_0_loader = torch.utils.data.DataLoader(dataset_0, batch_size=1024, shuffle=False, **kwargs)
     dataset_1_loader = torch.utils.data.DataLoader(dataset_1, batch_size=1024, shuffle=False, **kwargs)
-    trained_model.validate(loader=dataset_0_loader, temperature=0.1, epoch=0, data_kind="test",
-                           enforced_hard_routing_kind="InformationGainRouting")
-    trained_model.validate(loader=dataset_1_loader, temperature=0.1, epoch=0, data_kind="test",
-                           enforced_hard_routing_kind="RandomRouting")
+    # trained_model.validate(loader=dataset_0_loader, temperature=0.1, epoch=0, data_kind="test",
+    #                        enforced_hard_routing_kind="InformationGainRouting")
+    # trained_model.validate(loader=dataset_1_loader, temperature=0.1, epoch=0, data_kind="test",
+    #                        enforced_hard_routing_kind="RandomRouting")
+
+    # Load routing results for every possible path
+    list_of_path_choices = []
+    for path_count in trained_model.pathCounts[1:]:
+        list_of_path_choices.append([i_ for i_ in range(path_count)])
+    route_combinations = Utilities.get_cartesian_product(list_of_lists=list_of_path_choices)
+    for selected_routes in route_combinations:
+        print("Executing route selection:{0}".format(selected_routes))
+        data_file_path = os.path.join(data_root_path, "{0}_{1}_data.sav".format("whole", selected_routes))
+        if os.path.isfile(data_file_path):
+            continue
+        routing_matrices = []
+        for layer_id, route_id in enumerate(selected_routes):
+            routing_matrix = torch.zeros(size=(test_loader.batch_size, trained_model.pathCounts[layer_id + 1]),
+                                         dtype=torch.float32)
+            routing_matrix[:, route_id] = 1.0
+            routing_matrices.append(routing_matrix)
+
     # print("X")

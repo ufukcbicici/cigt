@@ -721,9 +721,13 @@ ORDER BY TestAccuracy DESC
 --SELECT * FROM run_kv_store WHERE RunID = 95 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT * FROM run_kv_store WHERE RunID = 95 AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT * FROM run_kv_store WHERE RunID = 95 AND Key LIKE "%Path Distribution%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (95,96) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (95,96,97,98,99) GROUP BY RunID;
 95|0.934000000286102
-96|0.929099997997284
+96|0.929299997997284
+97|0.9321
+98|0.931300000095367
+99|0.926899997901916
+
 
 
 --Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - Starting from random_cigtlogger2_29_epoch350.pth"
