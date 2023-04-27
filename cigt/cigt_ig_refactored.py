@@ -37,7 +37,7 @@ class CigtIgHardRoutingX(nn.Module):
         self.useDataParallelism = ResnetCigtConstants.data_parallelism
         self.hardRoutingAlgorithmTypes = {"InformationGainRouting",
                                           "RandomRouting",
-                                          "RandomRoutingButInformationGainOptimizationEnabled"
+                                          "RandomRoutingButInformationGainOptimizationEnabled",
                                           "EnforcedRouting"}
         self.hardRoutingAlgorithmKind = ResnetCigtConstants.hard_routing_algorithm_kind
         self.warmupRoutingAlgorithmKind = ResnetCigtConstants.warmup_routing_algorithm_kind

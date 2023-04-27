@@ -18,7 +18,7 @@ class MultiplePathOptimizer(object):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -85,10 +85,11 @@ if __name__ == "__main__":
 
     dataset_0_loader = torch.utils.data.DataLoader(dataset_0, batch_size=1024, shuffle=False, **kwargs)
     dataset_1_loader = torch.utils.data.DataLoader(dataset_1, batch_size=1024, shuffle=False, **kwargs)
-    trained_model.validate(loader=dataset_0_loader, temperature=0.1, epoch=0, data_kind="test",
-                           enforced_hard_routing_kind="InformationGainRouting")
-    trained_model.validate(loader=dataset_1_loader, temperature=0.1, epoch=0, data_kind="test",
-                           enforced_hard_routing_kind="RandomRouting")
+
+    # trained_model.validate(loader=dataset_0_loader, temperature=0.1, epoch=0, data_kind="test",
+    #                        enforced_hard_routing_kind="InformationGainRouting")
+    # trained_model.validate(loader=dataset_1_loader, temperature=0.1, epoch=0, data_kind="test",
+    #                        enforced_hard_routing_kind="InformationGainRouting")
 
     # Load routing results for every possible path
     list_of_path_choices = []
@@ -112,5 +113,7 @@ if __name__ == "__main__":
                                                            temperature=0.1, epoch=0, data_kind="test",
                                                            enforced_hard_routing_kind="EnforcedRouting",
                                                            return_network_outputs=True)
+        Utilities.pickle_save_to_file(file_content=enforced_routing_res_dict, path=data_file_path)
+        print("Saved {0}!!!".format(data_file_path))
 
     # print("X")
