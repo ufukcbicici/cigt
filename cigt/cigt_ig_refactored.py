@@ -436,6 +436,7 @@ class CigtIgHardRoutingX(nn.Module):
             p_n_given_x_hard = random_routing_matrix_hard
         elif self.hardRoutingAlgorithmKind == "EnforcedRouting":
             enforced_routing_matrix = self.enforcedRoutingMatrices[layer_id]
+            enforced_routing_matrix = enforced_routing_matrix[0:p_n_given_x_soft.shape[0], :]
             p_n_given_x_hard = enforced_routing_matrix
         else:
             raise ValueError("Unknown routing algorithm: {0}".format(self.hardRoutingAlgorithmKind))

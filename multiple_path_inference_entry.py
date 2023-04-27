@@ -18,7 +18,7 @@ class MultiplePathOptimizer(object):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
@@ -54,16 +54,23 @@ if __name__ == "__main__":
     explanation = trained_model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
+    # Paths for results
     checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "randig_cigtlogger2_23_epoch1390.pth")
     data_root_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "randig_cigtlogger2_23_epoch1390_data")
+    information_gain_routing_outputs_path = os.path.join(data_root_path, "ig_routing_results.sav")
+
+    # Calculate information gain routing results
     if not os.path.isdir(data_root_path):
         os.mkdir(data_root_path)
-
     checkpoint = torch.load(checkpoint_pth, map_location="cpu")
     trained_model.load_state_dict(state_dict=checkpoint["model_state_dict"])
-    trained_model.validate(loader=test_loader, temperature=0.1, epoch=0, data_kind="test",
-                           enforced_hard_routing_kind="InformationGainRouting",
-                           return_network_outputs=True)
+    if not os.path.isfile(information_gain_routing_outputs_path):
+        ig_res_dict = trained_model.validate(loader=test_loader, temperature=0.1, epoch=0, data_kind="test",
+                                             enforced_hard_routing_kind="InformationGainRouting",
+                                             return_network_outputs=True)
+        Utilities.pickle_save_to_file(file_content=ig_res_dict, path=information_gain_routing_outputs_path)
+    else:
+        ig_res_dict = Utilities.pickle_load_from_file(path=information_gain_routing_outputs_path)
 
     # Load evenly divided datasets
     dataset_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "multiple_inference_data.sav")
@@ -78,10 +85,10 @@ if __name__ == "__main__":
 
     dataset_0_loader = torch.utils.data.DataLoader(dataset_0, batch_size=1024, shuffle=False, **kwargs)
     dataset_1_loader = torch.utils.data.DataLoader(dataset_1, batch_size=1024, shuffle=False, **kwargs)
-    # trained_model.validate(loader=dataset_0_loader, temperature=0.1, epoch=0, data_kind="test",
-    #                        enforced_hard_routing_kind="InformationGainRouting")
-    # trained_model.validate(loader=dataset_1_loader, temperature=0.1, epoch=0, data_kind="test",
-    #                        enforced_hard_routing_kind="RandomRouting")
+    trained_model.validate(loader=dataset_0_loader, temperature=0.1, epoch=0, data_kind="test",
+                           enforced_hard_routing_kind="InformationGainRouting")
+    trained_model.validate(loader=dataset_1_loader, temperature=0.1, epoch=0, data_kind="test",
+                           enforced_hard_routing_kind="RandomRouting")
 
     # Load routing results for every possible path
     list_of_path_choices = []
@@ -99,5 +106,11 @@ if __name__ == "__main__":
                                          dtype=torch.float32)
             routing_matrix[:, route_id] = 1.0
             routing_matrices.append(routing_matrix)
+
+        trained_model.enforcedRoutingMatrices = routing_matrices
+        enforced_routing_res_dict = trained_model.validate(loader=test_loader,
+                                                           temperature=0.1, epoch=0, data_kind="test",
+                                                           enforced_hard_routing_kind="EnforcedRouting",
+                                                           return_network_outputs=True)
 
     # print("X")

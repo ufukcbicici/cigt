@@ -108,10 +108,23 @@ SSL documents:
 
 26.04.2023
 
-JR Codebase Refactoring:8
+JR Codebase Refactoring:14
 JR Adding Layer Support:
 JR Add Filename and Debugging Support:
 JR Backprojection and Rendering with high resolution tets:
+Phd: Optimal Routing Simulations:
+Phd: Multiple Path Inference:1
+JR Segformer:
+Phd Tests:
+VAEs for SSL:
+SSL documents:1
+
+27.04.2023
+
+JR Codebase Refactoring:1
+JR Adding Layer Support:
+JR Add Filename and Debugging Support:4
+JR Backprojection and Rendering with high resolution tests:
 Phd: Optimal Routing Simulations:
 Phd: Multiple Path Inference:
 JR Segformer:
