@@ -11,6 +11,7 @@ import torchvision.datasets as datasets
 
 from auxillary.rump_dataset import RumpDataset
 from auxillary.similar_dataset_division_algorithm import SimilarDatasetDivisionAlgorithm
+from auxillary.softmax_temperature_optimizer import SoftmaxTemperatureOptimizer
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 
@@ -46,6 +47,7 @@ class MultiplePathOptimizer(object):
         self.correctlyRoutedSampleIndices = None
         self.incorrectlyRoutedSampleIndices = None
         self.maxEntropies = []
+        self.optimalTemperatures = {}
         self.create_route_combinations()
 
     def create_pure_ig_results(self):
@@ -255,16 +257,21 @@ class MultiplePathOptimizer(object):
 
         print("X")
 
+    def calculate_entropy_from_activations(self, activations, temperature):
+        eps = 1e-30
+        routing_probs = torch.softmax(torch.from_numpy(activations / temperature), dim=1).numpy()
+        log_routing_probs = np.log(routing_probs + eps)
+        prob_log_prob = routing_probs * log_routing_probs
+        entropies = -1.0 * np.sum(prob_log_prob, axis=1)
+        return entropies
+
     def measure_routing_entropies_of_samples(self, sample_indices, do_plot=False, plot_name=""):
         curr_selected_routes = [sample_indices]
         entropies_per_layer = []
         eps = 1e-30
         for p_id in range(len(self.model.pathCounts) - 1):
             activations = self.routingActivationsListUnified[p_id][curr_selected_routes]
-            routing_probs = torch.softmax(torch.from_numpy(activations), dim=1).numpy()
-            log_routing_probs = np.log(routing_probs + eps)
-            prob_log_prob = routing_probs * log_routing_probs
-            entropies = -1.0 * np.sum(prob_log_prob, axis=1)
+            entropies = self.calculate_entropy_from_activations(activations=activations, temperature=1.0)
             entropies_per_layer.append(entropies)
             selected_routes = np.argmax(activations, axis=1)
             curr_selected_routes = [*curr_selected_routes[:-1], selected_routes, sample_indices]
@@ -311,6 +318,46 @@ class MultiplePathOptimizer(object):
                                                                  low_entropy_indices_all.shape[0]))
         print("High Entropy Accuracy:{0} Sample Count:{1}".format(high_entropy_accuracy,
                                                                   high_entropy_indices_all.shape[0]))
+
+    def find_optimal_temperatures(self):
+        optimal_temperatures_path = os.path.join(self.dataRootPath, "optimal_temperatures.sav")
+        if os.path.isfile(optimal_temperatures_path):
+            self.optimalTemperatures = Utilities.pickle_load_from_file(path=optimal_temperatures_path)
+        else:
+            self.optimalTemperatures = {}
+            for p_id in range(len(self.model.pathCounts) - 1):
+                # Past route combinations
+                activations = self.routingActivationsListUnified[p_id]
+                combinations_list = [[i_ for i_ in range(activations.shape[j_])] for j_ in range(p_id)]
+                combinations_list = Utilities.get_cartesian_product(list_of_lists=combinations_list)
+                for past_route in combinations_list:
+                    past_route_activations = activations[past_route]
+                    temperature_optimizer = SoftmaxTemperatureOptimizer()
+                    entropies_before \
+                        = self.calculate_entropy_from_activations(activations=past_route_activations,
+                                                                  temperature=1.0)
+                    temperature = temperature_optimizer.run(routing_activations=past_route_activations)
+                    entropies_after \
+                        = self.calculate_entropy_from_activations(activations=past_route_activations,
+                                                                  temperature=temperature)
+
+                    fig, ax = plt.subplots(2, 1)
+                    ax[0].set_title("Entropies {0} with temperature 1.0".format(past_route))
+                    ax[0].hist(entropies_before, density=False, histtype='stepfilled',
+                               alpha=1.0, bins=100, range=(0, self.maxEntropies[p_id]))
+                    ax[0].legend(loc='best', frameon=False)
+                    ax[1].set_title("Entropies {0} with temperature {1}".format(past_route, temperature))
+                    ax[1].hist(entropies_after, density=False, histtype='stepfilled',
+                               alpha=1.0, bins=100, range=(0, self.maxEntropies[p_id]))
+                    ax[1].legend(loc='best', frameon=False)
+
+                    plt.tight_layout()
+                    plt.show()
+                    plt.close()
+                    self.optimalTemperatures[past_route] = temperature
+
+        Utilities.pickle_save_to_file(path=optimal_temperatures_path, file_content=self.optimalTemperatures)
+
 
 if __name__ == "__main__":
     DbLogger.log_db_path = DbLogger.home_asus
@@ -369,3 +416,5 @@ if __name__ == "__main__":
         plot_name="Incorrectly Routed Samples")
 
     multiple_path_optimizer.per_entropy_accuracy_analysis(sample_indices=np.arange(10000), entropy_percentile=0.15)
+
+    multiple_path_optimizer.find_optimal_temperatures()
