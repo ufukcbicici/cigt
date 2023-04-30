@@ -23,17 +23,18 @@ if __name__ == "__main__":
 
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db2
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
-    weight_decay = 5 * [0.0005]
+    weight_decay = 5 * [0.00075]
     weight_decay = sorted(weight_decay)
 
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 
     for param_tpl in param_grid:
         ResnetCigtConstants.classification_wd = param_tpl[0]
+        ResnetCigtConstants.information_gain_balance_coeff_list = [1.0, 5.0]
         ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-        ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRouting"
+        ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
         ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
             initial_value=ResnetCigtConstants.softmax_decay_initial,
@@ -45,15 +46,15 @@ if __name__ == "__main__":
 
         model = CigtIgHardRoutingX(
             run_id=run_id,
-            model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - Starting from random_cigtlogger2_29_epoch350.pth",
+            model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.00075 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - information_gain_balance_coeff_list:[1.0, 5.0]",
             num_classes=10)
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "random_cigtlogger2_29_epoch350.pth")
-        checkpoint = torch.load(checkpoint_pth, map_location="cpu")
-        model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+        # checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "random_cigtlogger2_29_epoch350.pth")
+        # checkpoint = torch.load(checkpoint_pth, map_location="cpu")
+        # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
         # print("Before Reset")
         # for layer_id, block_end_module in enumerate(model.blockEndLayers):
@@ -61,10 +62,10 @@ if __name__ == "__main__":
         #     for name, param in block_end_module.named_parameters():
         #         print("Param name:{0} Weight:{1}".format(name, np.linalg.norm(param.detach().numpy())))
 
-        for block_end_module in model.blockEndLayers:
-            block_end_module.fc1.reset_parameters()
-            block_end_module.fc2.reset_parameters()
-            block_end_module.igBatchNorm.reset_parameters()
+        # for block_end_module in model.blockEndLayers:
+        #     block_end_module.fc1.reset_parameters()
+        #     block_end_module.fc2.reset_parameters()
+        #     block_end_module.igBatchNorm.reset_parameters()
 
         # print("After Reset")
         # for layer_id, block_end_module in enumerate(model.blockEndLayers):

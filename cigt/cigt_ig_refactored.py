@@ -224,6 +224,9 @@ class CigtIgHardRoutingX(nn.Module):
         explanation = self.add_explanation(name_of_param="hardRoutingAlgorithmKind",
                                            value=self.hardRoutingAlgorithmKind,
                                            explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="warmupRoutingAlgorithmKind",
+                                           value=self.warmupRoutingAlgorithmKind,
+                                           explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="lossCalculationKind", value=self.lossCalculationKind,
                                            explanation=explanation, kv_rows=kv_rows)
         # Explanation for block configurations
