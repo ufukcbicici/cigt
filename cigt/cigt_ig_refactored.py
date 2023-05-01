@@ -36,12 +36,15 @@ class CigtIgHardRoutingX(nn.Module):
         self.classCount = 10
         self.useDataParallelism = ResnetCigtConstants.data_parallelism
         self.hardRoutingAlgorithmTypes = {"InformationGainRouting",
+                                          "InformationGainRoutingWithRandomization",
                                           "RandomRouting",
                                           "RandomRoutingButInformationGainOptimizationEnabled",
                                           "EnforcedRouting"}
         self.hardRoutingAlgorithmKind = ResnetCigtConstants.hard_routing_algorithm_kind
+        self.afterWarmupRoutingAlgorithmKind = ResnetCigtConstants.after_warmup_routing_algorithm_kind
         self.warmupRoutingAlgorithmKind = ResnetCigtConstants.warmup_routing_algorithm_kind
         self.enforcedRoutingMatrices = []
+        self.routingRandomizationRatio = ResnetCigtConstants.routing_randomization_ratio
         self.lossCalculationTypes = {"SingleLogitSingleLoss",
                                      "MultipleLogitsMultipleLosses",
                                      "MultipleLogitsMultipleLossesAveraged"}
@@ -223,6 +226,9 @@ class CigtIgHardRoutingX(nn.Module):
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="hardRoutingAlgorithmKind",
                                            value=self.hardRoutingAlgorithmKind,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="afterWarmupRoutingAlgorithmKind",
+                                           value=self.afterWarmupRoutingAlgorithmKind,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="warmupRoutingAlgorithmKind",
                                            value=self.warmupRoutingAlgorithmKind,
@@ -430,6 +436,27 @@ class CigtIgHardRoutingX(nn.Module):
             p_n_given_x_hard = torch.zeros_like(p_n_given_x_soft)
             arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
             p_n_given_x_hard[torch.arange(p_n_given_x_hard.shape[0]), arg_max_entries] = 1.0
+        elif self.hardRoutingAlgorithmKind == "InformationGainRoutingWithRandomization":
+            ig_routing_matrix_hard = torch.zeros_like(p_n_given_x_soft)
+            arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
+            ig_routing_matrix_hard[torch.arange(ig_routing_matrix_hard.shape[0]), arg_max_entries] = 1.0
+            # Pick random entries with given probability
+            random_routing_matrix = torch.rand(size=p_n_given_x_soft.shape)
+            arg_max_entries = torch.argmax(random_routing_matrix, dim=1)
+            random_routing_matrix_hard = torch.zeros_like(p_n_given_x_soft)
+            random_routing_matrix_hard[torch.arange(random_routing_matrix_hard.shape[0]), arg_max_entries] = 1.0
+            # Random entries
+            random_entries = torch.from_numpy(
+                np.random.choice(np.arange(ig_routing_matrix_hard.shape[0]),
+                                 replace=True,
+                                 size=int(ig_routing_matrix_hard.shape[0] * self.routingRandomizationRatio)).astype(
+                    np.int64)).to(self.device)
+            selection_vec = torch.zeros(size=(ig_routing_matrix_hard.shape[0],), dtype=torch.bool,
+                                        device=self.device)
+            selection_vec[random_entries] = True
+            p_n_given_x_hard = torch.where(torch.unsqueeze(selection_vec, dim=1),
+                                           random_routing_matrix_hard,
+                                           ig_routing_matrix_hard)
         elif self.hardRoutingAlgorithmKind == "RandomRouting" or \
                 self.hardRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled":
             random_routing_matrix = torch.rand(size=p_n_given_x_soft.shape)
@@ -708,7 +735,10 @@ class CigtIgHardRoutingX(nn.Module):
                 self.isInWarmUp = False
                 if self.warmupRoutingAlgorithmKind == "RandomRouting":
                     self.temperatureDecayStartIteration = self.numOfTrainingIterations
-                self.hardRoutingAlgorithmKind = "InformationGainRouting"
+                assert self.afterWarmupRoutingAlgorithmKind in {
+                    "InformationGainRouting",
+                    "InformationGainRoutingWithRandomization"}
+                self.hardRoutingAlgorithmKind = self.afterWarmupRoutingAlgorithmKind
             else:
                 print("Still in warm up!")
                 self.isInWarmUp = True
@@ -718,22 +748,24 @@ class CigtIgHardRoutingX(nn.Module):
         print("Epoch:{0} Routing Kind:{1}".format(epoch, self.hardRoutingAlgorithmKind))
 
     def adjust_decision_loss_coeff(self):
-        if self.hardRoutingAlgorithmKind == "InformationGainRouting" or \
-                self.hardRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled":
+        if self.hardRoutingAlgorithmKind in {"InformationGainRouting",
+                                             "InformationGainRoutingWithRandomization",
+                                             "RandomRoutingButInformationGainOptimizationEnabled"}:
             decision_loss_coeff = self.decisionLossCoeff
-        elif self.hardRoutingAlgorithmKind == "RandomRouting" or self.hardRoutingAlgorithmKind == "EnforcedRouting":
+        elif self.hardRoutingAlgorithmKind in {"RandomRouting", "EnforcedRouting"}:
             decision_loss_coeff = 0.0
         else:
             raise ValueError("Unknown Hard routing algorithm:{0}".format(self.hardRoutingAlgorithmKind))
         return decision_loss_coeff
 
     def adjust_temperature(self):
-        if self.hardRoutingAlgorithmKind == "InformationGainRouting" or \
-                self.hardRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled":
+        if self.hardRoutingAlgorithmKind in {"InformationGainRouting",
+                                             "InformationGainRoutingWithRandomization",
+                                             "RandomRoutingButInformationGainOptimizationEnabled"}:
             decay_t = self.numOfTrainingIterations - self.temperatureDecayStartIteration
             self.temperatureController.update(iteration=decay_t)
             temperature = self.temperatureController.get_value()
-        elif self.hardRoutingAlgorithmKind == "RandomRouting" or self.hardRoutingAlgorithmKind == "EnforcedRouting":
+        elif self.hardRoutingAlgorithmKind in {"RandomRouting", "EnforcedRouting"}:
             temperature = 1.0
         else:
             raise ValueError("Unknown Hard routing algorithm:{0}".format(self.hardRoutingAlgorithmKind))
