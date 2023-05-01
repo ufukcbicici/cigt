@@ -1095,6 +1095,7 @@ class CigtIgHardRoutingX(nn.Module):
                             "{0}".format(losses_t_layer_wise[lid].avg)))
 
         DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+        self.hardRoutingAlgorithmKind = self.afterWarmupRoutingAlgorithmKind
         if not return_network_outputs:
             return accuracy_avg.avg
         else:

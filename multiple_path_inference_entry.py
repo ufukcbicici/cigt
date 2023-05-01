@@ -385,10 +385,14 @@ if __name__ == "__main__":
         batch_size=1024, shuffle=False, **kwargs)
 
     # Paths for results
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+    #                          "randig_cigtlogger2_23_epoch1390.pth")
+    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+    #                          "randig_cigtlogger2_23_epoch1390_data")
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                             "randig_cigtlogger2_23_epoch1390.pth")
+                             "dblogger_95_epoch1610.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                             "randig_cigtlogger2_23_epoch1390_data")
+                             "dblogger_95_epoch1610_data")
     multiple_path_optimizer = MultiplePathOptimizer(checkpoint_path=chck_path, data_root_path=data_path,
                                                     dataset=test_loader)
     # Calculate information gain routing results
