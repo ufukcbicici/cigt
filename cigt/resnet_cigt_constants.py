@@ -71,6 +71,7 @@ class ResnetCigtConstants:
     model_file_root_path_asus = "C://Users//asus//Desktop//ConvAig//convnet-aig//checkpoints"
     model_file_root_path_tetam = "/cta/users/ucbicici/cigt"
     model_file_root_path_tetam_tuna = "/cta/users/hmeral/cigt"
+    model_file_root_path_jr = "C://Users//ufuk.bicici//PycharmProjects//cigt"
 
     # Thick Baseline
     # resnet_config_list = [
