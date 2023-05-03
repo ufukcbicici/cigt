@@ -390,9 +390,9 @@ if __name__ == "__main__":
     # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
     #                          "randig_cigtlogger2_23_epoch1390_data")
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                             "dblogger_95_epoch1610.pth")
+                             "ig_with_random_dblogger_103_epoch1365.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                             "dblogger_95_epoch1610_data")
+                             "ig_with_random_dblogger_103_epoch1365_data")
     multiple_path_optimizer = MultiplePathOptimizer(checkpoint_path=chck_path, data_root_path=data_path,
                                                     dataset=test_loader)
     # Calculate information gain routing results
@@ -410,7 +410,7 @@ if __name__ == "__main__":
     # Determine ideal route assignments for every label (a basic heuristic)
     multiple_path_optimizer.determine_ideal_routes_for_labels()
     # Determine the correctness of correcty and wrongly routed samples' accuracies
-    multiple_path_optimizer.measure_correctness_of_ideally_and_wrongly_routed_samples()
+    multiple_path_optimizer.measure_correctness_of_ideally_and_wrongly_routed_samples(random_correction_ratio=0.1)
 
     multiple_path_optimizer.measure_routing_entropies_of_samples(
         sample_indices=multiple_path_optimizer.correctlyRoutedSampleIndices, do_plot=True,
