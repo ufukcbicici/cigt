@@ -359,7 +359,10 @@ class MultiplePathOptimizer(object):
         Utilities.pickle_save_to_file(path=optimal_temperatures_path, file_content=self.optimalTemperatures)
 
     def calculate_accuracy_with_given_thresholds(self, thresholds_dict):
-        pass
+        for layer_id, block_count in enumerate(self.model.pathCounts):
+            print("X")
+
+
 
 if __name__ == "__main__":
     DbLogger.log_db_path = DbLogger.home_asus

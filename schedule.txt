@@ -147,7 +147,7 @@ SSL documents:
 
 02.05.2023
 
-JR Codebase Refactoring:3
+JR Codebase Refactoring:4
 JR Adding Layer Support:
 JR Backprojection and Rendering with high resolution tests:
 Phd: Optimal Routing Simulations:
@@ -157,3 +157,17 @@ Phd Tests:
 VAEs for SSL:
 SSL documents:
 Org - Knowledge Distillation: 3
+
+
+03.05.2023
+
+JR Codebase Refactoring:
+JR Adding Layer Support:
+JR Backprojection and Rendering with high resolution tests:
+Phd: Optimal Routing Simulations:
+Phd: Multiple Path Inference:
+JR Segformer:
+Phd Tests:
+VAEs for SSL:
+SSL documents:
+Org - Knowledge Distillation:
