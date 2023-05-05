@@ -358,8 +358,21 @@ class MultiplePathOptimizer(object):
 
         Utilities.pickle_save_to_file(path=optimal_temperatures_path, file_content=self.optimalTemperatures)
 
-    def calculate_accuracy_with_given_thresholds(self, thresholds_dict):
+    def calculate_accuracy_with_given_thresholds(self, thresholds_dict, sample_indices):
+        # Each block has in every CIGT layer has an input array and output array
+        # Inputs are accumulated in the input arrays and outputs in the outputs array
+
+        route_selections = []
         for layer_id, block_count in enumerate(self.model.pathCounts):
+            for block_id in range(block_count):
+                # Get raw routing activations for the block
+                indices = [sel for sel in route_selections]
+                indices.append(sample_indices)
+                routing_activations = self.routingActivationsListUnified[layer_id][sample_indices]
+                self.calculate_entropy_from_activations(activations=routing_activations,
+                                                        )
+                print("X")
+
             print("X")
 
 
@@ -414,7 +427,7 @@ if __name__ == "__main__":
     print("Accuracy of the original IG routing:{0}".format(accuracy))
     # Determine ideal route assignments for every label (a basic heuristic)
     multiple_path_optimizer.determine_ideal_routes_for_labels()
-    # Determine the correctness of correcty and wrongly routed samples' accuracies
+    # Determine the correctness of correctly and wrongly routed samples' accuracies
     multiple_path_optimizer.measure_correctness_of_ideally_and_wrongly_routed_samples(random_correction_ratio=0.1)
 
     multiple_path_optimizer.measure_routing_entropies_of_samples(
@@ -427,3 +440,7 @@ if __name__ == "__main__":
     multiple_path_optimizer.per_entropy_accuracy_analysis(sample_indices=np.arange(10000), entropy_percentile=0.15)
 
     multiple_path_optimizer.find_optimal_temperatures()
+
+    multiple_path_optimizer.calculate_accuracy_with_given_thresholds(
+        thresholds_dict={(): 0.5, (0,): 1.1, (1,): 1.2},
+        sample_indices=multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset)

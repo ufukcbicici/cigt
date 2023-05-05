@@ -754,7 +754,7 @@ ORDER BY TestAccuracy DESC
 34|0.81509999691844
 35|0.882700001788139
 
--- THIS EXPERIMENT IS REPEATED FOR x2 TIMES!!!
+-- THIS EXPERIMENT IS REPEATED FOR x3 TIMES!!!
 --Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled"
 --weight_decay = 5 * [0.0005]
 --information_gain_balance_coeff_list = [5.0, 5.0]
@@ -861,10 +861,50 @@ ORDER BY TestAccuracy DESC
 --SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (101) GROUP BY RunID;
 --SELECT * FROM run_kv_store WHERE RunID = 103 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT AVG(Value),MIN(Value),MAX(Value),COUNT(*) AS CNT FROM run_kv_store WHERE RunID = 102 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND 24549 <= Iteration AND Iteration <= 34594;
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (100,101,102,103,104,105) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (100,101,102,103,104,105,106,107) GROUP BY RunID;
 100|0.832600000092387
 101|0.821799998956919
 102|0.921600004523992
 103|0.93099999833703
 104|0.923000003921986
 105|0.926800002121925
+106|0.930199999338388
+107|0.928300000739098
+
+
+--Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
+--weight_decay = 5 * [0.0006]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/5/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
+
+
+
+--Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0007 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
+--weight_decay = 5 * [0.0007]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/5/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger2.db"
+
+
+
+--Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0008 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
+--weight_decay = 5 * [0.0008]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/5/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger3.db"
