@@ -1,12 +1,15 @@
 import os
-from collections import Counter
+from collections import Counter, deque
 
 import torch
 import numpy as np
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
+
+from auxillary.bayesian_optimizer import BayesianOptimizer
 from auxillary.db_logger import DbLogger
 from torchvision import transforms
+from time import time
 import torchvision.datasets as datasets
 
 from auxillary.rump_dataset import RumpDataset
@@ -16,8 +19,9 @@ from auxillary.utilities import Utilities
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 
 
-class MultiplePathOptimizer(object):
-    def __init__(self, checkpoint_path, data_root_path, dataset):
+class MultiplePathOptimizer(BayesianOptimizer):
+    def __init__(self, checkpoint_path, data_root_path, dataset, xi, init_points, n_iter):
+        super().__init__(xi, init_points, n_iter)
         self.checkpointPath = checkpoint_path
         self.dataRootPath = data_root_path
         self.dataset = dataset
@@ -47,8 +51,10 @@ class MultiplePathOptimizer(object):
         self.correctlyRoutedSampleIndices = None
         self.incorrectlyRoutedSampleIndices = None
         self.maxEntropies = []
+        self.entropyBoundsDict = {}
         self.optimalTemperatures = {}
         self.create_route_combinations()
+        self.create_entropy_bounds()
 
     def create_pure_ig_results(self):
         information_gain_routing_outputs_path = os.path.join(self.dataRootPath, "ig_routing_results.sav")
@@ -63,8 +69,6 @@ class MultiplePathOptimizer(object):
         # Calculate ig routes
         self.igRouteSelections = []
         for block_id, routing_activations in enumerate(self.igResultsDict["list_of_routing_activations"]):
-            max_entropy = np.asscalar(-np.log(1.0 / routing_activations.shape[1]))
-            self.maxEntropies.append(max_entropy)
             path_count = routing_activations.shape[1]
             selected_paths = np.argmax(routing_activations, axis=1)
             self.igRouteSelections.append(selected_paths)
@@ -74,6 +78,17 @@ class MultiplePathOptimizer(object):
                 label_counter = Counter(path_labels)
                 self.labelCounters[-1].append(label_counter)
         self.igRouteSelections = np.stack(self.igRouteSelections, axis=1)
+
+    def create_entropy_bounds(self):
+        for layer_id, block_count in enumerate(self.model.pathCounts):
+            if layer_id == len(self.model.pathCounts) - 1:
+                break
+            max_entropy = np.asscalar(-np.log(1.0 / self.model.pathCounts[layer_id + 1]))
+            self.maxEntropies.append(max_entropy)
+            # Route combinations for that layer
+            routes_for_this_layer = set([tpl[:layer_id] for tpl in self.routeCombinations])
+            for route in routes_for_this_layer:
+                self.entropyBoundsDict[route] = (0.0, self.maxEntropies[layer_id])
 
     def create_evenly_divided_datasets(self):
         dataset_path = os.path.join(self.dataRootPath, "multiple_inference_data.sav")
@@ -86,8 +101,10 @@ class MultiplePathOptimizer(object):
             dataset_0 = d_["dataset_0"]
             dataset_1 = d_["dataset_1"]
 
-        self.dataset0 = torch.utils.data.DataLoader(dataset_0, batch_size=1024, shuffle=False, **kwargs)
-        self.dataset1 = torch.utils.data.DataLoader(dataset_1, batch_size=1024, shuffle=False, **kwargs)
+        self.dataset0 = torch.utils.data.DataLoader(dataset_0, batch_size=1024, shuffle=False,
+                                                    **{'num_workers': 2, 'pin_memory': True})
+        self.dataset1 = torch.utils.data.DataLoader(dataset_1, batch_size=1024, shuffle=False,
+                                                    **{'num_workers': 2, 'pin_memory': True})
 
     def create_route_combinations(self):
         list_of_path_choices = []
@@ -358,23 +375,107 @@ class MultiplePathOptimizer(object):
 
         Utilities.pickle_save_to_file(path=optimal_temperatures_path, file_content=self.optimalTemperatures)
 
-    def calculate_accuracy_with_given_thresholds(self, thresholds_dict, sample_indices):
+    def calculate_accuracy_with_given_thresholds_slow(self, thresholds_dict, sample_indices):
         # Each block has in every CIGT layer has an input array and output array
         # Inputs are accumulated in the input arrays and outputs in the outputs array
 
-        route_selections = []
+        # The first layer always contains a single block and gets all the samples.
+        block_list = deque()
+        gt_labels = []
+        prediction_labels = []
+        truth_vector = []
+        for sample_idx in sample_indices:
+            gt_label = self.allLabels[sample_idx]
+            gt_labels.append(gt_label)
+            curr_layer_blocks = [(0,)]
+            next_layer_blocks = []
+            for layer_id, block_count in enumerate(self.model.pathCounts):
+                # Routing layers
+                if layer_id < len(self.model.pathCounts) - 1:
+                    layer_routing_activations = self.routingActivationsListUnified[layer_id]
+                    for curr_layer_block in curr_layer_blocks:
+                        routing_idx = (*curr_layer_block[1:], sample_idx)
+                        sample_activations = layer_routing_activations[routing_idx]
+                        temperature = self.optimalTemperatures[curr_layer_block[1:]]
+                        sample_routing_entropy = self.calculate_entropy_from_activations(
+                            activations=np.expand_dims(sample_activations, axis=0), temperature=temperature)[0]
+                        entropy_threshold = thresholds_dict[curr_layer_block[1:]]
+                        next_layer_ig_selection = np.argmax(sample_activations).item()
+                        if sample_routing_entropy < entropy_threshold:
+                            next_block_idx = (*curr_layer_block, next_layer_ig_selection)
+                            next_layer_blocks.append(next_block_idx)
+                        else:
+                            for i_ in range(self.model.pathCounts[layer_id + 1]):
+                                next_block_idx = (*curr_layer_block, i_)
+                                next_layer_blocks.append(next_block_idx)
+                    curr_layer_blocks = list(next_layer_blocks)
+                    next_layer_blocks = []
+                # Classification layer
+                else:
+                    logits_result = []
+                    for curr_layer_block in curr_layer_blocks:
+                        routing_idx = (*curr_layer_block[1:], sample_idx)
+                        block_logits = self.logitsListUnified[routing_idx]
+                        logits_result.append(block_logits)
+                    logits_result = np.stack(logits_result, axis=0)
+                    probability_predictons = torch.softmax(torch.from_numpy(logits_result), dim=1).numpy()
+                    final_prediction = np.mean(probability_predictons, axis=0)
+                    prediction_label = np.argmax(final_prediction)
+                    prediction_labels.append(prediction_label)
+                    truth_vector.append(prediction_label == gt_label)
+
+        acc_ = np.mean(np.array(truth_vector))
+        print("Accuracy:{0}".format(acc_))
+        return acc_
+
+    def calculate_accuracy_with_given_thresholds_fast(self, thresholds_dict, sample_indices):
+        route_indices_dict = {(): sample_indices}
+        coeffs_array = np.zeros(shape=self.logitsListUnified.shape[:-1], dtype=np.float32)
         for layer_id, block_count in enumerate(self.model.pathCounts):
-            for block_id in range(block_count):
-                # Get raw routing activations for the block
-                indices = [sel for sel in route_selections]
-                indices.append(sample_indices)
-                routing_activations = self.routingActivationsListUnified[layer_id][sample_indices]
-                self.calculate_entropy_from_activations(activations=routing_activations,
-                                                        )
-                print("X")
+            # Route combinations for that layer
+            routes_for_this_layer = set([tpl[:layer_id] for tpl in self.routeCombinations])
+            if layer_id < len(self.model.pathCounts) - 1:
+                for route in routes_for_this_layer:
+                    activations_for_route = self.routingActivationsListUnified[layer_id][route]
+                    indices_for_block = route_indices_dict[route]
+                    sample_activations = activations_for_route[indices_for_block]
+                    temperature = self.optimalTemperatures[route]
+                    threshold = thresholds_dict[route]
+                    entropies = self.calculate_entropy_from_activations(activations=sample_activations,
+                                                                        temperature=temperature)
+                    selection_vec = entropies > threshold
+                    ig_routes_vec = np.argmax(sample_activations, axis=1)
+                    ig_selections_matrix = np.zeros(shape=sample_activations.shape, dtype=np.int32)
+                    ig_selections_matrix[np.arange(ig_selections_matrix.shape[0]), ig_routes_vec] = 1
+                    all_paths_matrix = np.ones_like(ig_selections_matrix)
+                    final_selections = np.where(np.expand_dims(selection_vec, axis=1),
+                                                all_paths_matrix, ig_selections_matrix)
+                    for next_block_id in range(final_selections.shape[1]):
+                        selections_for_next_block = (final_selections[:, next_block_id]).astype(np.bool)
+                        indices_for_next_block = indices_for_block[selections_for_next_block]
+                        next_block_route = (*route, next_block_id)
+                        route_indices_dict[next_block_route] = indices_for_next_block
+            else:
+                for route in routes_for_this_layer:
+                    leaf_block_indices = route_indices_dict[route]
+                    coeffs_array[route][leaf_block_indices] = 1.0
+                coeffs_sum = np.sum(coeffs_array, axis=tuple([j_ for j_ in range(len(coeffs_array.shape) - 1)]))
+                probabilities = torch.softmax(torch.from_numpy(self.logitsListUnified), dim=-1).numpy()
+                weighted_probabilities = np.expand_dims(coeffs_array, axis=-1) * probabilities
+                total_probabilities = np.sum(weighted_probabilities,
+                                             axis=tuple([j_ for j_ in range(len(coeffs_array.shape) - 1)]))
+                sample_probabilities = total_probabilities[sample_indices]
+                leaf_counts = coeffs_sum[sample_indices]
+                assert np.min(leaf_counts) >= 1.0
+                mean_probabilities = sample_probabilities * np.expand_dims(np.reciprocal(leaf_counts), axis=-1)
+                assert np.allclose(np.sum(mean_probabilities, axis=1), 1.0)
+                truth_vector = np.argmax(mean_probabilities, axis=1) == self.allLabels[sample_indices]
+                acc_ = np.mean(truth_vector)
+                return acc_
 
-            print("X")
-
+    def cost_function(self, **kwargs):
+        thresholds_dict = kwargs
+        print("X")
 
 
 if __name__ == "__main__":
@@ -391,16 +492,15 @@ if __name__ == "__main__":
         normalize
     ])
     # Cifar 10 Dataset
-    kwargs = {'num_workers': 2, 'pin_memory': True}
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=True, download=True, transform=transform_train),
-        batch_size=1024, shuffle=False, **kwargs)
+        batch_size=1024, shuffle=False, **{'num_workers': 2, 'pin_memory': True})
     train_loader_test_time_augmentation = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=True, download=True, transform=transform_test),
-        batch_size=1024, shuffle=False, **kwargs)
+        batch_size=1024, shuffle=False, **{'num_workers': 2, 'pin_memory': True})
     test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=False, transform=transform_test),
-        batch_size=1024, shuffle=False, **kwargs)
+        batch_size=1024, shuffle=False, **{'num_workers': 2, 'pin_memory': True})
 
     # Paths for results
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
@@ -412,7 +512,10 @@ if __name__ == "__main__":
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
                              "ig_with_random_dblogger_103_epoch1365_data")
     multiple_path_optimizer = MultiplePathOptimizer(checkpoint_path=chck_path, data_root_path=data_path,
-                                                    dataset=test_loader)
+                                                    dataset=test_loader,
+                                                    xi=0.01,
+                                                    init_points=500,
+                                                    n_iter=2000)
     # Calculate information gain routing results
     multiple_path_optimizer.create_pure_ig_results()
     # Load evenly divided datasets
@@ -441,6 +544,47 @@ if __name__ == "__main__":
 
     multiple_path_optimizer.find_optimal_temperatures()
 
-    multiple_path_optimizer.calculate_accuracy_with_given_thresholds(
-        thresholds_dict={(): 0.5, (0,): 1.1, (1,): 1.2},
+    # multiple_path_optimizer.calculate_accuracy_with_given_thresholds(
+    #     thresholds_dict={(): 0.5, (0,): 1.1, (1,): 1.2},
+    #     sample_indices=multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset)
+
+    # Divided dataset accuracies
+    dataset0_accuracy = multiple_path_optimizer.measure_accuracy_with_routing_decisions(
+        index_array=multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset,
+        routes=multiple_path_optimizer.igRouteSelections[
+            multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset])
+    dataset1_accuracy = multiple_path_optimizer.measure_accuracy_with_routing_decisions(
+        index_array=multiple_path_optimizer.dataset1.dataset.indicesInOriginalDataset,
+        routes=multiple_path_optimizer.igRouteSelections[
+            multiple_path_optimizer.dataset1.dataset.indicesInOriginalDataset])
+    print("dataset0_accuracy={0}".format(dataset0_accuracy))
+    print("dataset1_accuracy={0}".format(dataset1_accuracy))
+
+    ig_accuracy = multiple_path_optimizer.calculate_accuracy_with_given_thresholds_slow(
+        thresholds_dict={(): np.inf, (0,): np.inf, (1,): np.inf},
         sample_indices=multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset)
+
+
+
+
+    # # Test
+    # for i in range(1000):
+    #     thresholds_dict = {(): np.random.uniform() * multiple_path_optimizer.maxEntropies[0],
+    #                        (0,): np.random.uniform() * multiple_path_optimizer.maxEntropies[1],
+    #                        (1,): np.random.uniform() * multiple_path_optimizer.maxEntropies[1]}
+    #     t0 = time()
+    #     acc_slow = multiple_path_optimizer.calculate_accuracy_with_given_thresholds_slow(
+    #         thresholds_dict=thresholds_dict,
+    #         sample_indices=multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset)
+    #     t1 = time()
+    #     acc_fast = multiple_path_optimizer.calculate_accuracy_with_given_thresholds_fast(
+    #         thresholds_dict=thresholds_dict,
+    #         sample_indices=multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset)
+    #     t2 = time()
+    #
+    #     assert np.allclose(acc_slow, acc_fast)
+    #     print("Time Slow:{0}".format(t1 - t0))
+    #     print("Time Fast:{0}".format(t2 - t1))
+    #
+    #
+    # print("X")
