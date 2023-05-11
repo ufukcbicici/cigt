@@ -80,6 +80,7 @@ class MultiplePathOptimizer(BayesianOptimizer):
         self.igRouteSelections = np.stack(self.igRouteSelections, axis=1)
 
     def create_entropy_bounds(self):
+        self.optimization_bounds_continuous = {}
         for layer_id, block_count in enumerate(self.model.pathCounts):
             if layer_id == len(self.model.pathCounts) - 1:
                 break
@@ -88,7 +89,7 @@ class MultiplePathOptimizer(BayesianOptimizer):
             # Route combinations for that layer
             routes_for_this_layer = set([tpl[:layer_id] for tpl in self.routeCombinations])
             for route in routes_for_this_layer:
-                self.entropyBoundsDict[route] = (0.0, self.maxEntropies[layer_id])
+                self.optimization_bounds_continuous[route] = (0.0, self.maxEntropies[layer_id])
 
     def create_evenly_divided_datasets(self):
         dataset_path = os.path.join(self.dataRootPath, "multiple_inference_data.sav")
@@ -475,7 +476,16 @@ class MultiplePathOptimizer(BayesianOptimizer):
 
     def cost_function(self, **kwargs):
         thresholds_dict = kwargs
-        print("X")
+        score_0 = multiple_path_optimizer.calculate_accuracy_with_given_thresholds_fast(
+            thresholds_dict=thresholds_dict,
+            sample_indices=multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset)
+
+        score_1 = multiple_path_optimizer.calculate_accuracy_with_given_thresholds_fast(
+            thresholds_dict=thresholds_dict,
+            sample_indices=multiple_path_optimizer.dataset1.dataset.indicesInOriginalDataset)
+        print("score_0:{0}".format(score_0))
+        print("score_1:{0}".format(score_1))
+        return score_0
 
 
 if __name__ == "__main__":
@@ -564,8 +574,8 @@ if __name__ == "__main__":
         thresholds_dict={(): np.inf, (0,): np.inf, (1,): np.inf},
         sample_indices=multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset)
 
-
-
+    multiple_path_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
+                                log_file_name="multiple_paths")
 
     # # Test
     # for i in range(1000):

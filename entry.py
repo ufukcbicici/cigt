@@ -23,16 +23,16 @@ if __name__ == "__main__":
 
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.hpc_db2
+    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db2
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
-    weight_decay = 5 * [0.0007]
+    weight_decay = 5 * [0.0006]
     weight_decay = sorted(weight_decay)
 
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 
     for param_tpl in param_grid:
         ResnetCigtConstants.classification_wd = param_tpl[0]
-        ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+        ResnetCigtConstants.information_gain_balance_coeff_list = [1.0, 1.0]
         ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
         ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
@@ -47,9 +47,9 @@ if __name__ == "__main__":
 
         model = CigtIgHardRoutingX(
             run_id=run_id,
-            model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0007 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="Cigt - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_hpc
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
