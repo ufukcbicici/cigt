@@ -852,7 +852,7 @@ ORDER BY TestAccuracy DESC
 38|0.925200002741814
 
 
-
+--X2
 --Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
 --weight_decay = 5 * [0.0005]
 --information_gain_balance_coeff_list = [5.0, 5.0]
@@ -951,6 +951,13 @@ ORDER BY TestAccuracy DESC
 --warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
 --Started at 4/9/2023
 --Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0001 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (113,114,115,116) GROUP BY RunID;
+113|0.915000001376867
+114|0.909400000798702
+115|0.91459999781847
+116|0.812799997395277
+
 
 
 --Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0002 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
@@ -963,6 +970,11 @@ ORDER BY TestAccuracy DESC
 --warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
 --Started at 4/9/2023
 --Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger3.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0002 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (79,80,81) GROUP BY RunID;
+79|0.923300001782179
+80|0.923099997574091
+81|0.92170000077486
 
 
 
@@ -977,9 +989,13 @@ ORDER BY TestAccuracy DESC
 --Started at 4/9/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (55,56) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (55,56,57,58,59) GROUP BY RunID;
 55|0.92689999614954
-56|0.734000003856421
+56|0.925500004029274
+57|0.929399994492531
+58|0.924499992024899
+59|0.930599988240004
+
 
 
 --Experiments: "Cigt - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.00075 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
@@ -993,9 +1009,12 @@ ORDER BY TestAccuracy DESC
 --Started at 4/9/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.00075 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (39,40) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (39,40,41,42,43) GROUP BY RunID;
 39|0.927199996709824
-40|0.75190000231266
+40|0.926199991643429
+41|0.929999995148182
+42|0.925700000357628
+43|0.928499998348951
 
 
 --Experiments: "Cigt - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.0004 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
@@ -1009,9 +1028,13 @@ ORDER BY TestAccuracy DESC
 --Started at 4/9/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.0004 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (41,42) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (41,42,43,44,45) GROUP BY RunID;
 41|0.928399997979403
-42|0.561000002008677
+42|0.928700006991625
+43|0.925799999839067
+44|0.929599998939037
+45|0.926800000292063
+
 
 
 --Experiments: "Cigt - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
@@ -1025,5 +1048,44 @@ ORDER BY TestAccuracy DESC
 --Started at 4/9/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (38) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (38,39,40,41,42) GROUP BY RunID;
 38|0.93239999216795
+39|0.927300001370907
+40|0.928899997699261
+41|0.928700003737211
+42|0.928299992477894
+
+
+
+--Experiments: "Cigt Ideal Routing - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005"
+--ResnetCigtConstants.classification_wd = param_tpl[0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRouting"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size)
+--Started at 4/14/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
+
+
+--Experiments: "Cigt Ideal Routing - [1,2,4] - SingleLogitSingleLoss - Wd:0.0005"
+--ResnetCigtConstants.classification_wd = param_tpl[0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "SingleLogitSingleLoss"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRouting"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size)
+--Started at 4/14/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger2.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt Ideal Routing - [1,2,4] - SingleLogitSingleLoss - Wd:0.0005%";
+
+
+--Experiments: "Cigt - [1,2,4] - SingleLogitSingleLoss - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.classification_wd = param_tpl[0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "SingleLogitSingleLoss"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/14/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"

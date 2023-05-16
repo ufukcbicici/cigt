@@ -17,6 +17,7 @@ from auxillary.similar_dataset_division_algorithm import SimilarDatasetDivisionA
 from auxillary.softmax_temperature_optimizer import SoftmaxTemperatureOptimizer
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
+from cigt.resnet_cigt_constants import ResnetCigtConstants
 
 
 class MultiplePathOptimizer(BayesianOptimizer):
@@ -27,6 +28,7 @@ class MultiplePathOptimizer(BayesianOptimizer):
         self.dataset = dataset
         # Load the trained model
         self.runId = DbLogger.get_run_id()
+        ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         self.model = CigtIgHardRoutingX(
             run_id=self.runId,
             model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Multiple Path Inference",
@@ -89,7 +91,7 @@ class MultiplePathOptimizer(BayesianOptimizer):
             # Route combinations for that layer
             routes_for_this_layer = set([tpl[:layer_id] for tpl in self.routeCombinations])
             for route in routes_for_this_layer:
-                self.optimization_bounds_continuous[route] = (0.0, self.maxEntropies[layer_id])
+                self.optimization_bounds_continuous[str(route)[1:-1]] = (0.0, self.maxEntropies[layer_id])
 
     def create_evenly_divided_datasets(self):
         dataset_path = os.path.join(self.dataRootPath, "multiple_inference_data.sav")
@@ -475,7 +477,11 @@ class MultiplePathOptimizer(BayesianOptimizer):
                 return acc_
 
     def cost_function(self, **kwargs):
-        thresholds_dict = kwargs
+        thresholds_dict = {}
+        for kk in kwargs:
+            tpl = tuple([int(num) for num in kk.split(",")[:-1]])
+            thresholds_dict[tpl] = kwargs[kk]
+
         score_0 = multiple_path_optimizer.calculate_accuracy_with_given_thresholds_fast(
             thresholds_dict=thresholds_dict,
             sample_indices=multiple_path_optimizer.dataset0.dataset.indicesInOriginalDataset)
@@ -485,7 +491,7 @@ class MultiplePathOptimizer(BayesianOptimizer):
             sample_indices=multiple_path_optimizer.dataset1.dataset.indicesInOriginalDataset)
         print("score_0:{0}".format(score_0))
         print("score_1:{0}".format(score_1))
-        return score_0
+        return 0.5 * (score_0 + score_1)
 
 
 if __name__ == "__main__":
@@ -513,19 +519,19 @@ if __name__ == "__main__":
         batch_size=1024, shuffle=False, **{'num_workers': 2, 'pin_memory': True})
 
     # Paths for results
-    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-    #                          "randig_cigtlogger2_23_epoch1390.pth")
-    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-    #                          "randig_cigtlogger2_23_epoch1390_data")
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                             "ig_with_random_dblogger_103_epoch1365.pth")
+                             "checkpoints/randig_cigtlogger2_23_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                             "ig_with_random_dblogger_103_epoch1365_data")
+                             "randig_cigtlogger2_23_epoch1390_data")
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+    #                          "checkpoints/ig_with_random_dblogger_103_epoch1365.pth")
+    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+    #                          "ig_with_random_dblogger_103_epoch1365_data")
     multiple_path_optimizer = MultiplePathOptimizer(checkpoint_path=chck_path, data_root_path=data_path,
                                                     dataset=test_loader,
                                                     xi=0.01,
                                                     init_points=500,
-                                                    n_iter=2000)
+                                                    n_iter=1000)
     # Calculate information gain routing results
     multiple_path_optimizer.create_pure_ig_results()
     # Load evenly divided datasets
@@ -541,7 +547,7 @@ if __name__ == "__main__":
     # Determine ideal route assignments for every label (a basic heuristic)
     multiple_path_optimizer.determine_ideal_routes_for_labels()
     # Determine the correctness of correctly and wrongly routed samples' accuracies
-    multiple_path_optimizer.measure_correctness_of_ideally_and_wrongly_routed_samples(random_correction_ratio=0.1)
+    multiple_path_optimizer.measure_correctness_of_ideally_and_wrongly_routed_samples(random_correction_ratio=0.95)
 
     multiple_path_optimizer.measure_routing_entropies_of_samples(
         sample_indices=multiple_path_optimizer.correctlyRoutedSampleIndices, do_plot=True,

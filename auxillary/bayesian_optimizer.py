@@ -62,9 +62,9 @@ class BayesianOptimizer:
 
         optimizer.maximize(
             n_iter=n_iter_after_log_read,
-            init_points=init_points_after_log_read,
-            acq="ei",
-            xi=0.01)
+            init_points=init_points_after_log_read)
+            # acq="ei",
+            # xi=0.01)
 
     def cost_function(self, **kwargs):
         pass

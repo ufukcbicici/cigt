@@ -27,7 +27,7 @@ class ResnetCigtConstants:
     softmax_decay_period = 1
     softmax_decay_min_limit = 0.1
     softmax_decay_controllers = {}
-    information_gain_balance_coeff_list = [1.0, 1.0]
+    information_gain_balance_coeff_list = [5.0, 5.0]
     decision_drop_probability = 0.0
     classification_drop_probability = 0.0
     batch_norm_type = "StandardBatchNormalization"

@@ -894,7 +894,7 @@ class CigtIgHardRoutingX(nn.Module):
             batch_size=self.batchSize, shuffle=False, **kwargs)
 
         print("Type of optimizer:{0}".format(self.modelOptimizer))
-        # self.validate(loader=train_loader, data_kind="train", epoch=0)
+        self.validate(loader=train_loader, data_kind="train", epoch=0)
         # self.validate(loader=test_loader, data_kind="test", epoch=0)
 
         total_epoch_count = self.epochCount + self.warmUpPeriod
@@ -979,7 +979,7 @@ class CigtIgHardRoutingX(nn.Module):
         for _ in range(len(self.pathCounts) - 1):
             list_of_routing_probability_matrices.append([])
             list_of_routing_activations.append([])
-        for _ in range(self.pathCounts[-1]):
+        for _ in range(len(self.lossLayers)):
             list_of_logits_complete.append([])
 
         # Temperature of Gumble Softmax

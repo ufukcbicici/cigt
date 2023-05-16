@@ -20,10 +20,10 @@ import torch
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 
 if __name__ == "__main__":
-
+    print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db2
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db2
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0006]
     weight_decay = sorted(weight_decay)
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     for param_tpl in param_grid:
         ResnetCigtConstants.classification_wd = param_tpl[0]
         ResnetCigtConstants.information_gain_balance_coeff_list = [1.0, 1.0]
-        ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        ResnetCigtConstants.loss_calculation_kind = "SingleLogitSingleLoss"
         ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
         ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
         ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
@@ -45,55 +45,23 @@ if __name__ == "__main__":
 
         run_id = DbLogger.get_run_id()
 
+        # model = CigtIdealRouting(
+        #     run_id=run_id,
+        #     model_definition="Cigt Ideal Routing - [1,2,4] - SingleLogitSingleLoss - Wd:0.0005",
+        #     num_classes=10,
+        #     class_to_route_mappings=
+        #     [[(5, 6, 4, 7, 3, 2), (1, 8, 9, 0)],
+        #      [(6, 0), (1, 8, 9), (5, 7, 3), (4, 2)]])
+        # model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_hpc
+        # explanation = model.get_explanation_string()
+        # DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
         model = CigtIgHardRoutingX(
             run_id=run_id,
-            model_definition="Cigt - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="Cigt - [1,2,2] - SingleLogitSingleLoss - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        # checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "random_cigtlogger2_29_epoch350.pth")
-        # checkpoint = torch.load(checkpoint_pth, map_location="cpu")
-        # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
-
-        # print("Before Reset")
-        # for layer_id, block_end_module in enumerate(model.blockEndLayers):
-        #     print("Block {0}".format(layer_id))
-        #     for name, param in block_end_module.named_parameters():
-        #         print("Param name:{0} Weight:{1}".format(name, np.linalg.norm(param.detach().numpy())))
-
-        # for block_end_module in model.blockEndLayers:
-        #     block_end_module.fc1.reset_parameters()
-        #     block_end_module.fc2.reset_parameters()
-        #     block_end_module.igBatchNorm.reset_parameters()
-
-        # print("After Reset")
-        # for layer_id, block_end_module in enumerate(model.blockEndLayers):
-        #     print("Block {0}".format(layer_id))
-        #     for name, param in block_end_module.named_parameters():
-        #         print("Param name:{0} Weight:{1}".format(name, np.linalg.norm(param.detach().numpy())))
-
         model.fit()
-
-        print("XXXXXXXXXXXXXXXX")
-
-        # with tf.device("GPU"):
-        #     run_id = DbLogger.get_run_id()
-        #
-        #     print("Entering ResnetCigt", flush=True)
-        #     resnet_cigt = ResnetCigt(run_id=run_id, model_definition="Resnet-110 [2,4] Cigt Debug: What if info gain is always 0?")
-        #
-        #     explanation = resnet_cigt.get_explanation_string()
-        #     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-        #
-        #     # training_accuracy, training_info_gain_list = resnet_cigt.evaluate(
-        #     #     x=cifar10.testDataset, epoch_id=0, dataset_type="test")
-        #
-        #     print("Entering resnet_cigt.fit", flush=True)
-        #     resnet_cigt.fit(x=cifar10.trainDataset,
-        #                     validation_data=cifar10.testDataset,
-        #                     epochs=ResnetCigtConstants.epoch_count)
-
-    # ResnetCigt.create_default_config_json()
-    # print("X")

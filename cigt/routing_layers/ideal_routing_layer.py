@@ -3,13 +3,13 @@ import torch.nn as nn
 
 
 class IdealRoutingLayer(nn.Module):
-    def __init__(self, **kwargs):
+    def __init__(self, ideal_routes, class_count, path_count, device):
         super().__init__()
-        self.idealRoutes = kwargs["ideal_routes"]
-        self.classCount = kwargs["class_count"]
-        self.pathCount = kwargs["path_count"]
+        self.idealRoutes = ideal_routes
+        self.classCount = class_count
+        self.pathCount = path_count
         self.routeMatrix = torch.zeros(size=(self.classCount, self.pathCount), dtype=torch.float32,
-                                       device="cuda")
+                                       device=device)
         for p_id, route_tpl in enumerate(self.idealRoutes):
             for lbl in route_tpl:
                 self.routeMatrix[lbl, p_id] = 1.0
@@ -27,4 +27,4 @@ class IdealRoutingLayer(nn.Module):
         #             p_n_given_x2[lid, route_id] = 1.0
         # assert np.array_equal(p_n_given_x.numpy(), p_n_given_x2.numpy())
 
-        return p_n_given_x
+        return p_n_given_x, p_n_given_x
