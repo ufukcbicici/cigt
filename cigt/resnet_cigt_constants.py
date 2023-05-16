@@ -115,3 +115,8 @@ class ResnetCigtConstants:
         decay_coefficient=softmax_decay_coefficient,
         decay_period=softmax_decay_period,
         decay_min_limit=softmax_decay_min_limit)
+
+    # Knowledge Distillation Parameters
+    use_kd_for_routing = False
+    kd_teacher_temperature = 6.0
+    kd_loss_alpha = 0.5
