@@ -62,7 +62,7 @@ if __name__ == "__main__":
             [[(5, 6, 4, 7, 3, 2), (1, 8, 9, 0)],
              [(6, 0), (1, 8, 9), (5, 7, 3), (4, 2)]])
         teacher_chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                                         "checkpoints/dblogger2_78_epoch1315.pth")
+                                         "checkpoints/teacher_dblogger2_78_epoch1315.pth")
         teacher_checkpoint = torch.load(teacher_chck_path, map_location=torch.device('cpu'))
         teacher_model.load_state_dict(state_dict=teacher_checkpoint["model_state_dict"])
         # Cifar 10 Dataset
@@ -75,7 +75,7 @@ if __name__ == "__main__":
         ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         model = CigtIgWithKnowledgeDistillation(
             run_id=run_id,
-            model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.5",
             num_classes=10, teacher_model=teacher_model)
         model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
         explanation = model.get_explanation_string()
