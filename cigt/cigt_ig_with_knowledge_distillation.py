@@ -35,6 +35,43 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
         super().__init__(run_id, model_definition, num_classes)
         self.teacherModel = teacher_model
 
+    def calculate_kd_loss_and_accuracy(self, list_of_logits, teacher_logits, routing_matrices, target_var):
+        if self.lossCalculationKind == "SingleLogitSingleLoss":
+            classification_loss = self.crossEntropyLoss(list_of_logits[0], target_var)
+            batch_accuracy = self.measure_accuracy(list_of_logits[0].detach().cpu(), target_var.cpu())
+        elif self.lossCalculationKind in {"MultipleLogitsMultipleLosses", "MultipleLogitsMultipleLossesAveraged"}:
+            # Independently calculate loss for every block, by selecting the samples that are routed into these blocks.
+            classification_loss = 0.0
+            batch_accuracy = 0.0
+            for idx, logit in enumerate(list_of_logits):
+                sample_selection_vector = routing_matrices[-1][:, idx].to(torch.bool)
+                selected_logits_1d = torch.masked_select(list_of_logits[idx],
+                                                         torch.unsqueeze(sample_selection_vector, dim=1))
+                selected_labels = torch.masked_select(target_var, sample_selection_vector)
+                # Reshape back into 2d
+                new_shape = (selected_logits_1d.shape[0] // list_of_logits[idx].shape[1], list_of_logits[idx].shape[1])
+                # print("Block {0} Count:{1}".format(idx, new_shape[0]))
+                if selected_logits_1d.shape[0] == 0:
+                    continue
+                selected_logits = torch.reshape(selected_logits_1d, new_shape)
+                # The following are for testing the torch indexing logic
+                # non_zero_indices = np.nonzero(sample_selection_vector.cpu().numpy())[0]
+                # for i_, j_ in enumerate(non_zero_indices):
+                #     assert np.array_equal(selected_logits[i_].cpu().numpy(),
+                #                           list_of_logits[idx][j_].cpu().numpy())
+                #     assert selected_labels[i_] == target_var[j_]
+
+                block_classification_loss = self.crossEntropyLosses[idx](selected_logits, selected_labels)
+                classification_loss += block_classification_loss
+                block_accuracy = self.measure_accuracy(selected_logits.detach().cpu(), selected_labels.cpu())
+                batch_coefficient = (new_shape[0] / target_var.shape[0])
+                batch_accuracy += batch_coefficient * block_accuracy
+            if self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
+                classification_loss = classification_loss / len(list_of_logits)
+        else:
+            raise ValueError("Unknown loss calculation method:{0}".format(self.lossCalculationKind))
+        return classification_loss, batch_accuracy
+
     def train_single_epoch(self, epoch_id, train_loader):
         """Train for one epoch on the training set"""
         batch_time = AverageMeter()
@@ -82,8 +119,9 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
                 routing_matrices_hard, routing_matrices_soft, \
                 block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
 
-                classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
+                classification_loss, batch_accuracy = self.calculate_kd_loss_and_accuracy(
                     list_of_logits,
+                    teacher_list_of_logits,
                     routing_matrices_hard,
                     target_var)
                 information_gain_losses = self.calculate_information_gain_losses(

@@ -86,7 +86,7 @@ class MultiplePathOptimizer(BayesianOptimizer):
         for layer_id, block_count in enumerate(self.model.pathCounts):
             if layer_id == len(self.model.pathCounts) - 1:
                 break
-            max_entropy = np.asscalar(-np.log(1.0 / self.model.pathCounts[layer_id + 1]))
+            max_entropy = (-np.log(1.0 / self.model.pathCounts[layer_id + 1])).item()
             self.maxEntropies.append(max_entropy)
             # Route combinations for that layer
             routes_for_this_layer = set([tpl[:layer_id] for tpl in self.routeCombinations])
@@ -495,7 +495,7 @@ class MultiplePathOptimizer(BayesianOptimizer):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
