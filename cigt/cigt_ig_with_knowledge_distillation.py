@@ -52,7 +52,7 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
         T = self.teacherTemperature
         if self.lossCalculationKind == "SingleLogitSingleLoss":
             student_logits = list_of_logits["student"][0]
-            teacher_logits = list_of_logits["teacher"]
+            teacher_logits = list_of_logits["teacher"][0]
 
             KD_loss = nn.KLDivLoss()(F.log_softmax(student_logits / T, dim=1),
                                      F.softmax(teacher_logits / T, dim=1)) * (alpha * T * T) + \
@@ -63,8 +63,8 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
             KD_loss = 0.0
             batch_accuracy = 0.0
             student_logits = list_of_logits["student"]
-            teacher_logits = list_of_logits["teacher"]
-            for idx, logit in enumerate(list_of_logits):
+            teacher_logits = list_of_logits["teacher"][0]
+            for idx, logit in enumerate(student_logits):
                 sample_selection_vector = routing_matrices[-1][:, idx].to(torch.bool)
                 assert student_logits[idx].shape == teacher_logits.shape
                 selected_student_logits_1d = torch.masked_select(student_logits[idx],
@@ -97,7 +97,7 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
                 batch_coefficient = (new_shape[0] / target_var.shape[0])
                 batch_accuracy += batch_coefficient * block_accuracy
             if self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
-                KD_loss = KD_loss / len(list_of_logits)
+                KD_loss = KD_loss / len(student_logits)
         else:
             raise ValueError("Unknown loss calculation method:{0}".format(self.lossCalculationKind))
         return KD_loss, batch_accuracy
@@ -138,7 +138,7 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
                 if loss_kind == "student":
                     p_c_given_x = torch.nn.functional.one_hot(labels["student"], self.classCount)
                 else:
-                    p_c_given_x = F.softmax(labels["teacher"] / self.teacherTemperature, dim=1)
+                    p_c_given_x = F.softmax(labels["teacher"][0] / self.teacherTemperature, dim=1)
 
                 joint_distribution = joint_distribution * torch.unsqueeze(p_c_given_x, dim=2)
                 p_xcn = joint_distribution * torch.unsqueeze(p_n_given_x, dim=1)
@@ -157,6 +157,7 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
                 balance_coefficient = balance_coefficient_list[layer_id]
                 ig_loss_list_by_type = (balance_coefficient * entropy_p_n) + entropy_p_c - entropy_p_cn
                 information_gain += (loss_weight * ig_loss_list_by_type)
+                print("Layer:{0} {1} IG:{2}".format(layer_id, loss_kind, ig_loss_list_by_type))
             information_gain_list.append(information_gain)
         return information_gain_list
 
@@ -170,8 +171,9 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
         grad_magnitude = AverageMeter()
         accuracy_avg = AverageMeter()
 
-        # Switch to train mode
+        # Switch to train mode, teacher mode should be in eval
         self.train()
+        self.teacherModel.eval()
 
         for i, (input_, target) in enumerate(train_loader):
             time_begin = time.time()
@@ -264,3 +266,159 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
         print("grad_magnitude:{0}".format(grad_magnitude.avg))
         print("*************Epoch:{0} Ending Measurements*************".format(epoch_id))
         return batch_time.avg
+
+    def validate(self, loader, epoch, data_kind, temperature=None,
+                 enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
+        """Perform validation on the validation set"""
+        batch_time = AverageMeter()
+        losses = AverageMeter()
+        losses_c = AverageMeter()
+        losses_t = AverageMeter()
+        losses_t_layer_wise = [AverageMeter() for _ in range(len(self.pathCounts) - 1)]
+        accuracy_avg = AverageMeter()
+        list_of_labels = []
+        list_of_routing_probability_matrices = []
+        list_of_routing_activations = []
+        list_of_logits_complete = []
+        for _ in range(len(self.pathCounts) - 1):
+            list_of_routing_probability_matrices.append([])
+            list_of_routing_activations.append([])
+        for _ in range(len(self.lossLayers)):
+            list_of_logits_complete.append([])
+
+        # Temperature of Gumble Softmax
+        # We simply keep it fixed
+        if temperature is None:
+            temperature = self.temperatureController.get_value()
+
+        # switch to evaluate mode
+        self.eval()
+        self.teacherModel.eval()
+
+        if enforced_hard_routing_kind is None:
+            self.hardRoutingAlgorithmKind = "InformationGainRouting"
+        else:
+            assert enforced_hard_routing_kind in self.hardRoutingAlgorithmTypes
+            self.hardRoutingAlgorithmKind = enforced_hard_routing_kind
+
+        for i, (input_, target) in enumerate(loader):
+            time_begin = time.time()
+            with torch.no_grad():
+                input_var = torch.autograd.Variable(input_).to(self.device)
+                target_var = torch.autograd.Variable(target).to(self.device)
+                batch_size = input_var.size(0)
+
+                # Teacher output
+                with torch.no_grad():
+                    teacher_rm_hard, teacher_rm_soft, \
+                    teacher_bo, teacher_list_of_logits, teacher_ra = self.teacherModel(input_var,
+                                                                                       target_var, temperature)
+                # Student output
+                routing_matrices_hard, routing_matrices_soft, \
+                block_outputs, student_list_of_logits, routing_activations_list = self(input_var, target_var,
+                                                                                       temperature)
+
+                KD_Loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
+                    {"student": student_list_of_logits, "teacher": teacher_list_of_logits},
+                    routing_matrices_hard,
+                    target_var)
+                information_gain_losses = self.calculate_information_gain_losses(
+                    routing_matrices=routing_matrices_soft,
+                    labels={"student": target_var, "teacher": teacher_list_of_logits},
+                    balance_coefficient_list=self.informationGainBalanceCoeffList)
+
+                total_routing_loss = 0.0
+                for t_loss in information_gain_losses:
+                    total_routing_loss += t_loss
+                total_routing_loss = -1.0 * self.decisionLossCoeff * total_routing_loss
+                total_loss = KD_Loss + total_routing_loss
+
+                # print("len(list_of_logits)={0}".format(len(list_of_logits)))
+                # print("multipleCeLosses:{0}".format(self.multipleCeLosses))
+                time_end = time.time()
+
+                list_of_labels.append(target_var.cpu().numpy())
+                for idx_, matr_ in enumerate(routing_matrices_soft[1:]):
+                    list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
+                for idx_, matr_ in enumerate(routing_activations_list):
+                    list_of_routing_activations[idx_].append(matr_.detach().cpu().numpy())
+                for idx_, matr_ in enumerate(student_list_of_logits):
+                    list_of_logits_complete[idx_].append(matr_.detach().cpu().numpy())
+
+                # measure accuracy and record loss
+                losses.update(total_loss.detach().cpu().numpy().item(), 1)
+                losses_c.update(KD_Loss.detach().cpu().numpy().item(), 1)
+                accuracy_avg.update(batch_accuracy, batch_size)
+                batch_time.update((time_end - time_begin), 1)
+                losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
+                for lid in range(len(self.pathCounts) - 1):
+                    losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
+
+        kv_rows = []
+        list_of_labels = np.concatenate(list_of_labels, axis=0)
+        for idx_ in range(len(list_of_routing_probability_matrices)):
+            list_of_routing_probability_matrices[idx_] = np.concatenate(
+                list_of_routing_probability_matrices[idx_], axis=0)
+        for idx_ in range(len(list_of_routing_activations)):
+            list_of_routing_activations[idx_] = np.concatenate(list_of_routing_activations[idx_], axis=0)
+        for idx_ in range(len(list_of_logits_complete)):
+            list_of_logits_complete[idx_] = np.concatenate(list_of_logits_complete[idx_], axis=0)
+
+        self.calculate_branch_statistics(
+            run_id=self.runId,
+            iteration=self.numOfTrainingIterations,
+            dataset_type=data_kind,
+            labels=list_of_labels,
+            routing_probability_matrices=list_of_routing_probability_matrices,
+            write_to_db=True)
+
+        print("total_loss:{0}".format(losses.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} total_loss".format(data_kind, epoch),
+                        "{0}".format(losses.avg)))
+
+        print("accuracy_avg:{0}".format(accuracy_avg.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} Accuracy".format(data_kind, epoch),
+                        "{0}".format(accuracy_avg.avg)))
+
+        print("batch_time:{0}".format(batch_time.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} batch_time".format(data_kind, epoch),
+                        "{0}".format(batch_time.avg)))
+
+        print("classification_loss:{0}".format(losses_c.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} classification_loss".format(data_kind, epoch),
+                        "{0}".format(losses_c.avg)))
+
+        print("routing_loss:{0}".format(losses_t.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} routing_loss".format(data_kind, epoch),
+                        "{0}".format(losses_t.avg)))
+
+        for lid in range(len(self.pathCounts) - 1):
+            print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
+            kv_rows.append((self.runId,
+                            self.numOfTrainingIterations,
+                            "{0} Epoch {1} Layer {2} routing_loss".format(data_kind, epoch, lid),
+                            "{0}".format(losses_t_layer_wise[lid].avg)))
+
+        DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+        self.hardRoutingAlgorithmKind = self.afterWarmupRoutingAlgorithmKind
+        if not return_network_outputs:
+            return accuracy_avg.avg
+        else:
+            res_dict = {
+                "accuracy": accuracy_avg.avg,
+                "list_of_labels": list_of_labels,
+                "list_of_routing_probability_matrices": list_of_routing_probability_matrices,
+                "list_of_routing_activations": list_of_routing_activations,
+                "list_of_logits_complete": list_of_logits_complete
+            }
+            return res_dict

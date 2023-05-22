@@ -1124,8 +1124,115 @@ ORDER BY TestAccuracy DESC
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,2] - SingleLogitSingleLoss - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
 --SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (44,45,46,47,48) GROUP BY RunID;
-38|0.93239999216795
-39|0.927300001370907
-40|0.928899997699261
-41|0.928700003737211
-42|0.928299992477894
+
+
+
+--Experiments: "KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.5"
+--ResnetCigtConstants.use_kd_for_routing = False
+--ResnetCigtConstants.kd_teacher_temperature = 6.0
+--ResnetCigtConstants.kd_loss_alpha = 0.5
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/20/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.5%";
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (122,123,124) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (122,123,124,125,126) GROUP BY RunID;
+124|0.922199996948242
+125|0.927799996364117
+126|0.929099997121096
+
+
+
+--Experiments: "KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = True - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.5"
+--ResnetCigtConstants.use_kd_for_routing = True
+--ResnetCigtConstants.kd_teacher_temperature = 6.0
+--ResnetCigtConstants.kd_loss_alpha = 0.5
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/20/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger2.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = True - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.5%";
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (82,83,84) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (82,83,84,85) GROUP BY RunID;
+83|0.924099999654293
+84|0.929200001996756
+85|0.927600001722574
+
+
+
+
+--Experiments: "KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.95"
+--ResnetCigtConstants.use_kd_for_routing = False
+--ResnetCigtConstants.kd_teacher_temperature = 6.0
+--ResnetCigtConstants.kd_loss_alpha = 0.95
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/20/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.95%";
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (46, 47, 48) GROUP BY RunID;
+46|0.924799997514486
+47|0.922499998950958
+48|0.80879999448657
+
+
+
+--Experiments: "KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = True - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.95"
+--ResnetCigtConstants.use_kd_for_routing = True
+--ResnetCigtConstants.kd_teacher_temperature = 6.0
+--ResnetCigtConstants.kd_loss_alpha = 0.95
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/20/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = True - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.95%";
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (43) GROUP BY RunID;
+--SELECT * FROM run_kv_store WHERE RunID = 43 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (43, 44, 45) GROUP BY RunID;
+43|0.92780000462532
+44|0.924600001174211
+45|0.769699997657537
+
+
+
+--Experiments: "KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.05"
+--ResnetCigtConstants.use_kd_for_routing = False
+--ResnetCigtConstants.kd_teacher_temperature = 6.0
+--ResnetCigtConstants.kd_loss_alpha = 0.05
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/20/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.05%";
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (65, 66) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (65, 66, 67) GROUP BY RunID;
+65|0.924999998432398
+66|0.923300004184246
+67|0.922899995994568
+

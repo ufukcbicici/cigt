@@ -32,7 +32,7 @@ class DbLogger:
     okul = "C://Users//munu_.DESKTOP-5DFQOJ6//phd_work//dblogger.db"
     docker = "/opt/project/cigt_logger.db"
     home_monster = "D://phd_work//simple_tf//dblogger.db"
-    home_asus = "C://Users//asus//Desktop//phd_work//dblogger.db"
+    home_asus = "C://Users//asus//Desktop//ConvAig//convnet-aig//dblogger.db"
     truba_1 = "/truba_scratch/ubicici/PHD/simple_tf/dblogger_cign.db"
     truba_2 = "/truba_scratch/ubicici/PHD/simple_tf/dblogger2_cign.db"
     truba_3 = "/truba_scratch/ubicici/PHD/simple_tf/dblogger3_cign.db"
