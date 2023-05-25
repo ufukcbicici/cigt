@@ -27,7 +27,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db
+    DbLogger.log_db_path = DbLogger.hpc_db
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -41,8 +41,8 @@ if __name__ == "__main__":
         ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
         ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
         ResnetCigtConstants.use_kd_for_routing = False
-        ResnetCigtConstants.kd_teacher_temperature = 6.0
-        ResnetCigtConstants.kd_loss_alpha = 0.05
+        ResnetCigtConstants.kd_teacher_temperature = 10.0
+        ResnetCigtConstants.kd_loss_alpha = 0.95
 
         ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
@@ -75,9 +75,9 @@ if __name__ == "__main__":
         ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         model = CigtIgWithKnowledgeDistillation(
             run_id=run_id,
-            model_definition="KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 6.0 - kd_loss_alpha = 0.05",
+            model_definition="KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 10.0 - kd_loss_alpha = 0.95",
             num_classes=10, teacher_model=teacher_model)
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_hpc
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
