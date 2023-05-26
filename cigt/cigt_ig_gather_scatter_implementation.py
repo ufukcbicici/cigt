@@ -51,50 +51,117 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         routing_matrices_soft = []
         routing_activations_list = []
         # Initial layer
-        first_output = F.relu(self.bn1(self.conv1(x)))
+        net = F.relu(self.bn1(self.conv1(x)))
+        routing_matrices_hard.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
+        routing_matrices_soft.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
+        layer_outputs = [{"net": net,
+                          "labels": labels,
+                          "sample_indices": sample_indices,
+                          "routing_matrix_hard": torch.ones(size=(x.shape[0], 1),
+                                                            dtype=torch.float32,
+                                                            device=self.device),
+                          "routing_matrices_soft": torch.ones(size=(x.shape[0], 1),
+                                                              dtype=torch.float32,
+                                                              device=self.device)}]
+        block_outputs = []
         list_of_logits = None
 
-        block_outputs = [[(first_output, labels, sample_indices)]]
         for layer_id, cigt_layer_blocks in enumerate(self.cigtLayers):
-            block_outputs.append([])
-            routing_matrices_hard.append([])
-            routing_matrices_soft.append([])
-            routing_activations_list.append([])
+            net_masked = self.divide_tensor_wrt_routing_matrix(
+                tens=layer_outputs[-1]["net"],
+                routing_matrix=routing_matrices_hard[-1])
+            labels_masked = self.divide_tensor_wrt_routing_matrix(
+                tens=layer_outputs[-1]["labels"],
+                routing_matrix=routing_matrices_hard[-1])
+            sample_indices_masked = self.divide_tensor_wrt_routing_matrix(
+                tens=layer_outputs[-1]["sample_indices"],
+                routing_matrix=routing_matrices_hard[-1])
+            curr_layer_outputs = []
 
             for block_id, block_obj in enumerate(cigt_layer_blocks):
-                # Traverse the previous layer's outputs, get each previous layer block's particular output, that is
-                # destinated into this block. Concatenate them and build a single input into the block.
-                block_input_features = [b_output[block_id][0] for b_output in block_outputs[-2]]
-                block_input_features = torch.concat(block_input_features, dim=0)
-                block_input_labels = [b_output[block_id][1] for b_output in block_outputs[-2]]
-                block_input_labels = torch.concat(block_input_labels, dim=0)
-                block_input_sample_indices = [b_output[block_id][2] for b_output in block_outputs[-2]]
-                block_input_sample_indices = torch.concat(block_input_sample_indices, dim=0)
+                block_output = block_obj(net_masked[block_id])
+                curr_layer_outputs.append(block_output)
 
-                block_output = block_obj(block_input_features)
+            # Routing Block
+            if layer_id < len(self.cigtLayers) - 1:
+                layer_outputs_unified = torch.concat(curr_layer_outputs, dim=0)
+                layer_labels_unified = torch.concat(labels_masked, dim=0)
+                layer_sample_indices_unified = torch.concat(sample_indices_masked, dim=0)
+                # Calculate routing weights for the next layer
+                p_n_given_x_soft, routing_activations = self.blockEndLayers[layer_id](layer_outputs_unified,
+                                                                                      layer_labels_unified,
+                                                                                      temperature,
+                                                                                      balance_coefficient_list[
+                                                                                          layer_id])
+                # Calculate the hard routing matrix
+                p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id, p_n_given_x_soft=p_n_given_x_soft)
+                layer_outputs.append({"net": layer_outputs_unified,
+                                      "labels": layer_labels_unified,
+                                      "sample_indices": layer_sample_indices_unified})
+                routing_matrices_soft.append(p_n_given_x_soft)
+                routing_activations_list.append(routing_activations)
+                routing_matrices_hard.append(p_n_given_x_hard)
 
-                # Routing Block
-                if layer_id < len(self.cigtLayers) - 1:
-                    p_n_given_x_soft, routing_activations = \
-                        self.blockEndLayers[layer_id][block_id](block_output,
-                                                                labels,
-                                                                temperature,
-                                                                balance_coefficient_list[layer_id])
-                    p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id,
-                                                                    p_n_given_x_soft=p_n_given_x_soft)
-                    routing_matrices_soft[-1].append(p_n_given_x_soft)
-                    routing_matrices_hard[-1].append(p_n_given_x_hard)
-                    routing_activations_list[-1].append(routing_activations)
-                    # Masking and distributing the block outputs to the next layer.
-                    masked_outputs = self.divide_tensor_wrt_routing_matrix(tens=block_output,
-                                                                           routing_matrix=p_n_given_x_hard)
-                    masked_labels = self.divide_tensor_wrt_routing_matrix(tens=block_input_labels,
-                                                                          routing_matrix=p_n_given_x_hard)
-                    masked_sample_indices = self.divide_tensor_wrt_routing_matrix(tens=block_input_sample_indices,
-                                                                                  routing_matrix=p_n_given_x_hard)
-                    next_layer_block_count = p_n_given_x_hard.shape[1]
-                    next_layer_block_inputs = [(masked_outputs[nb_id],
-                                                masked_labels[nb_id],
-                                                masked_sample_indices[nb_id])
-                                               for nb_id in range(next_layer_block_count)]
-                    block_outputs[-1].append(next_layer_block_inputs)
+                # p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id,
+                #                                                 p_n_given_x_soft=p_n_given_x_soft)
+                # routing_matrices_soft[-1].append(p_n_given_x_soft)
+                # routing_matrices_hard[-1].append(p_n_given_x_hard)
+                # routing_activations_list[-1].append(routing_activations)
+                # # Masking and distributing the block outputs to the next layer.
+                # masked_outputs = self.divide_tensor_wrt_routing_matrix(tens=block_output,
+                #                                                        routing_matrix=p_n_given_x_hard)
+                # masked_labels = self.divide_tensor_wrt_routing_matrix(tens=block_input_labels,
+                #                                                       routing_matrix=p_n_given_x_hard)
+                # masked_sample_indices = self.divide_tensor_wrt_routing_matrix(tens=block_input_sample_indices,
+                #                                                               routing_matrix=p_n_given_x_hard)
+                # next_layer_block_count = p_n_given_x_hard.shape[1]
+                # next_layer_block_inputs = [(masked_outputs[nb_id],
+                #                             masked_labels[nb_id],
+                #                             masked_sample_indices[nb_id])
+                #                            for nb_id in range(next_layer_block_count)]
+                # block_outputs[-1].append(next_layer_block_inputs)
+
+        # block_outputs = [[(first_output, labels, sample_indices)]]
+        # for layer_id, cigt_layer_blocks in enumerate(self.cigtLayers):
+        #     block_outputs.append([])
+        #     routing_matrices_hard.append([])
+        #     routing_matrices_soft.append([])
+        #     routing_activations_list.append([])
+        #
+        #     for block_id, block_obj in enumerate(cigt_layer_blocks):
+        #         # Traverse the previous layer's outputs, get each previous layer block's particular output, that is
+        #         # destinated into this block. Concatenate them and build a single input into the block.
+        #         block_input_features = [b_output[block_id][0] for b_output in block_outputs[-2]]
+        #         block_input_features = torch.concat(block_input_features, dim=0)
+        #         block_input_labels = [b_output[block_id][1] for b_output in block_outputs[-2]]
+        #         block_input_labels = torch.concat(block_input_labels, dim=0)
+        #         block_input_sample_indices = [b_output[block_id][2] for b_output in block_outputs[-2]]
+        #         block_input_sample_indices = torch.concat(block_input_sample_indices, dim=0)
+        #
+        #         block_output = block_obj(block_input_features)
+        #
+        #         # Routing Block
+        #         if layer_id < len(self.cigtLayers) - 1:
+        #             p_n_given_x_soft, routing_activations = \
+        #                 self.blockEndLayers[layer_id][block_id](block_output,
+        #                                                         labels,
+        #                                                         temperature,
+        #                                                         balance_coefficient_list[layer_id])
+        #             p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id,
+        #                                                             p_n_given_x_soft=p_n_given_x_soft)
+        #             routing_matrices_soft[-1].append(p_n_given_x_soft)
+        #             routing_matrices_hard[-1].append(p_n_given_x_hard)
+        #             routing_activations_list[-1].append(routing_activations)
+        #             # Masking and distributing the block outputs to the next layer.
+        #             masked_outputs = self.divide_tensor_wrt_routing_matrix(tens=block_output,
+        #                                                                    routing_matrix=p_n_given_x_hard)
+        #             masked_labels = self.divide_tensor_wrt_routing_matrix(tens=block_input_labels,
+        #                                                                   routing_matrix=p_n_given_x_hard)
+        #             masked_sample_indices = self.divide_tensor_wrt_routing_matrix(tens=block_input_sample_indices,
+        #                                                                           routing_matrix=p_n_given_x_hard)
+        #             next_layer_block_count = p_n_given_x_hard.shape[1]
+        #             next_layer_block_inputs = [(masked_outputs[nb_id],
+        #                                         masked_labels[nb_id],
+        #                                         masked_sample_indices[nb_id])
+        #                                        for nb_id in range(next_layer_block_count)]
+        #             block_outputs[-1].append(next_layer_block_inputs)

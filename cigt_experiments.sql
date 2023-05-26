@@ -1266,5 +1266,6 @@ ORDER BY TestAccuracy DESC
 --Started at 4/25/2023
 --Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 10.0 - kd_loss_alpha = 0.95%";
---SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (122,123,124) GROUP BY RunID;
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (122,123,124,125,126,127,128) GROUP BY RunID;
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (129, 130) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (129, 130) GROUP BY RunID;
+--SELECT * FROM run_kv_store WHERE RunID = 129 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
