@@ -28,9 +28,10 @@ class ResnetCigtConstants:
     softmax_decay_min_limit = 0.1
     softmax_decay_controllers = {}
     information_gain_balance_coeff_list = [5.0, 5.0]
-    decision_drop_probability = 0.0
+    decision_drop_probability = 0.5
     classification_drop_probability = 0.0
     batch_norm_type = "StandardBatchNormalization"
+    apply_relu_dropout_to_decision_layer = True
     apply_mask_to_batch_norm = False
     start_moving_averages_from_zero = False
     boost_learning_rates_layer_wise = False

@@ -46,14 +46,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
     def forward(self, x, labels, temperature):
         sample_indices = torch.arange(0, labels.shape[0])
         balance_coefficient_list = self.informationGainBalanceCoeffList
-        # Routing Matrices
-        routing_matrices_hard = []
-        routing_matrices_soft = []
-        routing_activations_list = []
         # Initial layer
         net = F.relu(self.bn1(self.conv1(x)))
-        routing_matrices_hard.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
-        routing_matrices_soft.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         layer_outputs = [{"net": net,
                           "labels": labels,
                           "sample_indices": sample_indices,
@@ -62,20 +56,23 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                                                             device=self.device),
                           "routing_matrices_soft": torch.ones(size=(x.shape[0], 1),
                                                               dtype=torch.float32,
-                                                              device=self.device)}]
+                                                              device=self.device),
+                          "routing_activations": torch.ones(size=(x.shape[0], 1),
+                                                            dtype=torch.float32,
+                                                            device=self.device)}]
         block_outputs = []
         list_of_logits = None
 
         for layer_id, cigt_layer_blocks in enumerate(self.cigtLayers):
             net_masked = self.divide_tensor_wrt_routing_matrix(
                 tens=layer_outputs[-1]["net"],
-                routing_matrix=routing_matrices_hard[-1])
+                routing_matrix=layer_outputs[-1]["routing_matrix_hard"])
             labels_masked = self.divide_tensor_wrt_routing_matrix(
                 tens=layer_outputs[-1]["labels"],
-                routing_matrix=routing_matrices_hard[-1])
+                routing_matrix=layer_outputs[-1]["routing_matrix_hard"])
             sample_indices_masked = self.divide_tensor_wrt_routing_matrix(
                 tens=layer_outputs[-1]["sample_indices"],
-                routing_matrix=routing_matrices_hard[-1])
+                routing_matrix=layer_outputs[-1]["routing_matrix_hard"])
             curr_layer_outputs = []
 
             for block_id, block_obj in enumerate(cigt_layer_blocks):
@@ -97,10 +94,14 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id, p_n_given_x_soft=p_n_given_x_soft)
                 layer_outputs.append({"net": layer_outputs_unified,
                                       "labels": layer_labels_unified,
-                                      "sample_indices": layer_sample_indices_unified})
-                routing_matrices_soft.append(p_n_given_x_soft)
-                routing_activations_list.append(routing_activations)
-                routing_matrices_hard.append(p_n_given_x_hard)
+                                      "sample_indices": layer_sample_indices_unified,
+                                      "routing_matrix_hard": p_n_given_x_hard,
+                                      "routing_matrices_soft": p_n_given_x_soft,
+                                      "routing_activations": routing_activations})
+
+                # routing_matrices_soft.append(p_n_given_x_soft)
+                # routing_activations_list.append(routing_activations)
+                # routing_matrices_hard.append(p_n_given_x_hard)
 
                 # p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id,
                 #                                                 p_n_given_x_soft=p_n_given_x_soft)

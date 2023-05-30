@@ -40,9 +40,11 @@ if __name__ == "__main__":
         ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
         ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-        ResnetCigtConstants.use_kd_for_routing = False
-        ResnetCigtConstants.kd_teacher_temperature = 10.0
-        ResnetCigtConstants.kd_loss_alpha = 0.95
+        ResnetCigtConstants.decision_drop_probability = 0.5
+        ResnetCigtConstants.apply_relu_dropout_to_decision_layer = True
+        # ResnetCigtConstants.use_kd_for_routing = False
+        # ResnetCigtConstants.kd_teacher_temperature = 10.0
+        # ResnetCigtConstants.kd_loss_alpha = 0.95
 
         ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
@@ -53,18 +55,19 @@ if __name__ == "__main__":
 
         run_id = DbLogger.get_run_id()
 
-        ResnetCigtConstants.loss_calculation_kind = "SingleLogitSingleLoss"
-        teacher_model = CigtIdealRouting(
-            run_id=run_id,
-            model_definition="Cigt Ideal Routing - [1,2,4] - SingleLogitSingleLoss - Wd:0.0005",
-            num_classes=10,
-            class_to_route_mappings=
-            [[(5, 6, 4, 7, 3, 2), (1, 8, 9, 0)],
-             [(6, 0), (1, 8, 9), (5, 7, 3), (4, 2)]])
-        teacher_chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                                         "checkpoints/teacher_dblogger2_78_epoch1315.pth")
-        teacher_checkpoint = torch.load(teacher_chck_path)
-        teacher_model.load_state_dict(state_dict=teacher_checkpoint["model_state_dict"])
+        # ResnetCigtConstants.loss_calculation_kind = "SingleLogitSingleLoss"
+        # teacher_model = CigtIdealRouting(
+        #     run_id=run_id,
+        #     model_definition="Cigt Ideal Routing - [1,2,4] - SingleLogitSingleLoss - Wd:0.0005",
+        #     num_classes=10,
+        #     class_to_route_mappings=
+        #     [[(5, 6, 4, 7, 3, 2), (1, 8, 9, 0)],
+        #      [(6, 0), (1, 8, 9), (5, 7, 3), (4, 2)]])
+        # teacher_chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+        #                                  "checkpoints/teacher_dblogger2_78_epoch1315.pth")
+        # teacher_checkpoint = torch.load(teacher_chck_path)
+        # teacher_model.load_state_dict(state_dict=teacher_checkpoint["model_state_dict"])
+
         # Cifar 10 Dataset
         # kwargs = {'num_workers': 2, 'pin_memory': True}
         # test_loader = torch.utils.data.DataLoader(
@@ -72,11 +75,19 @@ if __name__ == "__main__":
         #     batch_size=ResnetCigtConstants.batch_size, shuffle=False, **kwargs)
         # teacher_model.validate(loader=test_loader, epoch=0, data_kind="test")
 
-        ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-        model = CigtIgWithKnowledgeDistillation(
+        # ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        # model = CigtIgWithKnowledgeDistillation(
+        #     run_id=run_id,
+        #     model_definition="KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 10.0 - kd_loss_alpha = 0.95",
+        #     num_classes=10, teacher_model=teacher_model)
+        # model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_hpc
+        # explanation = model.get_explanation_string()
+        # DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
+        model = CigtIgHardRoutingX(
             run_id=run_id,
-            model_definition="KD Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - use_kd_for_routing = False - kd_teacher_temperature = 10.0 - kd_loss_alpha = 0.95",
-            num_classes=10, teacher_model=teacher_model)
+            model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5",
+            num_classes=10)
         model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_hpc
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)

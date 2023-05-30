@@ -62,6 +62,7 @@ class CigtIgHardRoutingX(nn.Module):
         self.firstConvKernelSize = ResnetCigtConstants.first_conv_kernel_size
         self.firstConvOutputDim = ResnetCigtConstants.first_conv_output_dim
         self.firstConvStride = ResnetCigtConstants.first_conv_stride
+        self.applyReluDropoutToDecisionLayers = ResnetCigtConstants.apply_relu_dropout_to_decision_layer
         self.bnMomentum = ResnetCigtConstants.bn_momentum
         self.batchNormType = ResnetCigtConstants.batch_norm_type
         self.applyMaskToBatchNorm = ResnetCigtConstants.apply_mask_to_batch_norm
@@ -75,6 +76,7 @@ class CigtIgHardRoutingX(nn.Module):
         self.isInWarmUp = True
         self.temperatureController = ResnetCigtConstants.softmax_decay_controller
         self.decisionLossCoeff = ResnetCigtConstants.decision_loss_coeff
+        self.routingDropoutProbability = ResnetCigtConstants.decision_drop_probability
         self.informationGainBalanceCoeffList = ResnetCigtConstants.information_gain_balance_coeff_list
         self.classificationWd = ResnetCigtConstants.classification_wd
         self.decisionWd = ResnetCigtConstants.decision_wd
@@ -190,6 +192,12 @@ class CigtIgHardRoutingX(nn.Module):
         explanation = self.add_explanation(name_of_param="Classification Wd", value=self.classificationWd,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Decision Wd", value=self.decisionWd,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Decision Dropout Probability",
+                                           value=self.routingDropoutProbability,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Apply Relu & Dropout to Decision Layers",
+                                           value=self.applyReluDropoutToDecisionLayers,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Information Gain Balance Coefficient List",
                                            value=self.informationGainBalanceCoeffList,
@@ -319,6 +327,8 @@ class CigtIgHardRoutingX(nn.Module):
             class_count=self.numClasses,
             input_feature_map_size=input_feature_map_size,
             input_feature_map_count=input_feature_map_count,
+            apply_relu_dropout=self.applyReluDropoutToDecisionLayers,
+            dropout_probability=self.routingDropoutProbability,
             device=self.device)
         return routing_layer
 
