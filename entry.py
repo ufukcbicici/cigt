@@ -8,6 +8,7 @@ from auxillary.utilities import Utilities
 from cigt.cigt_constant_routing_weights import CigtConstantRoutingWeights
 from cigt.cigt_ideal_routing import CigtIdealRouting
 from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
+from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_hard_routing import CigtIgHardRouting
 from cigt.cigt_ig_hard_routing_with_random_batches import CigtIgHardRoutingWithRandomBatches
 from cigt.cigt_ig_iterative_training import CigtIgIterativeTraining
@@ -27,7 +28,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db
+    DbLogger.log_db_path = DbLogger.jr_cigt
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -41,8 +42,8 @@ if __name__ == "__main__":
         ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
         ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
         ResnetCigtConstants.decision_drop_probability = 0.5
-        ResnetCigtConstants.apply_relu_dropout_to_decision_layer = True
-        ResnetCigtConstants.decision_dimensions = [64, 64]
+        ResnetCigtConstants.apply_relu_dropout_to_decision_layer = False
+        ResnetCigtConstants.decision_dimensions = [128, 128]
         # ResnetCigtConstants.use_kd_for_routing = False
         # ResnetCigtConstants.kd_teacher_temperature = 10.0
         # ResnetCigtConstants.kd_loss_alpha = 0.95
@@ -85,11 +86,11 @@ if __name__ == "__main__":
         # explanation = model.get_explanation_string()
         # DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        model = CigtIgHardRoutingX(
+        model = CigtIgGatherScatterImplementation(
             run_id=run_id,
-            model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5 - decision_dimensions = [64, 64]",
+            model_definition="Gather Scatter Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5 - decision_dimensions = [64, 64]",
             num_classes=10)
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_jr
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
