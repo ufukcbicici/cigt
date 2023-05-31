@@ -1275,3 +1275,70 @@ ORDER BY TestAccuracy DESC
 132|0.923999993056059
 133|0.925300002729893
 
+
+
+--Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5"
+--ResnetCigtConstants.decision_drop_probability = 0.5
+--ResnetCigtConstants.apply_relu_dropout_to_decision_layer = True
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--Started at 4/30/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5%";
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (134, 135, 136, 137, 138) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (134, 135, 136, 137, 138) GROUP BY RunID;
+--SELECT * FROM run_kv_store WHERE RunID = 136 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
+--SELECT RunId, MIN(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137, 138) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" GROUP BY RunID;
+
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (102,103,104,105,106,107) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (102,103,104,105,106,107) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (102,103,104,105,106,107) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000;
+
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (102,103,104,105,106,107) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
+
+SELECT RunId,MIN(Value) FROM run_kv_store WHERE RunID >= 102 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000;
+
+
+--Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5 - decision_dimensions = [64, 64]"
+--ResnetCigtConstants.decision_drop_probability = 0.5
+--ResnetCigtConstants.apply_relu_dropout_to_decision_layer = True
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--ResnetCigtConstants.decision_dimensions = [64, 64]
+--Started at 4/30/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5 - decision_dimensions = [64, 64]%";
+
+
+
+--Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5 - decision_dimensions = [32, 32]"
+--ResnetCigtConstants.decision_drop_probability = 0.5
+--ResnetCigtConstants.apply_relu_dropout_to_decision_layer = True
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--ResnetCigtConstants.decision_dimensions = [32, 32]
+--Started at 4/30/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5 - decision_dimensions = [32, 32]%";
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (49) GROUP BY RunID;
+--SELECT * FROM run_kv_store WHERE RunID = 49 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (49) GROUP BY RunID;
