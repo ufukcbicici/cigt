@@ -1296,16 +1296,21 @@ ORDER BY TestAccuracy DESC
 --SELECT RunId, MIN(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137, 138) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" GROUP BY RunID;
 
 SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (102,103,104,105,106,107) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
-SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137, 138) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
 SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (102,103,104,105,106,107) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000;
 SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000;
 SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (102,103,104,105,106,107) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000;
-SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137, 138) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000 GROUP BY RunID;
 
 SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (102,103,104,105,106,107) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
 SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (134, 135, 136, 137) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
 
 SELECT RunId,MIN(Value) FROM run_kv_store WHERE RunID >= 102 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000;
+134|0.924600000733137
+135|0.924700002592802
+136|0.927000001657009
+137|0.928399997711182
+138|0.926100002360344
 
 
 --Experiments: "Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5 - decision_dimensions = [64, 64]"
@@ -1342,3 +1347,10 @@ SELECT RunId,MIN(Value) FROM run_kv_store WHERE RunID >= 102 AND Key LIKE "%rout
 --SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (49) GROUP BY RunID;
 --SELECT * FROM run_kv_store WHERE RunID = 49 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (49) GROUP BY RunID;
+--SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (49, 50, 51, 52, 53) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000 GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (49, 50, 51, 52, 53) GROUP BY RunID;
+49|0.924299998188019
+50|0.928699997901916
+51|0.929800000667572
+52|0.92940000038147
+53|0.832100001811981

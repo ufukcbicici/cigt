@@ -158,43 +158,46 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         return classification_loss, batch_accuracy
 
     def calculate_information_gain_losses(self, routing_matrices, labels, balance_coefficient_list):
+        assert len(routing_matrices) == len(labels) and len(routing_matrices) == len(balance_coefficient_list)
         information_gain_list = []
-        # for layer_id, p_n_given_x in enumerate(routing_matrices[1:]):
-        #     weight_vector = torch.ones(size=(p_n_given_x.shape[0],),
-        #                                dtype=torch.float32,
-        #                                device=self.device)
-        #     # # probability_vector = tf.cast(weight_vector / tf.reduce_sum(weight_vector), dtype=activations.dtype)
-        #     sample_count = torch.sum(weight_vector)
-        #     probability_vector = torch.div(weight_vector, sample_count)
-        #     batch_size = p_n_given_x.shape[0]
-        #     node_degree = p_n_given_x.shape[1]
-        #     joint_distribution = torch.ones(size=(batch_size, self.classCount, node_degree),
-        #                                     dtype=p_n_given_x.dtype,
-        #                                     device=self.device)
-        #
-        #     # Calculate p(x)
-        #     joint_distribution = joint_distribution * torch.unsqueeze(torch.unsqueeze(
-        #         probability_vector, dim=-1), dim=-1)
-        #     # Calculate p(c|x) * p(x) = p(x,c)
-        #     p_c_given_x = torch.nn.functional.one_hot(labels, self.classCount)
-        #     joint_distribution = joint_distribution * torch.unsqueeze(p_c_given_x, dim=2)
-        #     p_xcn = joint_distribution * torch.unsqueeze(p_n_given_x, dim=1)
-        #
-        #     # Calculate p(c,n)
-        #     marginal_p_cn = torch.sum(p_xcn, dim=0)
-        #     # Calculate p(n)
-        #     marginal_p_n = torch.sum(marginal_p_cn, dim=0)
-        #     # Calculate p(c)
-        #     marginal_p_c = torch.sum(marginal_p_cn, dim=1)
-        #     # Calculate entropies
-        #     entropy_p_cn, log_prob_p_cn = self.calculate_entropy(prob_distribution=marginal_p_cn)
-        #     entropy_p_n, log_prob_p_n = self.calculate_entropy(prob_distribution=marginal_p_n)
-        #     entropy_p_c, log_prob_p_c = self.calculate_entropy(prob_distribution=marginal_p_c)
-        #     # Calculate the information gain
-        #     balance_coefficient = balance_coefficient_list[layer_id]
-        #     information_gain = (balance_coefficient * entropy_p_n) + entropy_p_c - entropy_p_cn
-        #     information_gain_list.append(information_gain)
-        # return information_gain_list
+        for layer_id in range(len(routing_matrices)):
+            p_n_given_x = routing_matrices[layer_id]
+            labels_for_layer = labels[layer_id]
+            weight_vector = torch.ones(size=(p_n_given_x.shape[0],),
+                                       dtype=torch.float32,
+                                       device=self.device)
+            # # probability_vector = tf.cast(weight_vector / tf.reduce_sum(weight_vector), dtype=activations.dtype)
+            sample_count = torch.sum(weight_vector)
+            probability_vector = torch.div(weight_vector, sample_count)
+            batch_size = p_n_given_x.shape[0]
+            node_degree = p_n_given_x.shape[1]
+            joint_distribution = torch.ones(size=(batch_size, self.classCount, node_degree),
+                                            dtype=p_n_given_x.dtype,
+                                            device=self.device)
+
+            # Calculate p(x)
+            joint_distribution = joint_distribution * torch.unsqueeze(torch.unsqueeze(
+                probability_vector, dim=-1), dim=-1)
+            # Calculate p(c|x) * p(x) = p(x,c)
+            p_c_given_x = torch.nn.functional.one_hot(labels_for_layer, self.classCount)
+            joint_distribution = joint_distribution * torch.unsqueeze(p_c_given_x, dim=2)
+            p_xcn = joint_distribution * torch.unsqueeze(p_n_given_x, dim=1)
+
+            # Calculate p(c,n)
+            marginal_p_cn = torch.sum(p_xcn, dim=0)
+            # Calculate p(n)
+            marginal_p_n = torch.sum(marginal_p_cn, dim=0)
+            # Calculate p(c)
+            marginal_p_c = torch.sum(marginal_p_cn, dim=1)
+            # Calculate entropies
+            entropy_p_cn, log_prob_p_cn = self.calculate_entropy(prob_distribution=marginal_p_cn)
+            entropy_p_n, log_prob_p_n = self.calculate_entropy(prob_distribution=marginal_p_n)
+            entropy_p_c, log_prob_p_c = self.calculate_entropy(prob_distribution=marginal_p_c)
+            # Calculate the information gain
+            balance_coefficient = balance_coefficient_list[layer_id]
+            information_gain = (balance_coefficient * entropy_p_n) + entropy_p_c - entropy_p_cn
+            information_gain_list.append(information_gain)
+        return information_gain_list
 
     def train_single_epoch(self, epoch_id, train_loader):
         """Train for one epoch on the training set"""
@@ -250,14 +253,11 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                         target_var=layer_outputs["labels_masked"])
                 else:
                     raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
-
-
-
-
-
-
+                # Calculate the information gain losses, with respect to each routing layer
+                routing_matrices_soft = [od["routing_matrices_soft"] for od in layer_outputs[1:-1]]
+                labels_per_routing_layer = [od["labels"] for od in layer_outputs[1:-1]]
                 information_gain_losses = self.calculate_information_gain_losses(
-                    routing_matrices=routing_matrices_soft, labels=target_var,
+                    routing_matrices=routing_matrices_soft, labels=labels_per_routing_layer,
                     balance_coefficient_list=self.informationGainBalanceCoeffList)
                 total_routing_loss = 0.0
                 for t_loss in information_gain_losses:
