@@ -1354,3 +1354,19 @@ SELECT RunId,MIN(Value) FROM run_kv_store WHERE RunID >= 102 AND Key LIKE "%rout
 51|0.929800000667572
 52|0.92940000038147
 53|0.832100001811981
+
+
+--Experiments: "Gather Scatter Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.decision_drop_probability = 0.5
+--ResnetCigtConstants.apply_relu_dropout_to_decision_layer = True
+--weight_decay = 5 * [0.0005]
+--information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+--ResnetCigtConstants.decision_dimensions = [128, 128]
+--Started at 6/03/2023
+--Started on: HPC - "/clusterusers/can.bicici@boun.edu.tr/cigt/cigt/dblogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";

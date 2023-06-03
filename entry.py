@@ -28,7 +28,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.hpc_db
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -88,9 +88,9 @@ if __name__ == "__main__":
 
         model = CigtIgGatherScatterImplementation(
             run_id=run_id,
-            model_definition="Gather Scatter Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization - apply_relu_dropout_to_decision_layer: True - decision_drop_probability: 0.5 - decision_dimensions = [64, 64]",
+            model_definition="Gather Scatter Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_hpc
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 

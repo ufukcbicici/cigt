@@ -55,7 +55,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         return list_of_logits
 
     def forward(self, x, labels, temperature):
-        sample_indices = torch.arange(0, labels.shape[0])
+        sample_indices = torch.arange(0, labels.shape[0], device=self.device)
         balance_coefficient_list = self.informationGainBalanceCoeffList
         # Initial layer
         net = F.relu(self.bn1(self.conv1(x)))
@@ -148,6 +148,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         for idx in range(len(list_of_logits)):
             block_logits = list_of_logits[idx]
             block_targets = target_var[idx]
+            if block_logits.shape[0] == 0:
+                continue
             block_classification_loss = self.crossEntropyLosses[idx](block_logits, block_targets)
             classification_loss += block_classification_loss
             block_accuracy = self.measure_accuracy(block_logits.detach().cpu(), block_targets.cpu())
@@ -241,16 +243,16 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 layer_outputs = self(input_var, target_var, temperature)
                 if self.lossCalculationKind == "SingleLogitSingleLoss":
                     classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
-                        list_of_logits=layer_outputs["list_of_logits"],
+                        list_of_logits=layer_outputs[-1]["list_of_logits"],
                         routing_matrices=None,
-                        target_var=[layer_outputs["labels"]])
+                        target_var=[layer_outputs[-1]["labels"]])
                 # Calculate logits with all block separately
                 elif self.lossCalculationKind == "MultipleLogitsMultipleLosses" \
                         or self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
                     classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
-                        list_of_logits=layer_outputs["list_of_logits"],
+                        list_of_logits=layer_outputs[-1]["list_of_logits"],
                         routing_matrices=None,
-                        target_var=layer_outputs["labels_masked"])
+                        target_var=layer_outputs[-1]["labels_masked"])
                 else:
                     raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
                 # Calculate the information gain losses, with respect to each routing layer
@@ -308,3 +310,159 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         print("grad_magnitude:{0}".format(grad_magnitude.avg))
         print("*************Epoch:{0} Ending Measurements*************".format(epoch_id))
         return batch_time.avg
+
+    def validate(self, loader, epoch, data_kind, temperature=None,
+                 enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
+        """Perform validation on the validation set"""
+        batch_time = AverageMeter()
+        losses = AverageMeter()
+        losses_c = AverageMeter()
+        losses_t = AverageMeter()
+        losses_t_layer_wise = [AverageMeter() for _ in range(len(self.pathCounts) - 1)]
+        accuracy_avg = AverageMeter()
+        list_of_labels = []
+        list_of_routing_probability_matrices = []
+        list_of_routing_activations = []
+        list_of_logits_complete = []
+        for _ in range(len(self.pathCounts) - 1):
+            list_of_routing_probability_matrices.append([])
+            list_of_routing_activations.append([])
+        for _ in range(len(self.lossLayers)):
+            list_of_logits_complete.append([])
+
+        # Temperature of Gumble Softmax
+        # We simply keep it fixed
+        if temperature is None:
+            temperature = self.temperatureController.get_value()
+
+        # switch to evaluate mode
+        self.eval()
+        if enforced_hard_routing_kind is None:
+            self.hardRoutingAlgorithmKind = "InformationGainRouting"
+        else:
+            assert enforced_hard_routing_kind in self.hardRoutingAlgorithmTypes
+            self.hardRoutingAlgorithmKind = enforced_hard_routing_kind
+
+        for i, (input_, target) in enumerate(loader):
+            time_begin = time.time()
+            with torch.no_grad():
+                input_var = torch.autograd.Variable(input_).to(self.device)
+                target_var = torch.autograd.Variable(target).to(self.device)
+                batch_size = input_var.size(0)
+                # Cigt Classification Loss and Accuracy Calculation
+                layer_outputs = self(input_var, target_var, temperature)
+                if self.lossCalculationKind == "SingleLogitSingleLoss":
+                    classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
+                        list_of_logits=layer_outputs[-1]["list_of_logits"],
+                        routing_matrices=None,
+                        target_var=[layer_outputs[-1]["labels"]])
+                # Calculate logits with all block separately
+                elif self.lossCalculationKind == "MultipleLogitsMultipleLosses" \
+                        or self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
+                    classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
+                        list_of_logits=layer_outputs[-1]["list_of_logits"],
+                        routing_matrices=None,
+                        target_var=layer_outputs[-1]["labels_masked"])
+                else:
+                    raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
+
+                # Calculate the information gain losses, with respect to each routing layer
+                routing_matrices_soft = [od["routing_matrices_soft"] for od in layer_outputs[1:-1]]
+                routing_activations_list = [od["routing_matrices_soft"] for od in layer_outputs[1:-1]]
+                labels_per_routing_layer = [od["labels"] for od in layer_outputs[1:-1]]
+                information_gain_losses = self.calculate_information_gain_losses(
+                    routing_matrices=routing_matrices_soft, labels=labels_per_routing_layer,
+                    balance_coefficient_list=self.informationGainBalanceCoeffList)
+                total_routing_loss = 0.0
+                for t_loss in information_gain_losses:
+                    total_routing_loss += t_loss
+                total_routing_loss = -1.0 * self.decisionLossCoeff * total_routing_loss
+                total_loss = classification_loss + total_routing_loss
+
+                time_end = time.time()
+
+                list_of_labels.append(target_var.cpu().numpy())
+                for idx_, matr_ in enumerate(routing_matrices_soft):
+                    list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
+                for idx_, matr_ in enumerate(routing_activations_list):
+                    list_of_routing_activations[idx_].append(matr_.detach().cpu().numpy())
+                for idx_, matr_ in enumerate(layer_outputs[-1]["list_of_logits"]):
+                    list_of_logits_complete[idx_].append(matr_.detach().cpu().numpy())
+
+                # measure accuracy and record loss
+                losses.update(total_loss.detach().cpu().numpy().item(), 1)
+                losses_c.update(classification_loss.detach().cpu().numpy().item(), 1)
+                accuracy_avg.update(batch_accuracy, batch_size)
+                batch_time.update((time_end - time_begin), 1)
+                losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
+                for lid in range(len(self.pathCounts) - 1):
+                    losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
+
+        kv_rows = []
+        list_of_labels = np.concatenate(list_of_labels, axis=0)
+        for idx_ in range(len(list_of_routing_probability_matrices)):
+            list_of_routing_probability_matrices[idx_] = np.concatenate(
+                list_of_routing_probability_matrices[idx_], axis=0)
+        for idx_ in range(len(list_of_routing_activations)):
+            list_of_routing_activations[idx_] = np.concatenate(list_of_routing_activations[idx_], axis=0)
+        for idx_ in range(len(list_of_logits_complete)):
+            list_of_logits_complete[idx_] = np.concatenate(list_of_logits_complete[idx_], axis=0)
+
+        self.calculate_branch_statistics(
+            run_id=self.runId,
+            iteration=self.numOfTrainingIterations,
+            dataset_type=data_kind,
+            labels=list_of_labels,
+            routing_probability_matrices=list_of_routing_probability_matrices,
+            write_to_db=True)
+
+        print("total_loss:{0}".format(losses.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} total_loss".format(data_kind, epoch),
+                        "{0}".format(losses.avg)))
+
+        print("accuracy_avg:{0}".format(accuracy_avg.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} Accuracy".format(data_kind, epoch),
+                        "{0}".format(accuracy_avg.avg)))
+
+        print("batch_time:{0}".format(batch_time.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} batch_time".format(data_kind, epoch),
+                        "{0}".format(batch_time.avg)))
+
+        print("classification_loss:{0}".format(losses_c.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} classification_loss".format(data_kind, epoch),
+                        "{0}".format(losses_c.avg)))
+
+        print("routing_loss:{0}".format(losses_t.avg))
+        kv_rows.append((self.runId,
+                        self.numOfTrainingIterations,
+                        "{0} Epoch {1} routing_loss".format(data_kind, epoch),
+                        "{0}".format(losses_t.avg)))
+
+        for lid in range(len(self.pathCounts) - 1):
+            print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
+            kv_rows.append((self.runId,
+                            self.numOfTrainingIterations,
+                            "{0} Epoch {1} Layer {2} routing_loss".format(data_kind, epoch, lid),
+                            "{0}".format(losses_t_layer_wise[lid].avg)))
+
+        DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+        self.hardRoutingAlgorithmKind = self.afterWarmupRoutingAlgorithmKind
+        if not return_network_outputs:
+            return accuracy_avg.avg
+        else:
+            res_dict = {
+                "accuracy": accuracy_avg.avg,
+                "list_of_labels": list_of_labels,
+                "list_of_routing_probability_matrices": list_of_routing_probability_matrices,
+                "list_of_routing_activations": list_of_routing_activations,
+                "list_of_logits_complete": list_of_logits_complete
+            }
+            return res_dict
