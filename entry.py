@@ -28,7 +28,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.hpc_db
+    DbLogger.log_db_path = DbLogger.home_asus
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -65,10 +65,7 @@ if __name__ == "__main__":
         #     class_to_route_mappings=
         #     [[(5, 6, 4, 7, 3, 2), (1, 8, 9, 0)],
         #      [(6, 0), (1, 8, 9), (5, 7, 3), (4, 2)]])
-        # teacher_chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-        #                                  "checkpoints/teacher_dblogger2_78_epoch1315.pth")
-        # teacher_checkpoint = torch.load(teacher_chck_path)
-        # teacher_model.load_state_dict(state_dict=teacher_checkpoint["model_state_dict"])
+
 
         # Cifar 10 Dataset
         # kwargs = {'num_workers': 2, 'pin_memory': True}
@@ -88,9 +85,15 @@ if __name__ == "__main__":
 
         model = CigtIgGatherScatterImplementation(
             run_id=run_id,
-            model_definition="Gather Scatter Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="Gather Scatter Cigt - [1,2,4] - [5.0, 5.0] - SingleLogitSingleLoss - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_hpc
+
+        # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+        #                                  "checkpoints/dblogger_141_epoch1370.pth")
+        # _141_checkpoint = torch.load(chck_path, map_location="cpu")
+        # model.load_state_dict(state_dict=_141_checkpoint["model_state_dict"])
+
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 

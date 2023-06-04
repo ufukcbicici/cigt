@@ -904,7 +904,7 @@ class CigtIgHardRoutingX(nn.Module):
             batch_size=self.batchSize, shuffle=False, **kwargs)
 
         print("Type of optimizer:{0}".format(self.modelOptimizer))
-        # self.validate(loader=train_loader, data_kind="train", epoch=0)
+        self.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
         # self.validate(loader=test_loader, data_kind="test", epoch=0)
 
         total_epoch_count = self.epochCount + self.warmUpPeriod

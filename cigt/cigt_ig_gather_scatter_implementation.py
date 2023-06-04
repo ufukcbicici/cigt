@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 import time
 
 import torch
@@ -311,6 +311,42 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         print("*************Epoch:{0} Ending Measurements*************".format(epoch_id))
         return batch_time.avg
 
+    def calculate_branch_statistics(self,
+                                    run_id, iteration, dataset_type, routing_probability_matrices, labels,
+                                    write_to_db):
+        assert isinstance(routing_probability_matrices, list) and isinstance(labels, list)
+        assert len(routing_probability_matrices) == len(labels)
+        kv_rows = []
+        for block_id in range(len(routing_probability_matrices)):
+            routing_probability_matrix = routing_probability_matrices[block_id]
+            label_vec = labels[block_id]
+            path_count = routing_probability_matrix.shape[1]
+            selected_paths = np.argmax(routing_probability_matrix, axis=1)
+            path_counter = Counter(selected_paths)
+            print("Path Distributions Data Type:{0} Block ID:{1} Iteration:{2} Path Distribution:{3}".format(
+                dataset_type, block_id, iteration, path_counter))
+            p_n = np.mean(routing_probability_matrix, axis=0)
+            print("Block:{0} Route Probabilties:{1}".format(block_id, p_n))
+            kv_rows.append((run_id,
+                            iteration,
+                            "Path Distributions Data Type:{0} Block ID:{1} Path Distribution".format(
+                                dataset_type, block_id),
+                            "{0}".format(path_counter)))
+            for path_id in range(path_count):
+                path_labels = label_vec[selected_paths == path_id]
+                label_counter = Counter(path_labels)
+                str_ = \
+                    "Path Distributions Data Type:{0} Block ID:{1} Path ID:{2} Iteration:{3} Label Distribution:{4}" \
+                        .format(dataset_type, block_id, path_id, iteration, label_counter)
+                print(str_)
+                kv_rows.append((run_id,
+                                iteration,
+                                "Path Distributions Data Type:{0} Block ID:{1} Path ID:{2} Label Distribution".format(
+                                    dataset_type, block_id, path_id),
+                                "{0}".format(label_counter)))
+        if write_to_db:
+            DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+
     def validate(self, loader, epoch, data_kind, temperature=None,
                  enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
         """Perform validation on the validation set"""
@@ -325,6 +361,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         list_of_routing_activations = []
         list_of_logits_complete = []
         for _ in range(len(self.pathCounts) - 1):
+            list_of_labels.append([])
             list_of_routing_probability_matrices.append([])
             list_of_routing_activations.append([])
         for _ in range(len(self.lossLayers)):
@@ -381,7 +418,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
 
                 time_end = time.time()
 
-                list_of_labels.append(target_var.cpu().numpy())
+                for idx_, matr_ in enumerate(labels_per_routing_layer):
+                    list_of_labels[idx_].append(matr_.detach().cpu().numpy())
                 for idx_, matr_ in enumerate(routing_matrices_soft):
                     list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
                 for idx_, matr_ in enumerate(routing_activations_list):
@@ -399,7 +437,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                     losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
 
         kv_rows = []
-        list_of_labels = np.concatenate(list_of_labels, axis=0)
+        for idx_ in range(len(list_of_labels)):
+            list_of_labels[idx_] = np.concatenate(list_of_labels[idx_], axis=0)
         for idx_ in range(len(list_of_routing_probability_matrices)):
             list_of_routing_probability_matrices[idx_] = np.concatenate(
                 list_of_routing_probability_matrices[idx_], axis=0)
