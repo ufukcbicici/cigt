@@ -3,6 +3,8 @@ import numpy as np
 import torch
 from torch import nn
 
+from convnet_aig import BasicBlock
+
 
 class CigtMaskedRouting(CigtIgHardRoutingX):
     def __init__(self, run_id, model_definition, num_classes):
@@ -11,9 +13,22 @@ class CigtMaskedRouting(CigtIgHardRoutingX):
     def create_cigt_blocks(self):
         curr_input_shape = (self.batchSize, *self.inputDims)
         feature_edge_size = curr_input_shape[-1]
-        # for cigt_layer_id, cigt_layer_info in self.blockParametersList:
-        #     path_count_in_layer = self.pathCounts[cigt_layer_id]
-        #     cigt_layer_blocks = nn.ModuleList()
+        for cigt_layer_id, cigt_layer_info in self.blockParametersList:
+            path_count_in_layer = self.pathCounts[cigt_layer_id]
+            cigt_layer_blocks = nn.ModuleList()
+            layers = []
+            for block_id, inner_block_info in enumerate(cigt_layer_info):
+                prev_route_count = self.pathCounts[cigt_layer_id - 1] if cigt_layer_id > 0 else 1
+                curr_route_count = self.pathCounts[cigt_layer_id]
+                if block_id == 0:
+                    in_channel_count = inner_block_info["in_dimension"] * prev_route_count
+                else:
+                    in_channel_count = inner_block_info["in_dimension"] * curr_route_count
+                out_channel_count = inner_block_info["out_dimension"] * curr_route_count
+                block = BasicBlock(in_planes=in_channel_count, planes=out_channel_count,
+                                   stride=inner_block_info["stride"])
+                print("X")
+
         #     for path_id in range(path_count_in_layer):
         #         layers = []
         #         for inner_block_info in cigt_layer_info:

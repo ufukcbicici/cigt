@@ -15,6 +15,7 @@ from cigt.cigt_ig_iterative_training import CigtIgIterativeTraining
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
 from cigt.cigt_ig_with_knowledge_distillation import CigtIgWithKnowledgeDistillation
+from cigt.cigt_masked_routing import CigtMaskedRouting
 from cigt.cigt_model import Cigt
 from cigt.cigt_soft_routing import CigtSoftRouting
 from cigt.cigt_soft_routing_with_balance import CigtSoftRoutingWithBalance
@@ -28,7 +29,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -83,17 +84,23 @@ if __name__ == "__main__":
         # explanation = model.get_explanation_string()
         # DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        model = CigtIgGatherScatterImplementation(
+        # model = CigtIgGatherScatterImplementation(
+        #     run_id=run_id,
+        #     model_definition="Gather Scatter Cigt - [1,2,4] - [5.0, 5.0] - SingleLogitSingleLoss - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+        #     num_classes=10)
+
+        model = CigtMaskedRouting(
             run_id=run_id,
-            model_definition="Gather Scatter Cigt - [1,2,4] - [5.0, 5.0] - SingleLogitSingleLoss - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="Masked Cigt - [1,2,4] - [5.0, 5.0] - SingleLogitSingleLoss - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
+
 
         # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
         #                                  "checkpoints/dblogger_141_epoch1370.pth")
         # _141_checkpoint = torch.load(chck_path, map_location="cpu")
         # model.load_state_dict(state_dict=_141_checkpoint["model_state_dict"])
 
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_jr
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
