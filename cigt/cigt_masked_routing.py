@@ -158,3 +158,9 @@ class CigtMaskedRouting(CigtIgHardRoutingX):
                 self.blockEndLayers.append(routing_layer)
 
         self.get_loss_layer()
+
+    def forward(self, x, labels, temperature):
+        balance_coefficient_list = self.informationGainBalanceCoeffList
+        # Routing Matrices
+        routing_matrices_hard = []
+        routing_matrices_soft = []
