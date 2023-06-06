@@ -29,7 +29,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -100,7 +100,7 @@ if __name__ == "__main__":
         # _141_checkpoint = torch.load(chck_path, map_location="cpu")
         # model.load_state_dict(state_dict=_141_checkpoint["model_state_dict"])
 
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_jr
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_asus
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
