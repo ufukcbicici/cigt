@@ -33,7 +33,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
     def __init__(self, run_id, model_definition, num_classes):
         super().__init__(run_id, model_definition, num_classes)
 
-    def divide_tensor_wrt_routing_matrix(self, tens, routing_matrix):
+    @staticmethod
+    def divide_tensor_wrt_routing_matrix(tens, routing_matrix):
         tens_num_of_non_batch_dims = np.prod(tens.shape[1:]).item()
         masked_tensors = []
         p_count = routing_matrix.shape[1]

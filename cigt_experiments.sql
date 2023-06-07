@@ -1456,11 +1456,12 @@ sqlite> SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (140, 141, 142,
 --Started at 6/03/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt - [1,2,4] - [5.0, 5.0] - SingleLogitSingleLoss - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (70, 71, 72, 73) GROUP BY RunID;
-0|0.925499998092651
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (70, 71, 72, 73, 74) GROUP BY RunID;
+70|0.925499998092651
 71|0.924299998092651
 72|0.92250000038147
-73|0.731799998664856
+73|0.924100000572205
+74|0.920200000476837
 
 
 
@@ -1483,7 +1484,7 @@ sqlite> SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (140, 141, 142,
 55|0.923099998188019
 56|0.92440000038147
 57|0.921700000762939
-58|0.916599998474121
+58|0.922000000858307
 
 
 

@@ -1,5 +1,7 @@
 from collections import OrderedDict
 
+from auxillary.average_meter import AverageMeter
+from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 import numpy as np
 import torch
@@ -157,10 +159,61 @@ class CigtMaskedRouting(CigtIgHardRoutingX):
                     routing_layer = nn.DataParallel(routing_layer)
                 self.blockEndLayers.append(routing_layer)
 
-        self.get_loss_layer()
+        self.get_loss_layer(final_layer_dimension_multiplier=self.pathCounts[-1])
+
+    def calculate_logits(self, p_n_given_x_hard, loss_block_outputs):
+        list_of_logits = []
+        # Unify all last layer block outputs into a single output and calculate logits with only that output
+        if self.lossCalculationKind == "SingleLogitSingleLoss":
+            logits = self.lossLayers[0](loss_block_outputs)
+            list_of_logits.append(logits)
+        # Calculate logits with all block separately
+        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses" \
+                or self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
+            net_masked = CigtIgGatherScatterImplementation.divide_tensor_wrt_routing_matrix(
+                tens=loss_block_outputs,
+                routing_matrix=p_n_given_x_hard)
+            for idx, block_x in enumerate(net_masked):
+                logits = self.lossLayers[idx](block_x)
+                list_of_logits.append(logits)
+        else:
+            raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
+        return list_of_logits
 
     def forward(self, x, labels, temperature):
         balance_coefficient_list = self.informationGainBalanceCoeffList
         # Routing Matrices
         routing_matrices_hard = []
         routing_matrices_soft = []
+        routing_activations_list = []
+        block_outputs = []
+        # Initial layer
+        out = F.relu(self.bn1(self.conv1(x)))
+        routing_matrices_hard.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
+        routing_matrices_soft.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
+        routing_activations_list.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
+        block_outputs.append(out)
+        list_of_logits = None
+
+        for layer_id, routing_block in enumerate(self.cigtLayers):
+            routing_matrix = routing_matrices_hard[-1]
+            out = routing_block(out, routing_matrix)
+            block_outputs.append(out)
+            # Routing Layer
+            if layer_id < len(self.cigtLayers) - 1:
+                # Calculate routing weights for the next layer
+                p_n_given_x_soft, routing_activations = self.blockEndLayers[layer_id](out,
+                                                                                      labels,
+                                                                                      temperature,
+                                                                                      balance_coefficient_list[
+                                                                                          layer_id])
+                routing_matrices_soft.append(p_n_given_x_soft)
+                routing_activations_list.append(routing_activations)
+                # Calculate the hard routing matrix
+                p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id, p_n_given_x_soft=p_n_given_x_soft)
+                routing_matrices_hard.append(p_n_given_x_hard)
+            # Logits layer
+            else:
+                list_of_logits = self.calculate_logits(p_n_given_x_hard=routing_matrices_hard[-1],
+                                                       loss_block_outputs=block_outputs[-1])
+        return routing_matrices_hard, routing_matrices_soft, block_outputs, list_of_logits, routing_activations_list

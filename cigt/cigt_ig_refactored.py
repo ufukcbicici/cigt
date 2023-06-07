@@ -366,9 +366,10 @@ class CigtIgHardRoutingX(nn.Module):
         self.get_loss_layer()
 
     # OK
-    def get_loss_layer(self):
+    def get_loss_layer(self, final_layer_dimension_multiplier=1):
         self.lossLayers = nn.ModuleList()
-        final_feature_dimension = self.blockParametersList[-1][-1][-1]["out_dimension"]
+        final_feature_dimension = \
+            final_layer_dimension_multiplier * self.blockParametersList[-1][-1][-1]["out_dimension"]
         if self.lossCalculationKind == "SingleLogitSingleLoss":
             end_module = nn.Sequential(OrderedDict([
                 ('avg_pool', torch.nn.AvgPool2d(kernel_size=8)),
@@ -904,7 +905,7 @@ class CigtIgHardRoutingX(nn.Module):
             batch_size=self.batchSize, shuffle=False, **kwargs)
 
         print("Type of optimizer:{0}".format(self.modelOptimizer))
-        self.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
+        # self.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
         # self.validate(loader=test_loader, data_kind="test", epoch=0)
 
         total_epoch_count = self.epochCount + self.warmUpPeriod
