@@ -7,6 +7,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
+from focal_loss.focal_loss import FocalLoss
 
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
@@ -84,6 +85,8 @@ class CigtIgHardRoutingX(nn.Module):
         self.boostLearningRatesLayerWise = ResnetCigtConstants.boost_learning_rates_layer_wise
         self.multipleCeLosses = ResnetCigtConstants.multiple_ce_losses
         self.perSampleEntropyBalance = ResnetCigtConstants.per_sample_entropy_balance
+        self.useFocalLoss = ResnetCigtConstants.use_focal_loss
+        self.focalLossGamma = ResnetCigtConstants.focal_loss_gamma
         self.evaluationPeriod = ResnetCigtConstants.evaluation_period
         self.pathCounts = [1]
         self.pathCounts.extend([d_["path_count"] for d_ in self.resnetConfigList][1:])
@@ -138,10 +141,15 @@ class CigtIgHardRoutingX(nn.Module):
         self.moeLossLayer = MoeLayer()
         self.logSoftmax = nn.LogSoftmax(dim=1)
         self.nllLoss = nn.NLLLoss()
-        self.crossEntropyLoss = nn.CrossEntropyLoss()
-        self.identityLayer = nn.Identity()
-        self.crossEntropyLosses = [nn.CrossEntropyLoss() for _ in range(self.pathCounts[-1])]
 
+        if self.useFocalLoss:
+            self.singleClassificationLoss = FocalLoss(gamma=self.focalLossGamma)
+            self.classificationLosses = [FocalLoss(gamma=self.focalLossGamma) for _ in range(self.pathCounts[-1])]
+        else:
+            self.singleClassificationLoss = nn.CrossEntropyLoss()
+            self.classificationLosses = [nn.CrossEntropyLoss() for _ in range(self.pathCounts[-1])]
+
+        self.identityLayer = nn.Identity()
         self.numOfTrainingIterations = 0
         self.temperatureDecayStartIteration = 0
 
@@ -218,6 +226,10 @@ class CigtIgHardRoutingX(nn.Module):
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="multiple_ce_losses",
                                            value=self.boostLearningRatesLayerWise,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="useFocalLoss", value=self.useFocalLoss,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="focalLossGamma", value=self.focalLossGamma,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="applyMaskToBatchNorm", value=self.applyMaskToBatchNorm,
                                            explanation=explanation, kv_rows=kv_rows)
@@ -565,9 +577,20 @@ class CigtIgHardRoutingX(nn.Module):
         acc = torch.mean(correct_vector)
         return acc.cpu().numpy().item()
 
+    def calculate_classification_loss_from_logits(self, criterion, logits, labels):
+        if self.useFocalLoss:
+            probs = torch.softmax(logits, dim=-1)
+            loss = criterion(probs, labels)
+        else:
+            loss = criterion(logits, labels)
+        return loss
+
     def calculate_classification_loss_and_accuracy(self, list_of_logits, routing_matrices, target_var):
         if self.lossCalculationKind == "SingleLogitSingleLoss":
-            classification_loss = self.crossEntropyLoss(list_of_logits[0], target_var)
+            classification_loss = self.calculate_classification_loss_from_logits(
+                criterion=self.singleClassificationLoss,
+                logits=list_of_logits[0],
+                labels=target_var)
             batch_accuracy = self.measure_accuracy(list_of_logits[0].detach().cpu(), target_var.cpu())
         elif self.lossCalculationKind in {"MultipleLogitsMultipleLosses", "MultipleLogitsMultipleLossesAveraged"}:
             # Independently calculate loss for every block, by selecting the samples that are routed into these blocks.
@@ -590,8 +613,10 @@ class CigtIgHardRoutingX(nn.Module):
                 #     assert np.array_equal(selected_logits[i_].cpu().numpy(),
                 #                           list_of_logits[idx][j_].cpu().numpy())
                 #     assert selected_labels[i_] == target_var[j_]
-
-                block_classification_loss = self.crossEntropyLosses[idx](selected_logits, selected_labels)
+                block_classification_loss = self.calculate_classification_loss_from_logits(
+                    criterion=self.classificationLosses[idx],
+                    logits=selected_logits,
+                    labels=selected_labels)
                 classification_loss += block_classification_loss
                 block_accuracy = self.measure_accuracy(selected_logits.detach().cpu(), selected_labels.cpu())
                 batch_coefficient = (new_shape[0] / target_var.shape[0])
@@ -822,7 +847,7 @@ class CigtIgHardRoutingX(nn.Module):
 
                 # Cigt moe output, information gain losses
                 routing_matrices_hard, routing_matrices_soft, \
-                    block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
+                block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
                 classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
                     list_of_logits,
                     routing_matrices_hard,
@@ -907,6 +932,9 @@ class CigtIgHardRoutingX(nn.Module):
         print("Type of optimizer:{0}".format(self.modelOptimizer))
         # self.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
         # self.validate(loader=test_loader, data_kind="test", epoch=0)
+
+        print(self.singleClassificationLoss)
+        print(self.classificationLosses)
 
         total_epoch_count = self.epochCount + self.warmUpPeriod
         for epoch in range(0, total_epoch_count):
@@ -1015,7 +1043,7 @@ class CigtIgHardRoutingX(nn.Module):
 
                 # Cigt moe output, information gain losses
                 routing_matrices_hard, routing_matrices_soft, \
-                    block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
+                block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
                 classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
                     list_of_logits,
                     routing_matrices_hard,
@@ -1118,7 +1146,6 @@ class CigtIgHardRoutingX(nn.Module):
                 "list_of_logits_complete": list_of_logits_complete
             }
             return res_dict
-
 
     # def random_fine_tuning(self):
     #     self.isInWarmUp = False

@@ -180,6 +180,38 @@ class CigtMaskedRouting(CigtIgHardRoutingX):
             raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
         return list_of_logits
 
+    def calculate_classification_loss_and_accuracy(self, list_of_logits, routing_matrices, target_var):
+        assert isinstance(list_of_logits, list)
+        classification_loss = 0.0
+        batch_accuracy = 0.0
+        total_sample_count = sum([arr.shape[0] for arr in list_of_logits])
+        if self.lossCalculationKind == "SingleLogitSingleLoss":
+            list_of_labels = [target_var]
+        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses" \
+                or self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
+            list_of_labels = CigtIgGatherScatterImplementation.divide_tensor_wrt_routing_matrix(
+                tens=target_var,
+                routing_matrix=routing_matrices[-1])
+        else:
+            raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
+
+        for idx in range(len(list_of_logits)):
+            block_logits = list_of_logits[idx]
+            block_labels = list_of_labels[idx]
+            if block_logits.shape[0] == 0:
+                continue
+            block_classification_loss = self.calculate_classification_loss_from_logits(
+                criterion=self.classificationLosses[idx],
+                logits=block_logits,
+                labels=block_labels)
+            classification_loss += block_classification_loss
+            block_accuracy = self.measure_accuracy(block_logits.detach().cpu(), block_labels.cpu())
+            batch_coefficient = (block_logits.shape[0] / total_sample_count)
+            batch_accuracy += batch_coefficient * block_accuracy
+        if self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
+            classification_loss = classification_loss / len(list_of_logits)
+        return classification_loss, batch_accuracy
+
     def forward(self, x, labels, temperature):
         balance_coefficient_list = self.informationGainBalanceCoeffList
         # Routing Matrices
@@ -191,7 +223,7 @@ class CigtMaskedRouting(CigtIgHardRoutingX):
         out = F.relu(self.bn1(self.conv1(x)))
         routing_matrices_hard.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         routing_matrices_soft.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
-        routing_activations_list.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
+        # routing_activations_list.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         block_outputs.append(out)
         list_of_logits = None
 

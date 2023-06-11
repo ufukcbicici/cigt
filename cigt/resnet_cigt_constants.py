@@ -32,12 +32,14 @@ class ResnetCigtConstants:
     classification_drop_probability = 0.0
     batch_norm_type = "StandardBatchNormalization"
     apply_relu_dropout_to_decision_layer = True
-    apply_mask_to_batch_norm = False
+    apply_mask_to_batch_norm = True
     start_moving_averages_from_zero = False
     boost_learning_rates_layer_wise = False
     multiple_ce_losses = False
     per_sample_entropy_balance = True
-    advanced_augmentation = False
+    advanced_augmentation = True
+    use_focal_loss = True
+    focal_loss_gamma = 2.0
     validation_period = adjust_to_batch_size(original_value=5, target_batch_size=batch_size)
     # assert batch_norm_type in {"StandardBatchNormalization",
     #                            "CigtBatchNormalization",
@@ -99,14 +101,7 @@ class ResnetCigtConstants:
 
     random_classification_loss_weight = 1.0
 
-    resnet_config_list = [
-        {"path_count": 1,
-         "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
-        {"path_count": 2,
-         "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
-                             {"layer_count": 18, "feature_map_count": 16}]},
-        {"path_count": 4,
-         "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
+    resnet_config_list = None
 
     double_stride_layers = {18, 36}
 

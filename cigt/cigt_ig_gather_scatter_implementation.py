@@ -151,7 +151,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
             block_targets = target_var[idx]
             if block_logits.shape[0] == 0:
                 continue
-            block_classification_loss = self.crossEntropyLosses[idx](block_logits, block_targets)
+            block_classification_loss = self.calculate_classification_loss_from_logits(
+                criterion=self.classificationLosses[idx], logits=block_logits, labels=block_targets)
             classification_loss += block_classification_loss
             block_accuracy = self.measure_accuracy(block_logits.detach().cpu(), block_targets.cpu())
             batch_coefficient = (block_logits.shape[0] / total_sample_count)
