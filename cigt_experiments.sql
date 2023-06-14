@@ -1555,33 +1555,53 @@ sqlite> SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (140, 141, 142,
 --Started at 6/08/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With Random Augmentation - [1,2,4] - [5.0, 5.0] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59) GROUP BY RunID;
 --SELECT * FROM logs_table WHERE RunID = 51;
 --SELECT * FROM run_kv_store WHERE RunID = 51 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT * FROM run_kv_store WHERE RunID = 51 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
---SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56) GROUP BY RunID;
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59) GROUP BY RunID;
 
 51|0.933399998909235
 52|0.935900000613928
 53|0.934399996191263
 54|0.93679999807477
 55|0.935399998033047
+56|0.937799996507168
+57|0.935500001275539
+58|0.935099999380112
+59|0.936600001531839
 
-SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000 GROUP BY RunID;
+
+
+
+
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000 GROUP BY RunID;
 51|-9.79214752214845
 52|-9.79223536001058
 53|-9.79208068583968
 54|-9.80587766922328
 55|-9.79199429324303
+56|-9.80474778364331
+57|-9.78004521111896
+58|-9.79701188773682
 
 
 
-SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
+
+
+
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
 51|-9.91753535732146
 52|-9.90522053011002
 53|-9.89768090401926
 54|-9.90887350882254
 55|-9.89947455929172
+56|-9.91534696394397
+57|-9.88317625291886
+58|-9.91197657738962
+
+
+
 
 
 
@@ -1605,7 +1625,7 @@ SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55) AN
 --Started at 6/08/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With Focal Loss - Focal Loss Gamma: 2.0 - [1,2,4] - [5.0, 5.0] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (48, 49, 50, 51) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (48, 49, 50, 51, 52) GROUP BY RunID;
 --SELECT * FROM logs_table WHERE RunID = 48;
 --SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (48) GROUP BY RunID;
 --SELECT * FROM run_kv_store WHERE RunID = 48 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
@@ -1614,6 +1634,8 @@ SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55) AN
 49|0.917499995410442
 50|0.920499998056889
 51|0.922100000995398
+52|0.919599999964237
+
 
 
 
@@ -1642,9 +1664,16 @@ SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55) AN
 --Started at 6/11/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With Random Augmentation - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (3111, 3112) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (53, 54, 55, 56) GROUP BY RunID;
 --SELECT * FROM logs_table WHERE RunID = 51;
 --SELECT * FROM run_kv_store WHERE RunID = 51 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT * FROM run_kv_store WHERE RunID = 51 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
 --SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (53) GROUP BY RunID;
+
+53|0.932599999552965
+54|0.929699999302626
+55|0.926300004637241
+56|0.928599994152784
+
+
 
