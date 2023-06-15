@@ -1555,12 +1555,13 @@ sqlite> SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (140, 141, 142,
 --Started at 6/08/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With Random Augmentation - [1,2,4] - [5.0, 5.0] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60) GROUP BY RunID;
 --SELECT * FROM logs_table WHERE RunID = 51;
 --SELECT * FROM run_kv_store WHERE RunID = 51 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT * FROM run_kv_store WHERE RunID = 51 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
 --SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59) GROUP BY RunID;
 
+    SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60) GROUP BY RunID;
 51|0.933399998909235
 52|0.935900000613928
 53|0.934399996191263
@@ -1570,12 +1571,25 @@ sqlite> SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (140, 141, 142,
 57|0.935500001275539
 58|0.935099999380112
 59|0.936600001531839
+60|0.937100003141165
+
+SELECT RunID, Max(TrainingAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60) GROUP BY RunID;
+51|0.935620000469685
+52|0.941539998687506
+53|0.941839997528791
+54|0.941879999707937
+55|0.940640000852346
+56|0.942040001772642
+57|0.934479999608994
+58|0.941399998310804
+59|0.938660001899004
+60|0.941099999366999
 
 
 
 
 
-SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000 GROUP BY RunID;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000 GROUP BY RunID;
 51|-9.79214752214845
 52|-9.79223536001058
 53|-9.79208068583968
@@ -1584,13 +1598,11 @@ SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56
 56|-9.80474778364331
 57|-9.78004521111896
 58|-9.79701188773682
+59|-9.77236530951876
+60|-9.7833963831135
 
 
-
-
-
-
-SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration > 80000 GROUP BY RunID;
 51|-9.91753535732146
 52|-9.90522053011002
 53|-9.89768090401926
@@ -1599,6 +1611,20 @@ SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56
 56|-9.91534696394397
 57|-9.88317625291886
 58|-9.91197657738962
+59|-9.88682746887208
+60|-9.89927431844896
+
+SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60) AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration > 80000 GROUP BY RunID;
+51|0.759800183215841
+52|0.697619421612361
+53|0.693133265917987
+54|0.696433804669296
+55|0.705919123739691
+56|0.689220424523238
+57|0.83317227376143
+58|0.70525431344586
+59|0.73974565807497
+60|0.712861680980573
 
 
 

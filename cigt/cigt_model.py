@@ -35,7 +35,7 @@ class BasicBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
 
         self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion * planes:
+        if stride != 1 or aain_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(self.expansion * planes)
