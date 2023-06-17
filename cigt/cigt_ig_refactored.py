@@ -18,6 +18,7 @@ from cigt.cigt_soft_routing import CigtSoftRouting
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.moe_layer import MoeLayer
 from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.routing_layers.cbam_routing_layer import CbamRoutingLayer
 from cigt.routing_layers.hard_routing_layer import HardRoutingLayer
 from randaugment import RandAugment
 from torchvision import transforms
@@ -64,6 +65,8 @@ class CigtIgHardRoutingX(nn.Module):
         self.firstConvOutputDim = ResnetCigtConstants.first_conv_output_dim
         self.firstConvStride = ResnetCigtConstants.first_conv_stride
         self.applyReluDropoutToDecisionLayers = ResnetCigtConstants.apply_relu_dropout_to_decision_layer
+        self.cbamReductionRatio = ResnetCigtConstants.cbam_reduction_ratio
+        self.numberOfCbamLayersInRoutingLayers = ResnetCigtConstants.number_of_cbam_layers_in_routing_layers
         self.bnMomentum = ResnetCigtConstants.bn_momentum
         self.batchNormType = ResnetCigtConstants.batch_norm_type
         self.applyMaskToBatchNorm = ResnetCigtConstants.apply_mask_to_batch_norm
@@ -204,6 +207,12 @@ class CigtIgHardRoutingX(nn.Module):
         explanation = self.add_explanation(name_of_param="Decision Dropout Probability",
                                            value=self.routingDropoutProbability,
                                            explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Cbam Reduction Ratio",
+                                           value=self.cbamReductionRatio,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Number of Cbam Layers In Routing Layers",
+                                           value=self.numberOfCbamLayersInRoutingLayers,
+                                           explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Apply Relu & Dropout to Decision Layers",
                                            value=self.applyReluDropoutToDecisionLayers,
                                            explanation=explanation, kv_rows=kv_rows)
@@ -332,16 +341,32 @@ class CigtIgHardRoutingX(nn.Module):
 
     # OK
     def get_routing_layer(self, cigt_layer_id, input_feature_map_size, input_feature_map_count):
-        routing_layer = SoftRoutingLayer(
-            feature_dim=self.decisionDimensions[cigt_layer_id],
-            avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],
-            path_count=self.pathCounts[cigt_layer_id + 1],
-            class_count=self.numClasses,
-            input_feature_map_size=input_feature_map_size,
-            input_feature_map_count=input_feature_map_count,
-            apply_relu_dropout=self.applyReluDropoutToDecisionLayers,
-            dropout_probability=self.routingDropoutProbability,
-            device=self.device)
+        if self.numberOfCbamLayersInRoutingLayers == 0:
+            routing_layer = SoftRoutingLayer(
+                feature_dim=self.decisionDimensions[cigt_layer_id],
+                avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],
+                path_count=self.pathCounts[cigt_layer_id + 1],
+                class_count=self.numClasses,
+                input_feature_map_size=input_feature_map_size,
+                input_feature_map_count=input_feature_map_count,
+                apply_relu_dropout=self.applyReluDropoutToDecisionLayers,
+                dropout_probability=self.routingDropoutProbability,
+                device=self.device)
+        else:
+            routing_layer = CbamRoutingLayer(
+                block_id=cigt_layer_id,
+                conv_block_count=self.numberOfCbamLayersInRoutingLayers,
+                cbam_reduction_ratio=self.cbamReductionRatio,
+                feature_dim=self.decisionDimensions[cigt_layer_id],
+                avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],
+                path_count=self.pathCounts[cigt_layer_id + 1],
+                class_count=self.numClasses,
+                input_feature_map_size=input_feature_map_size,
+                input_feature_map_count=input_feature_map_count,
+                apply_relu_dropout=self.applyReluDropoutToDecisionLayers,
+                dropout_probability=self.routingDropoutProbability,
+                device=self.device)
+        print("Layer {0} Routing Layer: {1}".format(cigt_layer_id, routing_layer))
         return routing_layer
 
     # OK

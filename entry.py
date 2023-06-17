@@ -29,9 +29,9 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db2
+    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
-    weight_decay = 5 * [0.0006]
+    weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
 
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
@@ -43,14 +43,16 @@ if __name__ == "__main__":
             {"path_count": 2,
              "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
                                  {"layer_count": 18, "feature_map_count": 16}]},
-            {"path_count": 2,
+            {"path_count": 4,
              "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
         ResnetCigtConstants.classification_wd = param_tpl[0]
-        ResnetCigtConstants.information_gain_balance_coeff_list = [1.0, 1.0]
+        ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
         ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
         ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
         ResnetCigtConstants.decision_drop_probability = 0.5
+        ResnetCigtConstants.number_of_cbam_layers_in_routing_layers = 0
+        ResnetCigtConstants.cbam_reduction_ratio = 4
         ResnetCigtConstants.apply_relu_dropout_to_decision_layer = False
         ResnetCigtConstants.decision_dimensions = [128, 128]
         ResnetCigtConstants.apply_mask_to_batch_norm = False
@@ -97,7 +99,7 @@ if __name__ == "__main__":
 
         model = CigtIgGatherScatterImplementation(
             run_id=run_id,
-            model_definition="Gather Scatter Cigt With Random Augmentation - [1,2,2] - [1.0, 1.0] - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="Gather Scatter Cigt With Random Augmentation - [1,2,4] - [5.0, 5.0] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
 
         # model = CigtMaskedRouting(
