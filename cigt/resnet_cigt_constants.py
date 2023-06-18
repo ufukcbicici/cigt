@@ -115,6 +115,7 @@ class ResnetCigtConstants:
         decay_min_limit=softmax_decay_min_limit)
 
     # Knowledge Distillation Parameters
+    ideal_routing_error_ratio = 0.05
     use_kd_for_routing = False
     kd_teacher_temperature = 6.0
     kd_loss_alpha = 0.5

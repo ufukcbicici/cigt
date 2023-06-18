@@ -1562,11 +1562,11 @@ sqlite> SELECT RunId,AVG(Value) FROM run_kv_store WHERE RunID IN (140, 141, 142,
 --SELECT * FROM logs_table WHERE RunID = 51;
 --SELECT * FROM run_kv_store WHERE RunID = 62 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT * FROM run_kv_store WHERE RunID = 51 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
---SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62) GROUP BY RunID;
+--SELECT RunID, Max(Epoch), Max(Iteration) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63) GROUP BY RunID;
 --SELECT RunID, MIN(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID;
 9.91252241134644
 
-SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60) GROUP BY RunID;
+SELECT RunID, Max(TestAccuracy) AS Acc FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62) GROUP BY RunID ORDER BY Acc DESC;
 51|0.933399998909235
 52|0.935900000613928
 53|0.934399996191263
@@ -1577,6 +1577,21 @@ SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 
 58|0.935099999380112
 59|0.936600001531839
 60|0.937100003141165
+
+SELECT RunID, MIN(Value) AS Score FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Score ASC;
+51|-9.93302793502808
+56|-9.92644653320312
+62|-9.92495069503784
+58|-9.92368068695068
+54|-9.92163553237915
+52|-9.91686754226685
+60|-9.91252241134644
+55|-9.91062927246094
+53|-9.90768098831177
+59|-9.90069694519043
+57|-9.89654397964478
+61|-8.31776638031006
+
 
 SELECT RunID, Max(TrainingAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60) GROUP BY RunID;
 51|0.935620000469685
@@ -1644,36 +1659,160 @@ SELECT RunID, MIN(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 5
 60|-9.91252241134644
 61|-8.31776638031006
 
-SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (60, 61, 62) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration >= (13524-2500) AND Iteration <= 13524 GROUP BY RunID ORDER BY Score ASC;
-62|-8.99671799052845|11
-60|-8.96838612122969|11
-61|-8.31776624159379|11
-SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (60, 61, 62) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration >= (13524-2500) AND Iteration <= 13524 GROUP BY RunID ORDER BY Score ASC;
-62|-8.69814593097496|11
-60|-8.69169467543848|11
-61|-8.31776617188179|11
-SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (60, 61, 62) AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration >= (13524-2500) AND Iteration <= 13524 GROUP BY RunID ORDER BY Score ASC;
-60|2.6248964656483|11
-62|2.75539346933365|11
-61|3.64143247821114|11
-SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (60, 61, 62) AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration >= (13524-2500) AND Iteration <= 13524 GROUP BY RunID ORDER BY Score ASC;
-60|3.60461819592124|11
-62|3.71853904998369|11
-61|4.91290812855085|11
+SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration >= (58604-2500) AND Iteration <= 58604 GROUP BY RunID ORDER BY Score ASC;
+54|-9.80955341512507|11
+56|-9.7986214204268|11
+53|-9.79520558443936|11
+55|-9.78642922314731|11
+58|-9.77820236032659|11
+63|-9.77601292350075|11
+52|-9.76999224749479|11
+60|-9.76681964180686|11
+51|-9.76091829646717|11
+62|-9.75634000084617|11
+59|-9.74249029159546|11
+57|-9.73529397791082|11
+61|-8.31776628494262|11
+
+
+
+SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration >= (58604-2500) AND Iteration <= 58604 GROUP BY RunID ORDER BY Score ASC;
+54|-9.60448572233126|11
+53|-9.59665668077062|11
+63|-9.57939725992631|11
+56|-9.5765295665649|11
+55|-9.57386443610536|11
+58|-9.54747850598563|11
+52|-9.54041633889051|11
+60|-9.5363521717475|11
+62|-9.5222587090034|11
+57|-9.52161034493809|11
+59|-9.50802985458516|11
+51|-9.50126785603879|11
+61|-8.31776617542048|11
+
+
+
+SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63) AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration >= (58604-2500) AND Iteration <= 58604 GROUP BY RunID ORDER BY Score ASC;
+61|0.337865308062597|11
+60|1.12935366034508|11
+53|1.14744955084541|11
+52|1.16142424724319|11
+59|1.16418322920799|11
+62|1.16892394423485|11
+56|1.17376239733262|11
+58|1.18965362472968|11
+54|1.19042155796831|11
+55|1.2062313887206|11
+63|1.22611752856861|11
+57|1.24474751461636|11
+51|1.25576961311427|11
+
+
+
+
+SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63) AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration >= (58604-2500) AND Iteration <= 58604 GROUP BY RunID ORDER BY Score ASC;
+61|0.45594413349049|11
+53|1.42187191316502|11
+60|1.43451765826549|11
+63|1.43729895563426|11
+56|1.4427888986131|11
+55|1.46539479306102|11
+54|1.46651505649864|11
+58|1.46666475881672|11
+52|1.48955829510662|11
+62|1.49949010117377|11
+59|1.50890852170884|11
+51|1.59074708946561|11
+57|1.68533579316785|11
+
+
+
+
+
+
+
+
+SELECT RunID, AVG(TrainingAccuracy) AS Acc, COUNT(*) AS CNT FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63) AND Iteration >= (58604-2500) AND Iteration <= 58604 GROUP BY RunID ORDER BY Acc DESC;
+53|0.874118181257681|11
+63|0.873532727547451|11
+56|0.871692726943709|11
+60|0.871558181365078|11
+55|0.869400000085289|11
+54|0.869218181617477|11
+58|0.868676363767819|11
+59|0.866916363784833|11
+52|0.866916363509785|11
+62|0.866554545189251|11
+51|0.858543636116656|11
+57|0.856243637504686|11
+61|0.84149818188754|11
+
+
+
+
+
+
+
+
+
+
+
+SELECT RunID, AVG(TestAccuracy) AS Acc, COUNT(*) AS CNT FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63) AND Iteration >= (58604-2500) AND Iteration <= 58604 GROUP BY RunID ORDER BY Acc DESC;
+60|0.907918181533705|11
+53|0.907809090639786|11
+63|0.907154545080662|11
+52|0.90624545530731|11
+56|0.90609090949893|11
+54|0.905890909244798|11
+59|0.905572727653113|11
+62|0.905000001824444|11
+58|0.904699999855865|11
+57|0.902909091456912|11
+55|0.902163635487448|11
+51|0.899681816978346|11
+61|0.891636363818429|11
+
+
+
+SELECT RunID, MAX(TestAccuracy) AS Acc FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62) AND Iteration <= 76734 GROUP BY RunID ORDER BY Acc DESC;
+SELECT RunID, MAX(TrainingAccuracy) AS Acc FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62) AND Iteration <= 51989 GROUP BY RunID ORDER BY Acc DESC;
+
+
+
+SELECT RunID, Iteration, Value FROM run_kv_store WHERE RunID IN (54) AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration >= (23569-2500) AND Iteration <= 23569;
+SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (54) AND Key LIKE "%classification_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%" AND Iteration >= (23569-2500) AND Iteration <= 23569 GROUP BY RunID;
 
 
 -- TUNA 2 - With Reverted Repo, Reverted before CBAM routing.
+--Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With Random Augmentation - [1,2,4] - [5.0, 5.0] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
 --SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62) GROUP BY RunID;
---SELECT * FROM logs_table WHERE RunID = 51;
+--SELECT * FROM logs_table WHERE RunID = 59;
 --SELECT * FROM run_kv_store WHERE RunID = 61 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%train%";
 --SELECT * FROM run_kv_store WHERE RunID = 51 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
---SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62) GROUP BY RunID;
+--SELECT RunID, Max(Epoch), Max(Iteration) FROM logs_table WHERE RunID IN (59) GROUP BY RunID;
 --SELECT RunID, MIN(Value) FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID;
 
-
-
-
+SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration >= (44149-2500) AND Iteration <= 44149 GROUP BY RunID ORDER BY Score ASC;
+56|-9.49488489844582|11
+58|-9.40937653454867|11
+62|-9.37456755204634|11
+55|-9.35274840268222|11
+51|-9.34869000694968|11
+57|-9.3281982161782|11
+60|-9.32809641144492|11
+59|-9.30455932617187|11
+54|-9.2791233106093|11
+52|-9.2192324551669|11
+53|-9.02427030476657|11
+61|-8.31776628494262|11
+SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID IN (59) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" AND Iteration >= (44149-2500) AND Iteration <= 44149 GROUP BY RunID ORDER BY Score ASC;
+SELECT RunID, Min(Value) FROM run_kv_store WHERE RunID IN (59, 60) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID;
+SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (59, 60) GROUP BY RunID;
+59|0.933299997997284
+60|0.922099995797872
+SELECT RunID, Max(Epoch), Max(Iteration) FROM logs_table WHERE RunID IN (59, 60) GROUP BY RunID;
 
 --Experiments: "Gather Scatter Cigt With Focal Loss - Focal Loss Gamma: 2.0 - [1,2,4] - [5.0, 5.0] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
 --ResnetCigtConstants.decision_drop_probability = 0.5
@@ -1773,10 +1912,61 @@ SELECT RunID, AVG(Value) AS Score, COUNT(*) AS CNT FROM run_kv_store WHERE RunID
 --ResnetCigtConstants.focal_loss_gamma = 2.0
 --Started at 6/17/2023
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With CBAM Routers - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
---SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (58) GROUP BY RunID;
---SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (58) GROUP BY RunID;
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (80) GROUP BY RunID;
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (80) GROUP BY RunID;
 --SELECT * FROM run_kv_store WHERE RunID = 58 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
 
-SELECT RunID, MIN(Value) FROM run_kv_store WHERE RunID IN (58) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID;
-58|-9.93967580795288
+SELECT RunID, MIN(Value) FROM run_kv_store WHERE RunID IN (80, 81) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID;
+80|-9.94133834838867
+81|-9.90903692245483
+
+SELECT RunID, Max(TestAccuracy) AS Acc FROM logs_table WHERE RunID IN (80, 81) GROUP BY RunID ORDER BY Acc DESC;
+81|0.931199999392033
+80|0.929199998182058
+
+SELECT RunID, Max(Epoch), Max(Iteration) FROM logs_table WHERE RunID IN (80, 81) GROUP BY RunID;
+
+
+
+--Experiments: "Gather Scatter Cigt With CBAM Routers With Random Augmentation - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
+--weight_decay = 5 * [0.0005]
+--ResnetCigtConstants.resnet_config_list = [
+--    {"path_count": 1,
+--     "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
+--    {"path_count": 2,
+--     "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
+--    {"layer_count": 18, "feature_map_count": 16}]},
+--    {"path_count": 4,
+--     "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
+--ResnetCigtConstants.classification_wd = param_tpl[0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--ResnetCigtConstants.decision_drop_probability = 0.5
+--ResnetCigtConstants.number_of_cbam_layers_in_routing_layers = 3
+--ResnetCigtConstants.cbam_reduction_ratio = 4
+--ResnetCigtConstants.apply_relu_dropout_to_decision_layer = False
+--ResnetCigtConstants.decision_dimensions = [128, 128]
+--ResnetCigtConstants.apply_mask_to_batch_norm = False
+--ResnetCigtConstants.advanced_augmentation = True
+--ResnetCigtConstants.use_focal_loss = False
+--ResnetCigtConstants.focal_loss_gamma = 2.0
+--Started at 6/17/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With CBAM Routers With Random Augmentation - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (64) GROUP BY RunID;
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (64) GROUP BY RunID;
+--SELECT * FROM run_kv_store WHERE RunID = 64 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
+
+SELECT RunID, MIN(Value) FROM run_kv_store WHERE RunID IN (64, 65) AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID;
+64|-9.9499119758606
+65|-9.60286798477173
+
+SELECT RunID, Max(Epoch), Max(Iteration) FROM logs_table WHERE RunID IN (64, 65) GROUP BY RunID;
+
+SELECT RunID, Max(TestAccuracy) AS Acc FROM logs_table WHERE RunID IN (64, 65) GROUP BY RunID ORDER BY Acc DESC;
+64|0.938100003147125
+65|0.834099996966124

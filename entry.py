@@ -29,7 +29,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db2
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 5 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
         ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
         ResnetCigtConstants.decision_drop_probability = 0.5
-        ResnetCigtConstants.number_of_cbam_layers_in_routing_layers = 0
+        ResnetCigtConstants.number_of_cbam_layers_in_routing_layers = 3
         ResnetCigtConstants.cbam_reduction_ratio = 4
         ResnetCigtConstants.apply_relu_dropout_to_decision_layer = False
         ResnetCigtConstants.decision_dimensions = [128, 128]
@@ -97,11 +97,6 @@ if __name__ == "__main__":
         # explanation = model.get_explanation_string()
         # DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        model = CigtIgGatherScatterImplementation(
-            run_id=run_id,
-            model_definition="Gather Scatter Cigt With Random Augmentation - [1,2,4] - [5.0, 5.0] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
-            num_classes=10)
-
         # model = CigtMaskedRouting(
         #     run_id=run_id,
         #     model_definition="Masked Cigt - [1,2,4] - [5.0, 5.0] - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 "
@@ -115,7 +110,14 @@ if __name__ == "__main__":
         # _141_checkpoint = torch.load(chck_path, map_location="cpu")
         # model.load_state_dict(state_dict=_141_checkpoint["model_state_dict"])
 
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
+        # model = CigtIgGatherScatterImplementation(
+        #     run_id=run_id,
+        #     model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+        #     num_classes=10)
+
+        model = CigtIdealRouting()
+
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
