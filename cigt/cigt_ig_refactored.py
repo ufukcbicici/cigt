@@ -66,6 +66,7 @@ class CigtIgHardRoutingX(nn.Module):
         self.firstConvStride = ResnetCigtConstants.first_conv_stride
         self.applyReluDropoutToDecisionLayers = ResnetCigtConstants.apply_relu_dropout_to_decision_layer
         self.cbamReductionRatio = ResnetCigtConstants.cbam_reduction_ratio
+        self.cbamLayerInputReductionRatio = ResnetCigtConstants.cbam_layer_input_reduction_ratio
         self.numberOfCbamLayersInRoutingLayers = ResnetCigtConstants.number_of_cbam_layers_in_routing_layers
         self.bnMomentum = ResnetCigtConstants.bn_momentum
         self.batchNormType = ResnetCigtConstants.batch_norm_type
@@ -209,6 +210,9 @@ class CigtIgHardRoutingX(nn.Module):
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Cbam Reduction Ratio",
                                            value=self.cbamReductionRatio,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Cbam Layer Input Reduction Ratio",
+                                           value=self.cbamLayerInputReductionRatio,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Number of Cbam Layers In Routing Layers",
                                            value=self.numberOfCbamLayersInRoutingLayers,
@@ -357,6 +361,7 @@ class CigtIgHardRoutingX(nn.Module):
                 block_id=cigt_layer_id,
                 conv_block_count=self.numberOfCbamLayersInRoutingLayers,
                 cbam_reduction_ratio=self.cbamReductionRatio,
+                conv_block_reduction=self.cbamLayerInputReductionRatio,
                 feature_dim=self.decisionDimensions[cigt_layer_id],
                 avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],
                 path_count=self.pathCounts[cigt_layer_id + 1],

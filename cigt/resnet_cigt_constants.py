@@ -35,6 +35,7 @@ class ResnetCigtConstants:
     apply_mask_to_batch_norm = False
     number_of_cbam_layers_in_routing_layers = 3
     cbam_reduction_ratio = 4
+    cbam_layer_input_reduction_ratio = 2
     start_moving_averages_from_zero = False
     boost_learning_rates_layer_wise = False
     multiple_ce_losses = False
