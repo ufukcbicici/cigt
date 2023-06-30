@@ -25,13 +25,15 @@ class IdealRoutingLayer(nn.Module):
         if self.training:
             random_matrix = torch.randint(low=0, high=1000, size=(p_n_given_x.shape[0], p_n_given_x.shape[1]))
             random_matrix[torch.arange(p_n_given_x.shape[0]), torch.argmax(p_n_given_x, dim=1)] = -1
+            error_routing_matrix = torch.zeros_like(p_n_given_x)
+            error_routing_matrix[torch.arange(p_n_given_x.shape[0]), torch.argmax(random_matrix, dim=1)] = 1
+
             error_index_count = int(self.errorRatio * p_n_given_x.shape[0])
             error_indices = torch.randint(low=0, high=p_n_given_x.shape[0], size=(error_index_count,))
-            selection_vec = torch.zeros(size=(p_n_given_x.shape[0], ))
-            selection_vec[error_indices] = 1
-            noisy_routing_matrix = torch.where(selection_vec.to(torch.bool), p_n_given_x, )
-
-
+            selection_vec = torch.ones(size=(p_n_given_x.shape[0], ))
+            selection_vec[error_indices] = 0
+            noisy_routing_matrix = torch.where(selection_vec.to(torch.bool),  p_n_given_x, error_routing_matrix)
+            p_n_given_x = noisy_routing_matrix
 
         # p_n_given_x2 = torch.zeros_like(p_n_given_x)
         # for lid, lbl in enumerate(labels):
