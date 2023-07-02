@@ -70,10 +70,11 @@ class CigtBayesianMultipath(CigtIgGatherScatterImplementation):
 
             # Routing Layer
             if layer_id < len(self.cigtLayers) - 1:
+                layer_temperature = self.softmaxTemperatures[layer_id]
                 # Calculate routing weights for the next layer
                 p_n_given_x_soft, routing_activations = self.blockEndLayers[layer_id](layer_outputs_unified,
                                                                                       layer_labels_unified,
-                                                                                      temperature,
+                                                                                      layer_temperature,
                                                                                       balance_coefficient_list[
                                                                                           layer_id])
                 # Calculate the hard routing matrix
@@ -107,9 +108,40 @@ class CigtBayesianMultipath(CigtIgGatherScatterImplementation):
 
         return layer_outputs
 
+    def calculate_entropy_variances(self, routing_matrices):
+        eps = 1e-30
+        variances_list = []
+        for layer_id in range(len(routing_matrices)):
+            p_n_given_x = routing_matrices[layer_id]
+            log_p_n_given_x = torch.log(p_n_given_x + eps)
+            prob_log_prob = p_n_given_x * log_p_n_given_x
+            entropies = -1.0 * torch.sum(prob_log_prob, dim=1)
+            layer_entropy_variance = torch.var(entropies)
+            variances_list.append(layer_entropy_variance)
+        return variances_list
+
+    def eval_variances(self, data_loader):
+        variance_avg = AverageMeter()
+        self.eval()
+        for i, (input_, target) in enumerate(data_loader):
+            input_var = torch.autograd.Variable(input_).to(self.device)
+            target_var = torch.autograd.Variable(target).to(self.device)
+            batch_size = input_var.size(0)
+            with torch.no_grad():
+                layer_outputs = self(input_var, target_var, None)
+                routing_matrices_soft = [od["routing_matrices_soft"] for od in layer_outputs[1:-1]]
+                variances_list = self.calculate_entropy_variances(routing_matrices=routing_matrices_soft)
+                total_var = torch.tensor(0.0, device=self.device)
+                for var_layer in variances_list:
+                    total_var += var_layer
+                variance_avg.update(total_var.detach().cpu().numpy().item(), batch_size)
+        return variance_avg.avg
+
     def fit_temperatures_with_respect_to_variances(self):
         self.to(self.device)
         torch.manual_seed(1)
+        variance_avg = AverageMeter()
+
         # Cifar 10 Dataset
         kwargs = {'num_workers': 2, 'pin_memory': True}
         train_loader = torch.utils.data.DataLoader(
@@ -122,7 +154,8 @@ class CigtBayesianMultipath(CigtIgGatherScatterImplementation):
 
         temperature_optimizer = optim.Adam([{'params': self.softmaxTemperatures,
                                              'lr': temperature_optimizer_lr, 'weight_decay': 0.0}])
-        self.train()
+        # We don't want to update batch normalization layer statistics.
+        self.eval()
         for epoch in range(0, self.temperatureOptimizationEpochCount):
             print("X")
 
@@ -134,48 +167,19 @@ class CigtBayesianMultipath(CigtIgGatherScatterImplementation):
                     batch_size = input_var.size(0)
 
                     # Cigt Classification Loss and Accuracy Calculation
-                    layer_outputs = self(input_var, target_var, temperature)
-                    print("X")
-
-
-        # print("Type of optimizer:{0}".format(self.modelOptimizer))
-        # # self.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
-        # # self.validate(loader=test_loader, data_kind="test", epoch=0)
-        #
-        # print(self.singleClassificationLoss)
-        # print(self.classificationLosses)
-        #
-        # total_epoch_count = self.epochCount + self.warmUpPeriod
-        # for epoch in range(0, total_epoch_count):
-        #     self.adjust_learning_rate(epoch)
-        #     self.adjust_warmup(epoch)
-        #
-        #     # train for one epoch
-        #     train_mean_batch_time = self.train_single_epoch(epoch_id=epoch, train_loader=train_loader)
-        #
-        #     if epoch % self.evaluationPeriod == 0 or epoch >= (total_epoch_count - 10):
-        #         print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
-        #             DbLogger.log_db_path, self.runId, epoch))
-        #         train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
-        #         print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
-        #             DbLogger.log_db_path, self.runId, epoch))
-        #         test_accuracy = self.validate(loader=test_loader, epoch=epoch, data_kind="test")
-        #
-        #         if test_accuracy > best_performance:
-        #             self.save_cigt_model(epoch=epoch)
-        #             best_performance = test_accuracy
-        #
-        #         DbLogger.write_into_table(
-        #             rows=[(self.runId,
-        #                    self.numOfTrainingIterations,
-        #                    epoch,
-        #                    train_accuracy,
-        #                    0.0,
-        #                    test_accuracy,
-        #                    train_mean_batch_time,
-        #                    0.0,
-        #                    0.0,
-        #                    "YYY")], table=DbLogger.logsTable)
-        #
-
-
+                    layer_outputs = self(input_var, target_var, None)
+                    routing_matrices_soft = [od["routing_matrices_soft"] for od in layer_outputs[1:-1]]
+                    variances_list = self.calculate_entropy_variances(routing_matrices=routing_matrices_soft)
+                    total_var = torch.tensor(0.0, device=self.device)
+                    for var_layer in variances_list:
+                        total_var += var_layer
+                    neg_total_variances = -1.0 * total_var
+                    neg_total_variances.backward()
+                    temperature_optimizer.step()
+                    variance_avg.update(total_var.detach().cpu().numpy().item(), batch_size)
+                    print("Epoch{0} Iteration{1} Variances:{2} Softmax Temperatures:{3}".format(
+                        epoch, i, variance_avg.avg, self.softmaxTemperatures))
+            train_variance = self.eval_variances(data_loader=train_loader)
+            test_variance = self.eval_variances(data_loader=test_loader)
+            print("Epoch{0} Train Variance:{1}".format(epoch, train_variance))
+            print("Epoch{0} Test Variance:{1}".format(epoch, test_variance))

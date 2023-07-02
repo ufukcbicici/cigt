@@ -5,6 +5,7 @@ from torchvision import datasets
 
 from auxillary.db_logger import DbLogger
 from auxillary.utilities import Utilities
+from cigt.cigt_bayesian_multipath import CigtBayesianMultipath
 from cigt.cigt_constant_routing_weights import CigtConstantRoutingWeights
 from cigt.cigt_ideal_routing import CigtIdealRouting
 from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
@@ -29,9 +30,9 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db
+    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
-    weight_decay = 10 * [0.0006]
+    weight_decay = 10 * [0.0005]
     weight_decay = sorted(weight_decay)
 
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
@@ -111,15 +112,25 @@ if __name__ == "__main__":
         # _141_checkpoint = torch.load(chck_path, map_location="cpu")
         # model.load_state_dict(state_dict=_141_checkpoint["model_state_dict"])
 
-        model = CigtIgGatherScatterImplementation(
+        model = CigtBayesianMultipath(
             run_id=run_id,
-            model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
 
-        # model = CigtIdealRouting()
+        chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+                                         "checkpoints/dblogger2_94_epoch1390.pth")
+        cbam_checkpoint = torch.load(chck_path)
+        model.load_state_dict(state_dict=cbam_checkpoint["model_state_dict"], strict=False)
 
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        model.fit()
+        # Cifar 10 Dataset
+        kwargs = {'num_workers': 2, 'pin_memory': True}
+        test_loader = torch.utils.data.DataLoader(
+            datasets.CIFAR10('../data', train=False, transform=model.transformTest),
+            batch_size=ResnetCigtConstants.batch_size, shuffle=False, **kwargs)
+        # model.validate(loader=test_loader, epoch=0, data_kind="test", temperature=0.1)
+        model.fit_temperatures_with_respect_to_variances()
+        model.validate(loader=test_loader, epoch=0, data_kind="test", temperature=0.1)
