@@ -150,7 +150,7 @@ class CigtBayesianMultipath(CigtIgGatherScatterImplementation):
         test_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10('../data', train=False, transform=self.transformTest),
             batch_size=self.batchSize, shuffle=False, **kwargs)
-        temperature_optimizer_lr = 0.0001
+        temperature_optimizer_lr = 0.001
 
         temperature_optimizer = optim.Adam([{'params': self.softmaxTemperatures,
                                              'lr': temperature_optimizer_lr, 'weight_decay': 0.0}])
