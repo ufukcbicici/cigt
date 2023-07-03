@@ -19,7 +19,7 @@ class ResnetCigtConstants:
     batch_size = 1024
     warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
     epoch_count = adjust_to_batch_size(original_value=1400, target_batch_size=batch_size)
-    temperature_optimization_epoch_count = 100
+    temperature_optimization_epoch_count = 1000
     data_parallelism = False
     classification_wd = 0.0
     decision_wd = 0.0
