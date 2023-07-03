@@ -59,6 +59,7 @@ class ResnetCigtConstants:
     decision_loss_coeff = 1.0
     optimizer_type = "SGD"
     decision_non_linearity = "Softmax"
+    z_sample_count = 1000
     save_model = True
     routing_strategy_name = "Approximate_Training"
     use_straight_through = True
