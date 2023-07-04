@@ -61,6 +61,7 @@ if __name__ == "__main__":
         ResnetCigtConstants.use_focal_loss = False
         ResnetCigtConstants.focal_loss_gamma = 2.0
         ResnetCigtConstants.batch_norm_type = "InstanceNorm"
+        ResnetCigtConstants.data_parallelism = True
         # ResnetCigtConstants.use_kd_for_routing = False
         # ResnetCigtConstants.kd_teacher_temperature = 10.0
         # ResnetCigtConstants.kd_loss_alpha = 0.95
@@ -114,7 +115,7 @@ if __name__ == "__main__":
 
         model = CigtIgGatherScatterImplementation(
             run_id=run_id,
-            model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm Batchsize:1536 - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
 
         # model = CigtIdealRouting()

@@ -2469,7 +2469,7 @@ SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 94 AND RunID <=
 
 
 
---Experiments: "Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
+--Experiments: "Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm Batchsize:1536 - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
 --weight_decay = 5 * [0.0005]
 --ResnetCigtConstants.resnet_config_list = [
 --    {"path_count": 1,
@@ -2495,9 +2495,10 @@ SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 94 AND RunID <=
 --ResnetCigtConstants.use_focal_loss = False
 --ResnetCigtConstants.focal_loss_gamma = 2.0
 --ResnetCigtConstants.batch_norm_type = "InstanceNorm"
---Started at 7/024/2023
+--ResnetCigtConstants.data_parallelism = True
+--Started at 7/04/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
---SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm Batchsize:1536 - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
 --SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (64) GROUP BY RunID;
 --SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (64, 65, 66, 67) GROUP BY RunID;
 --SELECT * FROM run_kv_store WHERE RunID = 64 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
