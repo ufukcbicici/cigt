@@ -359,6 +359,7 @@ class CigtIgHardRoutingX(nn.Module):
         else:
             routing_layer = CbamRoutingLayer(
                 block_id=cigt_layer_id,
+                norm_type=self.batchNormType,
                 conv_block_count=self.numberOfCbamLayersInRoutingLayers,
                 cbam_reduction_ratio=self.cbamReductionRatio,
                 conv_block_reduction=self.cbamLayerInputReductionRatio,
@@ -386,7 +387,8 @@ class CigtIgHardRoutingX(nn.Module):
                 for inner_block_info in cigt_layer_info:
                     block = BasicBlock(in_planes=inner_block_info["in_dimension"],
                                        planes=inner_block_info["out_dimension"],
-                                       stride=inner_block_info["stride"])
+                                       stride=inner_block_info["stride"],
+                                       norm_type=self.batchNormType)
                     layers.append(block)
                 block_obj = Sequential_ext(*layers)
                 if self.useDataParallelism:

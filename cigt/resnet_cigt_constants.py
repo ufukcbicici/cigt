@@ -31,7 +31,7 @@ class ResnetCigtConstants:
     information_gain_balance_coeff_list = [1.0, 1.0]
     decision_drop_probability = 0.5
     classification_drop_probability = 0.0
-    batch_norm_type = "StandardBatchNormalization"
+    batch_norm_type = "InstanceNorm"
     apply_relu_dropout_to_decision_layer = False
     apply_mask_to_batch_norm = False
     number_of_cbam_layers_in_routing_layers = 3

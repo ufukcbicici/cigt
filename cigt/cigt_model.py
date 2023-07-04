@@ -27,19 +27,40 @@ def conv3x3(in_planes, out_planes, stride=1):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, in_planes, planes, stride=1):
+    def __init__(self, in_planes, planes, norm_type, stride=1):
         super(BasicBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
+
+        if norm_type == "BatchNorm":
+            self.bn1 = nn.BatchNorm2d(planes)
+        elif norm_type == "InstanceNorm":
+            self.bn1 = nn.InstanceNorm2d(planes, affine=True)
+        else:
+            raise ValueError("Unknown Norm Op:{0}".format(norm_type))
+
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
+
+        if norm_type == "BatchNorm":
+            self.bn2 = nn.BatchNorm2d(planes)
+        elif norm_type == "InstanceNorm":
+            self.bn2 = nn.InstanceNorm2d(planes, affine=True)
+        else:
+            raise ValueError("Unknown Norm Op:{0}".format(norm_type))
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != self.expansion * planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion * planes)
-            )
+            if norm_type == "BatchNorm":
+                self.shortcut = nn.Sequential(
+                    nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
+                    nn.BatchNorm2d(self.expansion * planes)
+                )
+            elif norm_type == "InstanceNorm":
+                self.shortcut = nn.Sequential(
+                    nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
+                    nn.InstanceNorm2d(self.expansion * planes, affine=True)
+                )
+            else:
+                raise ValueError("Unknown Norm Op:{0}".format(norm_type))
 
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))

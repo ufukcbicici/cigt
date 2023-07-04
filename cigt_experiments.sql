@@ -2142,7 +2142,7 @@ SELECT RunID, Max(TestAccuracy) AS Acc FROM logs_table WHERE RunID >= 145 AND Ru
 
 SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID >= 94 AND RunID <= 107 GROUP BY RunID;
 
-SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 94 AND RunID <= 118 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
+SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 94 AND RunID <= 122 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
 100|-9.95209856033325
 99|-9.95058145523071
 98|-9.95023164749145
@@ -2213,7 +2213,7 @@ SELECT RunID, Max(TrainingAccuracy) AS Acc FROM logs_table WHERE RunID IN (100, 
 109|0.942540000211
 
 
-SELECT RunID, Max(TestAccuracy) AS Acc FROM logs_table WHERE RunID >= 94 AND RunID <= 118 GROUP BY RunID ORDER BY Acc DESC;
+SELECT RunID, Max(TestAccuracy) AS Acc FROM logs_table WHERE RunID >= 94 AND RunID <= 122 GROUP BY RunID ORDER BY Acc DESC;
 99|0.938099999165535
 113|0.937999995720387
 109|0.937800004923344
@@ -2274,16 +2274,19 @@ SELECT RunID, Max(TestAccuracy) AS Acc FROM logs_table WHERE RunID >= 94 AND Run
 --SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (155, 156, 157, 158) GROUP BY RunID;
 --SELECT * FROM run_kv_store WHERE RunID = 64 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
 
-SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 155 AND RunID <= 163 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
+SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 155 AND RunID <= 165 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
 156|-9.98201055526733
 157|-9.97910108566284
+165|-9.97751789093018
 160|-9.97467069625855
 161|-9.97393388748169
+164|-9.97010927200317
 162|-9.96883096694946
 158|-9.96735868453979
+163|-9.96383390426636
 159|-9.96234474182129
-163|-9.90936307907105
 155|-8.79235649108887
+
 
 
 
@@ -2296,16 +2299,19 @@ SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 155 AND RunID <
 155|-8.71533734457833
 
 
-SELECT RunID, Max(TestAccuracy) AS acc FROM logs_table WHERE RunID >= 155 AND RunID <= 163 GROUP BY RunID ORDER BY acc DESC;
+SELECT RunID, Max(TestAccuracy) AS acc FROM logs_table WHERE RunID >= 155 AND RunID <= 165 GROUP BY RunID ORDER BY acc DESC;
 162|0.940300001215935
 158|0.9396000028193
 156|0.938900003194809
+164|0.938700002789497
 160|0.938300004941225
+163|0.938299999415874
 161|0.937800001263619
+165|0.936899997109175
 159|0.936200001358986
 157|0.935900003427267
-163|0.922899998998642
 155|0.796900004029274
+
 
 SELECT RunID, Max(TrainingAccuracy) AS acc FROM logs_table WHERE RunID >= 155 AND RunID <= 163 GROUP BY RunID ORDER BY acc DESC;
 156|0.945639996863604
@@ -2448,6 +2454,50 @@ SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 85 AND RunID <=
 --Started at 7/02/2023
 --Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
+--SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (64) GROUP BY RunID;
+--SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (64, 65, 66, 67) GROUP BY RunID;
+--SELECT * FROM run_kv_store WHERE RunID = 64 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";
+SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID >= 85 AND RunID <= 93 GROUP BY RunID;
+94|0.928399998188019
+95|0.936300002419949
+96|0.912399998569489
+
+SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 94 AND RunID <= 96 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
+95|-9.4231499671936
+94|-8.31789779663086
+96|-8.31776943206787
+
+
+
+--Experiments: "Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization"
+--weight_decay = 5 * [0.0005]
+--ResnetCigtConstants.resnet_config_list = [
+--    {"path_count": 1,
+--     "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
+--    {"path_count": 2,
+--     "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
+-------- {"layer_count": 18, "feature_map_count": 16}]},
+--    {"path_count": 4,
+--     "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
+--ResnetCigtConstants.classification_wd = param_tpl[0]
+--ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+--ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+--ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+--ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+--ResnetCigtConstants.decision_drop_probability = 0.5
+--ResnetCigtConstants.number_of_cbam_layers_in_routing_layers = 6
+--ResnetCigtConstants.cbam_reduction_ratio = 4
+--ResnetCigtConstants.cbam_layer_input_reduction_ratio = 0
+--ResnetCigtConstants.apply_relu_dropout_to_decision_layer = False
+--ResnetCigtConstants.decision_dimensions = [128, 128]
+--ResnetCigtConstants.apply_mask_to_batch_norm = False
+--ResnetCigtConstants.advanced_augmentation = True
+--ResnetCigtConstants.use_focal_loss = False
+--ResnetCigtConstants.focal_loss_gamma = 2.0
+--ResnetCigtConstants.batch_norm_type = "InstanceNorm"
+--Started at 7/024/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
 --SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID IN (64) GROUP BY RunID;
 --SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID IN (64, 65, 66, 67) GROUP BY RunID;
 --SELECT * FROM run_kv_store WHERE RunID = 64 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%";

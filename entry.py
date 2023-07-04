@@ -29,9 +29,9 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db2
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
-    weight_decay = 10 * [0.0006]
+    weight_decay = 10 * [0.0005]
     weight_decay = sorted(weight_decay)
 
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
@@ -51,15 +51,16 @@ if __name__ == "__main__":
         ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
         ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
         ResnetCigtConstants.decision_drop_probability = 0.5
-        ResnetCigtConstants.number_of_cbam_layers_in_routing_layers = 3
+        ResnetCigtConstants.number_of_cbam_layers_in_routing_layers = 6
         ResnetCigtConstants.cbam_reduction_ratio = 4
-        ResnetCigtConstants.cbam_layer_input_reduction_ratio = 4
+        ResnetCigtConstants.cbam_layer_input_reduction_ratio = 0
         ResnetCigtConstants.apply_relu_dropout_to_decision_layer = False
         ResnetCigtConstants.decision_dimensions = [128, 128]
         ResnetCigtConstants.apply_mask_to_batch_norm = False
         ResnetCigtConstants.advanced_augmentation = True
         ResnetCigtConstants.use_focal_loss = False
         ResnetCigtConstants.focal_loss_gamma = 2.0
+        ResnetCigtConstants.batch_norm_type = "InstanceNorm"
         # ResnetCigtConstants.use_kd_for_routing = False
         # ResnetCigtConstants.kd_teacher_temperature = 10.0
         # ResnetCigtConstants.kd_loss_alpha = 0.95
@@ -113,7 +114,7 @@ if __name__ == "__main__":
 
         model = CigtIgGatherScatterImplementation(
             run_id=run_id,
-            model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
 
         # model = CigtIdealRouting()

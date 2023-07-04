@@ -8,7 +8,7 @@ from auxillary.utilities import Utilities
 from cigt.cigt_constant_routing_weights import CigtConstantRoutingWeights
 from cigt.cigt_ideal_routing import CigtIdealRouting
 from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
-from cigt.cigt_ig_gather_scatter_gumbel_softmax import CigtIgGatherScatterGumbelSoftmax
+from cigt.cigt_gumbel_softmax_routing import CigtGumbelSoftmaxRouting
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_hard_routing import CigtIgHardRouting
 from cigt.cigt_ig_hard_routing_with_random_batches import CigtIgHardRoutingWithRandomBatches
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         # _141_checkpoint = torch.load(chck_path, map_location="cpu")
         # model.load_state_dict(state_dict=_141_checkpoint["model_state_dict"])
 
-        model = CigtIgGatherScatterGumbelSoftmax(
+        model = CigtGumbelSoftmaxRouting(
             run_id=run_id,
             model_definition="Gather Scatter Cigt Gumbel Softmax With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)

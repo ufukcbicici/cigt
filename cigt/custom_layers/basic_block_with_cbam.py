@@ -4,8 +4,8 @@ import torch.nn.functional as F
 
 
 class BasicBlockWithCbam(BasicBlock):
-    def __init__(self, in_planes, planes, cbam_reduction_ratio, stride=1):
-        super().__init__(in_planes, planes, stride)
+    def __init__(self, in_planes, planes, cbam_reduction_ratio, norm_type, stride=1):
+        super().__init__(in_planes, planes, norm_type, stride)
         self.cbamReductionRatio = cbam_reduction_ratio
 
         self.cbam = CBAM(gate_channels=planes, reduction_ratio=cbam_reduction_ratio)

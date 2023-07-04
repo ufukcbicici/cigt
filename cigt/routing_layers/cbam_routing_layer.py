@@ -13,6 +13,7 @@ from cigt.routing_layers.soft_routing_layer import SoftRoutingLayer
 class CbamRoutingLayer(nn.Module):
     def __init__(self,
                  block_id,
+                 norm_type,
                  conv_block_count,
                  conv_block_reduction,
                  cbam_reduction_ratio,
@@ -32,7 +33,8 @@ class CbamRoutingLayer(nn.Module):
             block = BasicBlockWithCbam(in_planes=input_feature_map_count,
                                        planes=input_feature_map_count,
                                        stride=1,
-                                       cbam_reduction_ratio=cbam_reduction_ratio)
+                                       cbam_reduction_ratio=cbam_reduction_ratio,
+                                       norm_type=norm_type)
             layers["block_{0}_conv_layer_{1}".format(block_id, cid)] = block
 
         self.cbamBlock = nn.Sequential(layers)
