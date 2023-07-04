@@ -33,7 +33,7 @@ class CigtGumbelSoftmaxRouting(CigtIgHardRoutingX):
             raise NotImplementedError()
 
         # Apply Gumbel Softmax sampling
-        p_n_given_x = self.gumbelSoftmaxOperations[layer_id](logits, temperature, hard=self.useStraightThrough)
+        p_n_given_x = self.gumbelSoftmaxOperations[layer_id](logits, temperature, force_hard=self.useStraightThrough)
         print("X")
 
     def forward(self, x, labels, temperature):
@@ -60,25 +60,27 @@ class CigtGumbelSoftmaxRouting(CigtIgHardRoutingX):
                 # Weighted sum of block outputs
                 out = self.weighted_sum_of_tensors(routing_matrix=routing_matrices_hard[-1],
                                                    tensors=block_outputs[-1])
-                # Calculate routing weights for the next layer
-                p_n_given_x_soft, routing_activations = self.blockEndLayers[layer_id](out,
-                                                                                      labels,
-                                                                                      temperature,
-                                                                                      balance_coefficient_list[
-                                                                                          layer_id])
-                routing_matrices_soft.append(p_n_given_x_soft)
-                routing_activations_list.append(routing_activations)
-                # Calculate the hard routing matrix
-                p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id,
-                                                                p_n_given_x_soft=p_n_given_x_soft)
-                routing_matrices_hard.append(p_n_given_x_hard)
+                # We only need raw activations for Gumbel-Softmax routing.
+                _, routing_activations = self.blockEndLayers[layer_id](out,
+                                                                       labels,
+                                                                       temperature,
+                                                                       balance_coefficient_list[
+                                                                           layer_id])
+                self.apply_gumbel_softmax_routing(raw_activations=routing_activations, layer_id=layer_id,
+                                                  temperature=temperature)
+
+                # routing_matrices_soft.append(p_n_given_x_soft)
+                # routing_activations_list.append(routing_activations)
+                # # Calculate the hard routing matrix
+                # p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id,
+                #                                                 p_n_given_x_soft=p_n_given_x_soft)
+                # routing_matrices_hard.append(p_n_given_x_hard)
             # Logits layer
             else:
                 list_of_logits = self.calculate_logits(p_n_given_x_hard=routing_matrices_hard[-1],
                                                        loss_block_outputs=block_outputs[-1])
 
         return routing_matrices_hard, routing_matrices_soft, block_outputs, list_of_logits, routing_activations_list
-
 
         # eps = 1e-20
         # samples_shape = (logits.shape[0], logits.shape[1], self.zSampleCount)
@@ -92,4 +94,3 @@ class CigtGumbelSoftmaxRouting(CigtIgHardRoutingX):
         #
         # # Convert Gumbel Softmax samples into soft routing probabilities, apply Straight Through trick.
         # p_n_given_x = torch.mean(z_samples, dim=-1)
-
