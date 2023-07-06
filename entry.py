@@ -29,7 +29,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db2
+    DbLogger.log_db_path = DbLogger.tetam_tuna_cigt_db
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 10 * [0.0005]
     weight_decay = sorted(weight_decay)
@@ -60,8 +60,8 @@ if __name__ == "__main__":
         ResnetCigtConstants.advanced_augmentation = True
         ResnetCigtConstants.use_focal_loss = False
         ResnetCigtConstants.focal_loss_gamma = 2.0
-        ResnetCigtConstants.batch_norm_type = "InstanceNorm"
-        ResnetCigtConstants.data_parallelism = True
+        ResnetCigtConstants.batch_norm_type = "BatchNorm"
+        ResnetCigtConstants.data_parallelism = False
         # ResnetCigtConstants.use_kd_for_routing = False
         # ResnetCigtConstants.kd_teacher_temperature = 10.0
         # ResnetCigtConstants.kd_loss_alpha = 0.95
@@ -113,14 +113,14 @@ if __name__ == "__main__":
         # _141_checkpoint = torch.load(chck_path, map_location="cpu")
         # model.load_state_dict(state_dict=_141_checkpoint["model_state_dict"])
 
-        model = CigtIgGatherScatterImplementation(
+        model = CigtIgHardRoutingX(
             run_id=run_id,
-            model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation InstanceNorm Batchsize:1536 - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="Vanilla With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10)
 
         # model = CigtIdealRouting()
 
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam
+        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
