@@ -13,9 +13,8 @@ Does not support sinlge binary category. Use two dimensions with softmax instead
 
 
 class GumbelSoftmax(torch.nn.Module):
-    def __init__(self, hard=False):
+    def __init__(self):
         super(GumbelSoftmax, self).__init__()
-        self.hard = hard
 
     def sample_gumbel(self, shape, eps=1e-10):
         """Sample from Gumbel(0, 1)"""
