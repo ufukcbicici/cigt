@@ -5,24 +5,61 @@ from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.resnet_cigt_constants import ResnetCigtConstants
 
+class NetworkOutput(object):
+    def __init__(self):
+        self.routingActivationMatrices = []
+        self.logits = []
 
 class MultiplePathBayesianOptimizer(BayesianOptimizer):
-    def __init__(self, checkpoint_path, data_root_path, dataset, xi, init_points, n_iter):
+    def __init__(self, data_root_path, model,
+                 train_dataset, test_dataset, xi, init_points, n_iter,
+                 evaluate_network_first):
         super().__init__(xi, init_points, n_iter)
-        self.checkpointPath = checkpoint_path
         self.dataRootPath = data_root_path
-        self.dataset = dataset
+        self.trainDataset = train_dataset
+        self.testDataset = test_dataset
+        self.maxEntropies = []
+        self.optimization_bounds_continuous = {}
         # Load the trained model
-        self.runId = DbLogger.get_run_id()
         ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-        self.model = CigtIgGatherScatterImplementation(
-            run_id=self.runId,
-            model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
-            num_classes=10)
+        self.model = model
 
-        explanation = self.model.get_explanation_string()
-        checkpoint = torch.load(self.checkpointPath, map_location="cpu")
-        self.model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+        # self.model = CigtIgGatherScatterImplementation(
+        #     run_id=self.runId,
+        #     model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+        #     num_classes=10)
+        #
+        # explanation = self.model.get_explanation_string()
+        # checkpoint = torch.load(self.checkpointPath, map_location="cpu")
+        # self.model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+        if evaluate_network_first:
+            test_acc = self.model.validate(data_kind="test", epoch=0, loader=self.testDataset, temperature=0.1)
+            print("Standard test accuracy:{0}".format(test_acc))
+
+        self.create_outputs(dataloader=self.testDataset, repeat_count=1)
+
+    def interpret_gather_scatter_model_outputs(self, outputs_dict):
+        network_output = NetworkOutput()
+        for block_id in range(len(self.model.pathCounts)):
+            # Routing blocks
+            if block_id < len(self.model.pathCounts) - 1:
+
+
+
+
+    def create_outputs(self, dataloader, repeat_count):
+        max_branch_count = np.prod(self.model.pathCounts)
+        for path_count in self.model.pathCounts[1:]:
+            self.model.enforcedRoutingMatrices.append(
+                torch.ones(size=(max_branch_count * self.model.batchSize, path_count), dtype=torch.int64))
+
+        # def validate(self, loader, epoch, data_kind, temperature=None,
+        #              enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
+        #
+        for epoch_id in range(repeat_count):
+            outputs_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
+                                               enforced_hard_routing_kind="EnforcedRouting",
+                                               return_network_outputs=True, data_kind="test")
         print("X")
 
     # def create_entropy_bounds(self):

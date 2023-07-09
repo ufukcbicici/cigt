@@ -35,13 +35,13 @@ if __name__ == "__main__":
     # 5e-4,
     # 0.0005
     ResnetCigtConstants.resnet_config_list = [
-        {"path_count": 1,
-         "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
-        {"path_count": 2,
-         "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
-                             {"layer_count": 18, "feature_map_count": 16}]},
-        {"path_count": 4,
-         "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
+            {"path_count": 1,
+                    "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
+            {"path_count": 2,
+                    "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
+                                           {"layer_count": 18, "feature_map_count": 16}]},
+            {"path_count": 4,
+                    "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
     ResnetCigtConstants.classification_wd = 0.0005
     ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
     ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
@@ -57,9 +57,8 @@ if __name__ == "__main__":
     ResnetCigtConstants.advanced_augmentation = True
     ResnetCigtConstants.use_focal_loss = False
     ResnetCigtConstants.focal_loss_gamma = 2.0
-    # ResnetCigtConstants.use_kd_for_routing = False
-    # ResnetCigtConstants.kd_teacher_temperature = 10.0
-    # ResnetCigtConstants.kd_loss_alpha = 0.95
+    ResnetCigtConstants.batch_norm_type = "BatchNorm"
+    ResnetCigtConstants.data_parallelism = False
 
     ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
         decay_name="Stepwise",
@@ -82,19 +81,35 @@ if __name__ == "__main__":
     train_loader_hard = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=True, transform=heavyweight_augmentation),
         batch_size=ResnetCigtConstants.batch_size, shuffle=False, **kwargs)
+    test_loader_light = torch.utils.data.DataLoader(
+        datasets.CIFAR10('../data', train=False, transform=lightweight_augmentation),
+        batch_size=ResnetCigtConstants.batch_size, shuffle=False, **kwargs)
 
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
                                      "checkpoints/dblogger2_94_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
+
+    run_id = DbLogger.get_run_id()
+    model = CigtIgGatherScatterImplementation(
+        run_id=run_id,
+        model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+        num_classes=10)
+
+    explanation = model.get_explanation_string()
+    checkpoint = torch.load(chck_path, map_location="cpu")
+    model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+
     mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
-        checkpoint_path=chck_path,
         data_root_path=data_path,
-        dataset=train_loader_hard,
+        train_dataset=train_loader_hard,
+        test_dataset=test_loader_light,
         xi=0.01,
         n_iter=1000,
-        init_points=500)
+        init_points=500,
+        evaluate_network_first=False,
+        model=model)
 
 
 

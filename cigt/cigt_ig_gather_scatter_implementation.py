@@ -407,7 +407,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
 
                 # Calculate the information gain losses, with respect to each routing layer
                 routing_matrices_soft = [od["routing_matrices_soft"] for od in layer_outputs[1:-1]]
-                routing_activations_list = [od["routing_matrices_soft"] for od in layer_outputs[1:-1]]
+                routing_activations_list = [od["routing_activations"] for od in layer_outputs[1:-1]]
                 labels_per_routing_layer = [od["labels"] for od in layer_outputs[1:-1]]
                 information_gain_losses = self.calculate_information_gain_losses(
                     routing_matrices=routing_matrices_soft, labels=labels_per_routing_layer,
