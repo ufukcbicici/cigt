@@ -9,6 +9,7 @@ from torchvision import datasets
 
 from auxillary.db_logger import DbLogger
 from auxillary.average_meter import AverageMeter
+from auxillary.utilities import Utilities
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cigt_model import conv3x3, BasicBlock, Sequential_ext
 
@@ -72,7 +73,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                           "routing_activations": torch.ones(size=(x.shape[0], 1),
                                                             dtype=torch.float32,
                                                             device=self.device),
-                          "block_indices": torch.zeros(size=(x.shape[0], ),
+                          "block_indices": torch.zeros(size=(x.shape[0],),
                                                        dtype=torch.int64,
                                                        device=self.device)}]
 
@@ -92,7 +93,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
             for block_id, block_obj in enumerate(cigt_layer_blocks):
                 block_output = block_obj(net_masked[block_id])
                 curr_layer_outputs.append(block_output)
-                block_indices_arr = block_id * torch.ones(size=(block_output.shape[0], ),
+                block_indices_arr = block_id * torch.ones(size=(block_output.shape[0],),
                                                           dtype=torch.int64, device=self.device)
                 curr_block_indices.append(block_indices_arr)
 
@@ -139,6 +140,57 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                                       "list_of_logits": list_of_logits})
 
         return layer_outputs
+
+    def forward_v2(self, x, labels, temperature):
+        sample_indices = torch.arange(0, labels.shape[0], device=self.device)
+        balance_coefficient_list = self.informationGainBalanceCoeffList
+        result_buffers = []
+        # Create buffers for holding the results.
+        # Initial layer
+        net = F.relu(self.bn1(self.conv1(x)))
+        routing_matrices_soft = torch.ones(size=(x.shape[0], 1),
+                                           dtype=torch.float32,
+                                           device=self.device)
+        routing_matrices_hard = torch.ones(size=(x.shape[0], 1),
+                                           dtype=torch.float32,
+                                           device=self.device)
+        routing_activations = torch.ones(size=(x.shape[0], 1),
+                                         dtype=torch.float32,
+                                         device=self.device)
+        block_outputs_dict = {(): net}
+        routing_matrices_soft_dict = {(): routing_matrices_soft}
+        routing_matrices_hard_dict = {(): routing_matrices_hard}
+        routing_activations_dict = {(): routing_activations}
+        logits_dict = {}
+
+        for layer_id, cigt_layer_blocks in enumerate(self.cigtLayers):
+            past_route_combinations = Utilities.create_route_combinations(shape_=self.pathCounts[:layer_id])
+            for block_id, block_obj in enumerate(cigt_layer_blocks):
+                for route_combination in past_route_combinations:
+                    block_input = block_outputs_dict[route_combination]
+                    block_output = block_obj(block_input)
+                    output_id = tuple([*route_combination, block_id])
+                    block_outputs_dict[output_id] = block_output
+                    if layer_id < len(self.cigtLayers) - 1:
+                        p_n_given_x_soft, routing_activations = self.blockEndLayers[layer_id](block_output,
+                                                                                              labels,
+                                                                                              temperature,
+                                                                                              balance_coefficient_list[
+                                                                                                  layer_id])
+                        # Calculate the hard routing matrix
+                        p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id,
+                                                                        p_n_given_x_soft=p_n_given_x_soft)
+                        routing_matrices_soft_dict[output_id] = p_n_given_x_soft
+                        routing_matrices_hard_dict[output_id] = p_n_given_x_hard
+                        routing_activations_dict[output_id] = routing_activations
+                    else:
+                        assert self.lossCalculationKind in {"MultipleLogitsMultipleLosses",
+                                                            "MultipleLogitsMultipleLossesAveraged"}
+                        logits = self.lossLayers[block_id](block_output)
+                        logits_dict[output_id] = logits
+
+        return block_outputs_dict, routing_matrices_soft_dict, \
+            routing_matrices_hard_dict, routing_activations_dict, logits_dict
 
     def calculate_classification_loss_and_accuracy(self, list_of_logits, routing_matrices, target_var):
         assert isinstance(list_of_logits, list) and routing_matrices is None and isinstance(target_var, list)
@@ -507,3 +559,55 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 "list_of_logits_complete": list_of_logits_complete
             }
             return res_dict
+
+    def validate_v2(self, loader, temperature=None, enforced_hard_routing_kind=None):
+        if temperature is None:
+            temperature = self.temperatureController.get_value()
+
+        # switch to evaluate mode
+        self.eval()
+        if enforced_hard_routing_kind is None:
+            self.hardRoutingAlgorithmKind = "InformationGainRouting"
+        else:
+            assert enforced_hard_routing_kind in self.hardRoutingAlgorithmTypes
+            self.hardRoutingAlgorithmKind = enforced_hard_routing_kind
+
+        block_outputs_complete = {}
+        routing_matrices_soft_complete = {}
+        routing_matrices_hard_complete = {}
+        routing_activations_complete = {}
+        logits_complete = {}
+
+        for i, (input_, target) in enumerate(loader):
+            with torch.no_grad():
+                input_var = torch.autograd.Variable(input_).to(self.device)
+                target_var = torch.autograd.Variable(target).to(self.device)
+                batch_size = input_var.size(0)
+                # Cigt Classification Loss and Accuracy Calculation
+                block_outputs_dict, routing_matrices_soft_dict, \
+                    routing_matrices_hard_dict, routing_activations_dict, logits_dict = \
+                    self.forward_v2(input_var, target_var, temperature)
+                Utilities.append_to_dictionary(destination_dictionary=block_outputs_complete,
+                                               source_dictionary=block_outputs_dict)
+                Utilities.append_to_dictionary(destination_dictionary=routing_matrices_soft_complete,
+                                               source_dictionary=routing_matrices_soft_dict)
+                Utilities.append_to_dictionary(destination_dictionary=routing_matrices_hard_complete,
+                                               source_dictionary=routing_matrices_hard_dict)
+                Utilities.append_to_dictionary(destination_dictionary=routing_activations_complete,
+                                               source_dictionary=routing_activations_dict)
+                Utilities.append_to_dictionary(destination_dictionary=logits_complete,
+                                               source_dictionary=logits_dict)
+
+        block_outputs_complete = Utilities.concat_all_arrays_in_dictionary(source_dictionary=block_outputs_complete)
+        routing_matrices_soft_complete = Utilities.concat_all_arrays_in_dictionary(
+            source_dictionary=routing_matrices_soft_complete)
+        routing_matrices_hard_complete = Utilities.concat_all_arrays_in_dictionary(
+            source_dictionary=routing_matrices_hard_complete)
+        routing_activations_complete = Utilities.concat_all_arrays_in_dictionary(
+            source_dictionary=routing_activations_complete)
+        logits_complete = Utilities.concat_all_arrays_in_dictionary(
+            source_dictionary=logits_complete)
+
+        return block_outputs_complete, routing_matrices_soft_complete, \
+            routing_matrices_hard_complete, routing_activations_complete, logits_complete
+

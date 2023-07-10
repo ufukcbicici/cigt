@@ -67,7 +67,7 @@ if __name__ == "__main__":
         decay_period=ResnetCigtConstants.softmax_decay_period,
         decay_min_limit=ResnetCigtConstants.softmax_decay_min_limit)
 
-    kwargs = {'num_workers': 2, 'pin_memory': True}
+    kwargs = {'num_workers': 0, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
         transforms.Resize((32, 32)),
         CutoutPIL(cutout_factor=0.5),
@@ -89,7 +89,7 @@ if __name__ == "__main__":
                                      "checkpoints/dblogger2_94_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
@@ -108,6 +108,7 @@ if __name__ == "__main__":
         xi=0.01,
         n_iter=1000,
         init_points=500,
+        train_dataset_repeat_count=10,
         evaluate_network_first=False,
         model=model)
 

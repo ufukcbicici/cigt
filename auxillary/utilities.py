@@ -2,6 +2,8 @@ import numpy as np
 import pickle
 import itertools
 
+import torch
+
 
 class Utilities:
     def __init__(self):
@@ -188,6 +190,14 @@ class Utilities:
         return cartesian_product
 
     @staticmethod
+    def create_route_combinations(shape_):
+        list_of_path_choices = []
+        for path_count in shape_:
+            list_of_path_choices.append([i_ for i_ in range(path_count)])
+        route_combinations = Utilities.get_cartesian_product(list_of_lists=list_of_path_choices)
+        return route_combinations
+
+    @staticmethod
     def append_dict_to_dict(dict_destination, dict_source, convert_to_numpy=True):
         for k, v in dict_source.items():
             arr = v.numpy() if convert_to_numpy else v
@@ -245,3 +255,19 @@ class Utilities:
     def convert_trajectory_array_to_indices(trajectory_array):
         path_indices = tuple([trajectory_array[:, idx] for idx in range(trajectory_array.shape[1])])
         return path_indices
+
+    @staticmethod
+    def append_to_dictionary(destination_dictionary, source_dictionary):
+        for k, v in source_dictionary.items():
+            if k not in destination_dictionary:
+                destination_dictionary[k] = []
+            assert isinstance(v, torch.Tensor)
+            destination_dictionary[k].append(v.detach().cpu().numpy())
+
+    @staticmethod
+    def concat_all_arrays_in_dictionary(source_dictionary):
+        res_dict = {}
+        for k, v in source_dictionary.items():
+            assert isinstance(v, list)
+            res_dict[k] = np.concatenate(v, axis=0)
+        return res_dict
