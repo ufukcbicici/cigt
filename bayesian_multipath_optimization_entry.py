@@ -89,7 +89,7 @@ if __name__ == "__main__":
                                      "checkpoints/dblogger2_94_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(

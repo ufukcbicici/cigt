@@ -42,9 +42,10 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         # self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
         # self.create_outputs(dataloader=self.testDataset, repeat_count=1)
 
-    def get_start_offset_for_gather_scatter_model(self, route_, batch_size):
-        offset = 0
+    def get_start_offset_for_gather_scatter_model(self, route_, batch_id_):
         path_list = list(zip(list(range(len(route_))), route_))
+        batch_size = self.model.batchSize
+        offset = batch_id_ * np.prod(self.model.pathCounts[:len(route_)], dtype=np.int64) * batch_size
         for tpl in reversed(path_list):
             block_id = tpl[0]
             block_path_index = tpl[1]
@@ -53,7 +54,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             offset += offset_step
         return offset
 
-    def interpret_gather_scatter_model_outputs(self, outputs_dict):
+    def interpret_gather_scatter_model_outputs(self, outputs_dict, dataloader):
         network_output = NetworkOutput()
         batch_size = outputs_dict["list_of_labels"][0].shape[0]
         for block_id in range(len(self.model.pathCounts)):
@@ -65,7 +66,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                                        batch_size, self.model.pathCounts[block_id + 1])
             # Loss calculation blocks
             else:
-                output_array = np.concatenate(outputs_dict["list_of_logits_complete"], axis=0)
+                output_array = outputs_dict["list_of_logits_unified"]
                 result_container = network_output.logits
                 results_array_shape = (*self.model.pathCounts[:(block_id + 1)], batch_size, self.model.numClasses)
 
@@ -73,10 +74,12 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             interpreted_results_array[:] = np.nan
             route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(block_id + 1)])
             for route_combination in route_combinations:
-                route_offset = self.get_start_offset_for_gather_scatter_model(route_=route_combination,
-                                                                              batch_size=batch_size)
-                route_activations_array = output_array[route_offset:route_offset + batch_size, :]
-                interpreted_results_array[route_combination] = route_activations_array
+                for i_, (x, y) in enumerate(dataloader):
+                    route_offset = self.get_start_offset_for_gather_scatter_model(route_=route_combination,
+                                                                                  batch_id_=i_)
+                    route_activations_array = output_array[route_offset:route_offset + x.shape[0], :]
+                    interpreted_results_array[route_combination
+                    ][i_*self.model.batchSize:i_*self.model.batchSize + x.shape[0]] = route_activations_array
             assert np.sum(np.isnan(route_combinations)) == 0
             result_container.append(interpreted_results_array)
         return network_output
@@ -86,10 +89,11 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             outputs_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
                                                enforced_hard_routing_kind="EnforcedRouting",
                                                return_network_outputs=True, data_kind="test")
-            network_output = self.interpret_gather_scatter_model_outputs(outputs_dict=outputs_dict)
+            network_output = self.interpret_gather_scatter_model_outputs(outputs_dict=outputs_dict,
+                                                                         dataloader=dataloader)
             block_outputs_complete, routing_matrices_soft_complete, \
-                routing_matrices_hard_complete, \
-                routing_activations_complete, logits_complete = \
+            routing_matrices_hard_complete, \
+            routing_activations_complete, logits_complete = \
                 self.model.validate_v2(dataloader,
                                        temperature=0.1,
                                        enforced_hard_routing_kind="EnforcedRouting")
@@ -99,8 +103,6 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 arr_to_compare = network_output.routingActivationMatrices[len(k) - 1][k]
                 assert np.allclose(v, arr_to_compare)
                 print("X")
-
-
 
     # def create_outputs(self, dataloader, repeat_count):
     #     max_branch_count = np.prod(self.model.pathCounts)

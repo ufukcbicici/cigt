@@ -132,12 +132,14 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 else:
                     raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
 
+                logits_unified = torch.concat(list_of_logits, dim=0)
                 layer_outputs.append({"net": layer_outputs_unified,
                                       "labels": layer_labels_unified,
                                       "sample_indices": layer_sample_indices_unified,
                                       "block_indices": layer_block_indices_unified,
                                       "labels_masked": labels_masked,
-                                      "list_of_logits": list_of_logits})
+                                      "list_of_logits": list_of_logits,
+                                      "logits_unified": logits_unified})
 
         return layer_outputs
 
@@ -414,6 +416,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         list_of_routing_probability_matrices = []
         list_of_routing_activations = []
         list_of_logits_complete = []
+        list_of_logits_unified = []
         for _ in range(len(self.pathCounts) - 1):
             list_of_labels.append([])
             list_of_routing_probability_matrices.append([])
@@ -480,6 +483,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                     list_of_routing_activations[idx_].append(matr_.detach().cpu().numpy())
                 for idx_, matr_ in enumerate(layer_outputs[-1]["list_of_logits"]):
                     list_of_logits_complete[idx_].append(matr_.detach().cpu().numpy())
+                list_of_logits_unified.append(layer_outputs[-1]["logits_unified"].detach().cpu().numpy())
 
                 # measure accuracy and record loss
                 losses.update(total_loss.detach().cpu().numpy().item(), 1)
@@ -500,6 +504,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
             list_of_routing_activations[idx_] = np.concatenate(list_of_routing_activations[idx_], axis=0)
         for idx_ in range(len(list_of_logits_complete)):
             list_of_logits_complete[idx_] = np.concatenate(list_of_logits_complete[idx_], axis=0)
+        list_of_logits_unified = np.concatenate(list_of_logits_unified, axis=0)
 
         self.calculate_branch_statistics(
             run_id=self.runId,
@@ -556,7 +561,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 "list_of_labels": list_of_labels,
                 "list_of_routing_probability_matrices": list_of_routing_probability_matrices,
                 "list_of_routing_activations": list_of_routing_activations,
-                "list_of_logits_complete": list_of_logits_complete
+                "list_of_logits_complete": list_of_logits_complete,
+                "list_of_logits_unified": list_of_logits_unified
             }
             return res_dict
 
