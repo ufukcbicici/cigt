@@ -42,7 +42,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         # self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
         # self.create_outputs(dataloader=self.testDataset, repeat_count=1)
 
-    def get_start_offset_for_gather_scatter_model(self, route_, batch_id_):
+    def get_start_offset_for_gather_scatter_model(self, route_, batch_id_, model_batch_size, curr_batch_size):
         path_list = list(zip(list(range(len(route_))), route_))
         batch_size = self.model.batchSize
         offset = batch_id_ * np.prod(self.model.pathCounts[:len(route_)], dtype=np.int64) * batch_size
