@@ -80,7 +80,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                     route_activations_array = output_array[route_offset:route_offset + x.shape[0], :]
                     interpreted_results_array[route_combination
                     ][i_ * self.model.batchSize:i_ * self.model.batchSize + x.shape[0]] = route_activations_array
-            assert np.sum(np.isnan(route_combinations)) == 0
+            assert np.sum(np.isnan(interpreted_results_array)) == 0
             result_container.append(interpreted_results_array)
         return network_output
 
