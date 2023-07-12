@@ -25,10 +25,9 @@ from cigt.cigt_soft_routing_with_balance import CigtSoftRoutingWithBalance
 from cigt.cigt_variance_routing import CigtVarianceRouting
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.multipath_inference_bayesian import MultiplePathBayesianOptimizer
-from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.cigt_constants import CigtConstants
 import torch
 import random
-from torchsummary import summary
 
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 
@@ -39,7 +38,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    ResnetCigtConstants.resnet_config_list = [
+    CigtConstants.layer_config_list = [
         {"path_count": 1,
          "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
         {"path_count": 2,
@@ -48,36 +47,36 @@ if __name__ == "__main__":
         {"path_count": 4,
          "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
 
-    # ResnetCigtConstants.resnet_config_list = [
+    # CigtConstants.layer_config_list = [
     #     {"path_count": 1,
     #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16},
     #                          {"layer_count": 18, "feature_map_count": 32},
     #                          {"layer_count": 18, "feature_map_count": 64}]}]
 
-    ResnetCigtConstants.classification_wd = 0.0005
-    ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
-    ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-    ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-    ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-    ResnetCigtConstants.decision_drop_probability = 0.5
-    ResnetCigtConstants.number_of_cbam_layers_in_routing_layers = 3
-    ResnetCigtConstants.cbam_reduction_ratio = 4
-    ResnetCigtConstants.cbam_layer_input_reduction_ratio = 4
-    ResnetCigtConstants.apply_relu_dropout_to_decision_layer = False
-    ResnetCigtConstants.decision_dimensions = [128, 128]
-    ResnetCigtConstants.apply_mask_to_batch_norm = False
-    ResnetCigtConstants.advanced_augmentation = True
-    ResnetCigtConstants.use_focal_loss = False
-    ResnetCigtConstants.focal_loss_gamma = 2.0
-    ResnetCigtConstants.batch_norm_type = "BatchNorm"
-    ResnetCigtConstants.data_parallelism = False
+    CigtConstants.classification_wd = 0.0005
+    CigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+    CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+    CigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+    CigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+    CigtConstants.decision_drop_probability = 0.5
+    CigtConstants.number_of_cbam_layers_in_routing_layers = 3
+    CigtConstants.cbam_reduction_ratio = 4
+    CigtConstants.cbam_layer_input_reduction_ratio = 4
+    CigtConstants.apply_relu_dropout_to_decision_layer = False
+    CigtConstants.decision_dimensions = [128, 128]
+    CigtConstants.apply_mask_to_batch_norm = False
+    CigtConstants.advanced_augmentation = True
+    CigtConstants.use_focal_loss = False
+    CigtConstants.focal_loss_gamma = 2.0
+    CigtConstants.batch_norm_type = "BatchNorm"
+    CigtConstants.data_parallelism = False
 
-    ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
+    CigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
         decay_name="Stepwise",
-        initial_value=ResnetCigtConstants.softmax_decay_initial,
-        decay_coefficient=ResnetCigtConstants.softmax_decay_coefficient,
-        decay_period=ResnetCigtConstants.softmax_decay_period,
-        decay_min_limit=ResnetCigtConstants.softmax_decay_min_limit)
+        initial_value=CigtConstants.softmax_decay_initial,
+        decay_coefficient=CigtConstants.softmax_decay_coefficient,
+        decay_period=CigtConstants.softmax_decay_period,
+        decay_min_limit=CigtConstants.softmax_decay_min_limit)
 
     kwargs = {'num_workers': 0, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
@@ -92,16 +91,16 @@ if __name__ == "__main__":
     ])
     train_loader_hard = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=True, transform=heavyweight_augmentation),
-        batch_size=ResnetCigtConstants.batch_size, shuffle=False, **kwargs)
+        batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
     test_loader_light = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=False, transform=lightweight_augmentation),
-        batch_size=ResnetCigtConstants.batch_size, shuffle=False, **kwargs)
+        batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
 
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
                              "checkpoints/dblogger2_94_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
@@ -110,9 +109,13 @@ if __name__ == "__main__":
         num_classes=10)
 
     explanation = model.get_explanation_string()
-    # checkpoint = torch.load(chck_path, map_location="cpu")
-    # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
-    model.calculate_mac()
+    DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+    checkpoint = torch.load(chck_path, map_location="cpu")
+    model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+
+    # total_parameter_count = model.get_total_parameter_count()
+    # mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
+    accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 
     mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
         data_root_path=data_path,

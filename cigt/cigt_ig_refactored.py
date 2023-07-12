@@ -11,13 +11,14 @@ from focal_loss.focal_loss import FocalLoss
 
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
+from auxillary.resnet_config_interpreter import ResnetConfigInterpreter
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
 from cigt.cigt_model import conv3x3, BasicBlock, Sequential_ext
 from cigt.cigt_soft_routing import CigtSoftRouting
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.moe_layer import MoeLayer
-from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.cigt_constants import CigtConstants
 from cigt.routing_layers.cbam_routing_layer import CbamRoutingLayer
 from cigt.routing_layers.hard_routing_layer import HardRoutingLayer
 from randaugment import RandAugment
@@ -32,69 +33,78 @@ class CigtIgHardRoutingX(nn.Module):
     def __init__(self, run_id, model_definition, num_classes):
         super().__init__()
         self.runId = run_id
+        self.modelBackbone = CigtConstants.backbone
+        assert self.modelBackbone in {"ResNet", "LeNet"}
+        self.configInterpreter = None
+        if self.modelBackbone == "ResNet":
+            self.configInterpreter = ResnetConfigInterpreter
+        else:
+            raise NotImplementedError()
+
         self.modelDefinition = model_definition
         self.imageSize = (32, 32)
         self.numClasses = num_classes
         self.classCount = 10
-        self.useDataParallelism = ResnetCigtConstants.data_parallelism
+        self.useDataParallelism = CigtConstants.data_parallelism
         self.hardRoutingAlgorithmTypes = {"InformationGainRouting",
                                           "InformationGainRoutingWithRandomization",
                                           "RandomRouting",
                                           "RandomRoutingButInformationGainOptimizationEnabled",
                                           "EnforcedRouting"}
-        self.hardRoutingAlgorithmKind = ResnetCigtConstants.hard_routing_algorithm_kind
-        self.afterWarmupRoutingAlgorithmKind = ResnetCigtConstants.after_warmup_routing_algorithm_kind
-        self.warmupRoutingAlgorithmKind = ResnetCigtConstants.warmup_routing_algorithm_kind
+        self.hardRoutingAlgorithmKind = CigtConstants.hard_routing_algorithm_kind
+        self.afterWarmupRoutingAlgorithmKind = CigtConstants.after_warmup_routing_algorithm_kind
+        self.warmupRoutingAlgorithmKind = CigtConstants.warmup_routing_algorithm_kind
         self.enforcedRoutingMatrices = []
-        self.routingRandomizationRatio = ResnetCigtConstants.routing_randomization_ratio
+        self.routingRandomizationRatio = CigtConstants.routing_randomization_ratio
         self.lossCalculationTypes = {"SingleLogitSingleLoss",
                                      "MultipleLogitsMultipleLosses",
                                      "MultipleLogitsMultipleLossesAveraged"}
-        self.lossCalculationKind = ResnetCigtConstants.loss_calculation_kind
+        self.lossCalculationKind = CigtConstants.loss_calculation_kind
         self.lossLayers = None
         self.modelFilesRootPath = None
-        self.routingStrategyName = ResnetCigtConstants.routing_strategy_name
-        self.useStraightThrough = ResnetCigtConstants.use_straight_through
-        self.decisionNonLinearity = ResnetCigtConstants.decision_non_linearity
-        self.warmUpPeriod = ResnetCigtConstants.warm_up_period
-        self.optimizerType = ResnetCigtConstants.optimizer_type
-        self.learningRateSchedule = ResnetCigtConstants.learning_schedule
-        self.initialLr = ResnetCigtConstants.initial_lr
-        self.resnetConfigList = ResnetCigtConstants.resnet_config_list
-        self.firstConvKernelSize = ResnetCigtConstants.first_conv_kernel_size
-        self.firstConvOutputDim = ResnetCigtConstants.first_conv_output_dim
-        self.firstConvStride = ResnetCigtConstants.first_conv_stride
-        self.applyReluDropoutToDecisionLayers = ResnetCigtConstants.apply_relu_dropout_to_decision_layer
-        self.cbamReductionRatio = ResnetCigtConstants.cbam_reduction_ratio
-        self.cbamLayerInputReductionRatio = ResnetCigtConstants.cbam_layer_input_reduction_ratio
-        self.numberOfCbamLayersInRoutingLayers = ResnetCigtConstants.number_of_cbam_layers_in_routing_layers
-        self.bnMomentum = ResnetCigtConstants.bn_momentum
-        self.batchNormType = ResnetCigtConstants.batch_norm_type
-        self.applyMaskToBatchNorm = ResnetCigtConstants.apply_mask_to_batch_norm
-        self.doubleStrideLayers = ResnetCigtConstants.double_stride_layers
-        self.batchSize = ResnetCigtConstants.batch_size
-        self.inputDims = ResnetCigtConstants.input_dims
-        self.advancedAugmentation = ResnetCigtConstants.advanced_augmentation
-        self.decisionDimensions = ResnetCigtConstants.decision_dimensions
-        self.decisionAveragePoolingStrides = ResnetCigtConstants.decision_average_pooling_strides
-        self.routerLayersCount = ResnetCigtConstants.router_layers_count
+        self.routingStrategyName = CigtConstants.routing_strategy_name
+        self.useStraightThrough = CigtConstants.use_straight_through
+        self.decisionNonLinearity = CigtConstants.decision_non_linearity
+        self.warmUpPeriod = CigtConstants.warm_up_period
+        self.optimizerType = CigtConstants.optimizer_type
+        self.learningRateSchedule = CigtConstants.learning_schedule
+        self.initialLr = CigtConstants.initial_lr
+        self.layerConfigList = CigtConstants.layer_config_list
+        self.firstConvKernelSize = CigtConstants.first_conv_kernel_size
+        self.firstConvOutputDim = CigtConstants.first_conv_output_dim
+        self.firstConvStride = CigtConstants.first_conv_stride
+        self.applyReluDropoutToDecisionLayers = CigtConstants.apply_relu_dropout_to_decision_layer
+        self.cbamReductionRatio = CigtConstants.cbam_reduction_ratio
+        self.cbamLayerInputReductionRatio = CigtConstants.cbam_layer_input_reduction_ratio
+        self.numberOfCbamLayersInRoutingLayers = CigtConstants.number_of_cbam_layers_in_routing_layers
+        self.bnMomentum = CigtConstants.bn_momentum
+        self.batchNormType = CigtConstants.batch_norm_type
+        self.applyMaskToBatchNorm = CigtConstants.apply_mask_to_batch_norm
+        self.doubleStrideLayers = CigtConstants.double_stride_layers
+        self.batchSize = CigtConstants.batch_size
+        self.inputDims = CigtConstants.input_dims
+        self.advancedAugmentation = CigtConstants.advanced_augmentation
+        self.decisionDimensions = CigtConstants.decision_dimensions
+        self.decisionAveragePoolingStrides = CigtConstants.decision_average_pooling_strides
+        self.routerLayersCount = CigtConstants.router_layers_count
         self.isInWarmUp = True
-        self.temperatureController = ResnetCigtConstants.softmax_decay_controller
-        self.decisionLossCoeff = ResnetCigtConstants.decision_loss_coeff
-        self.routingDropoutProbability = ResnetCigtConstants.decision_drop_probability
-        self.informationGainBalanceCoeffList = ResnetCigtConstants.information_gain_balance_coeff_list
-        self.classificationWd = ResnetCigtConstants.classification_wd
-        self.decisionWd = ResnetCigtConstants.decision_wd
-        self.epochCount = ResnetCigtConstants.epoch_count
-        self.boostLearningRatesLayerWise = ResnetCigtConstants.boost_learning_rates_layer_wise
-        self.multipleCeLosses = ResnetCigtConstants.multiple_ce_losses
-        self.perSampleEntropyBalance = ResnetCigtConstants.per_sample_entropy_balance
-        self.useFocalLoss = ResnetCigtConstants.use_focal_loss
-        self.focalLossGamma = ResnetCigtConstants.focal_loss_gamma
-        self.evaluationPeriod = ResnetCigtConstants.evaluation_period
+        self.temperatureController = CigtConstants.softmax_decay_controller
+        self.decisionLossCoeff = CigtConstants.decision_loss_coeff
+        self.routingDropoutProbability = CigtConstants.decision_drop_probability
+        self.informationGainBalanceCoeffList = CigtConstants.information_gain_balance_coeff_list
+        self.classificationWd = CigtConstants.classification_wd
+        self.decisionWd = CigtConstants.decision_wd
+        self.epochCount = CigtConstants.epoch_count
+        self.boostLearningRatesLayerWise = CigtConstants.boost_learning_rates_layer_wise
+        self.multipleCeLosses = CigtConstants.multiple_ce_losses
+        self.perSampleEntropyBalance = CigtConstants.per_sample_entropy_balance
+        self.useFocalLoss = CigtConstants.use_focal_loss
+        self.focalLossGamma = CigtConstants.focal_loss_gamma
+        self.evaluationPeriod = CigtConstants.evaluation_period
         self.pathCounts = [1]
-        self.pathCounts.extend([d_["path_count"] for d_ in self.resnetConfigList][1:])
-        self.blockParametersList = self.interpret_config_list()
+        self.pathCounts.extend([d_["path_count"] for d_ in self.layerConfigList][1:])
+        self.finalLayerDimension = None
+        self.blockParametersList = self.configInterpreter.interpret_config_list(configs=CigtConstants)
         if torch.cuda.is_available():
             self.device = "cuda"
         else:
@@ -129,17 +139,21 @@ class CigtIgHardRoutingX(nn.Module):
             ])
 
         # Initial layer
-        self.in_planes = self.firstConvOutputDim
-        self.conv1 = conv3x3(3, self.firstConvOutputDim, self.firstConvStride)
-        self.bn1 = nn.BatchNorm2d(self.firstConvOutputDim)
-        if self.useDataParallelism:
-            self.conv1 = nn.DataParallel(self.conv1)
-            self.bn1 = nn.DataParallel(self.bn1)
+        self.in_planes = None
+        self.conv1 = None
+        self.bn1 = None
+        if self.modelBackbone == "ResNet":
+            self.in_planes = self.firstConvOutputDim
+            self.conv1 = conv3x3(3, self.firstConvOutputDim, self.firstConvStride)
+            self.bn1 = nn.BatchNorm2d(self.firstConvOutputDim)
+            if self.useDataParallelism:
+                self.conv1 = nn.DataParallel(self.conv1)
+                self.bn1 = nn.DataParallel(self.bn1)
 
         # Build Cigt Blocks
         self.cigtLayers = nn.ModuleList()
         self.blockEndLayers = nn.ModuleList()
-        self.create_cigt_blocks()
+        self.configInterpreter.create_cigt_blocks(model=self)
 
         # MoE Loss Layer
         self.moeLossLayer = MoeLayer()
@@ -173,6 +187,9 @@ class CigtIgHardRoutingX(nn.Module):
         explanation = ""
         explanation = self.add_explanation(name_of_param="Model Definition",
                                            value=self.modelDefinition,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Model Backbone",
+                                           value=self.modelBackbone,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Batch Size", value=self.batchSize,
                                            explanation=explanation, kv_rows=kv_rows)
@@ -270,79 +287,10 @@ class CigtIgHardRoutingX(nn.Module):
         explanation = self.add_explanation(name_of_param="lossCalculationKind", value=self.lossCalculationKind,
                                            explanation=explanation, kv_rows=kv_rows)
         # Explanation for block configurations
-        block_params = [(block_id, block_config_list)
-                        for block_id, block_config_list in self.blockParametersList]
-        block_params = sorted(block_params, key=lambda t__: t__[0])
-
-        layer_id = 0
-        for t_ in block_params:
-            block_id = t_[0]
-            block_config_list = t_[1]
-            for block_config_dict in block_config_list:
-                explanation = self.add_explanation(name_of_param="BasicBlock_{0} in_dimension".format(layer_id),
-                                                   value=block_config_dict["in_dimension"],
-                                                   explanation=explanation, kv_rows=kv_rows)
-                explanation = self.add_explanation(name_of_param="BasicBlock_{0} input_path_count".format(layer_id),
-                                                   value=block_config_dict["input_path_count"],
-                                                   explanation=explanation, kv_rows=kv_rows)
-                explanation = self.add_explanation(name_of_param="BasicBlock_{0} layer_id".format(layer_id),
-                                                   value=layer_id,
-                                                   explanation=explanation, kv_rows=kv_rows)
-                assert block_id == block_config_dict["block_id"]
-                explanation = self.add_explanation(name_of_param="BasicBlock_{0} block_id".format(layer_id),
-                                                   value=block_config_dict["block_id"],
-                                                   explanation=explanation, kv_rows=kv_rows)
-                explanation = self.add_explanation(name_of_param="BasicBlock_{0} out_dimension".format(layer_id),
-                                                   value=block_config_dict["out_dimension"],
-                                                   explanation=explanation, kv_rows=kv_rows)
-                explanation = self.add_explanation(name_of_param="BasicBlock_{0} output_path_count".format(layer_id),
-                                                   value=block_config_dict["output_path_count"],
-                                                   explanation=explanation, kv_rows=kv_rows)
-                explanation = self.add_explanation(name_of_param="BasicBlock_{0} stride".format(layer_id),
-                                                   value=block_config_dict["stride"],
-                                                   explanation=explanation, kv_rows=kv_rows)
-                layer_id += 1
-
+        kv_rows, explanation = self.configInterpreter.get_explanation(model=self, kv_rows=kv_rows,
+                                                                      explanation=explanation)
         DbLogger.write_into_table(rows=kv_rows, table="run_parameters")
         return explanation
-
-    # OK
-    def interpret_config_list(self):
-        block_list = []
-        # Unravel the configuration information into a complete block by block list.
-        for block_id, block_config_dict in enumerate(self.resnetConfigList):
-            path_count = block_config_dict["path_count"]
-            for idx, d_ in enumerate(block_config_dict["layer_structure"]):
-                for idy in range(d_["layer_count"]):
-                    block_list.append((block_id, path_count, d_["feature_map_count"]))
-
-        block_parameters_dict = {}
-        for layer_id, layer_info in enumerate(block_list):
-            block_id = layer_info[0]
-            path_count = layer_info[1]
-            feature_map_count = layer_info[2]
-            if block_id not in block_parameters_dict:
-                block_parameters_dict[block_id] = []
-            block_options = {}
-            if layer_id == 0:
-                block_options["in_dimension"] = self.firstConvOutputDim
-                block_options["input_path_count"] = 1
-            else:
-                path_count_prev = block_list[layer_id - 1][1]
-                feature_map_count_prev = block_list[layer_id - 1][2]
-                block_options["in_dimension"] = feature_map_count_prev
-                block_options["input_path_count"] = path_count_prev
-            block_options["layer_id"] = layer_id
-            block_options["block_id"] = block_id
-            block_options["out_dimension"] = feature_map_count
-            block_options["output_path_count"] = path_count
-            if layer_id in self.doubleStrideLayers:
-                block_options["stride"] = 2
-            else:
-                block_options["stride"] = 1
-            block_parameters_dict[block_id].append(block_options)
-        block_parameters_list = sorted([(k, v) for k, v in block_parameters_dict.items()], key=lambda tpl: tpl[0])
-        return block_parameters_list
 
     # OK
     def get_routing_layer(self, cigt_layer_id, input_feature_map_size, input_feature_map_count):
@@ -375,63 +323,6 @@ class CigtIgHardRoutingX(nn.Module):
                 device=self.device)
         print("Layer {0} Routing Layer: {1}".format(cigt_layer_id, routing_layer))
         return routing_layer
-
-    # OK
-    def create_cigt_blocks(self):
-        curr_input_shape = (self.batchSize, *self.inputDims)
-        feature_edge_size = curr_input_shape[-1]
-        for cigt_layer_id, cigt_layer_info in self.blockParametersList:
-            path_count_in_layer = self.pathCounts[cigt_layer_id]
-            cigt_layer_blocks = nn.ModuleList()
-            for path_id in range(path_count_in_layer):
-                layers = []
-                for inner_block_info in cigt_layer_info:
-                    block = BasicBlock(in_planes=inner_block_info["in_dimension"],
-                                       planes=inner_block_info["out_dimension"],
-                                       stride=inner_block_info["stride"],
-                                       norm_type=self.batchNormType)
-                    layers.append(block)
-                block_obj = Sequential_ext(*layers)
-                if self.useDataParallelism:
-                    block_obj = nn.DataParallel(block_obj)
-                # block_obj.name = "block_{0}_{1}".format(cigt_layer_id, path_id)
-                cigt_layer_blocks.append(block_obj)
-            self.cigtLayers.append(cigt_layer_blocks)
-            # Block end layers: Routing layers for inner layers, loss layer for the last one.
-            if cigt_layer_id < len(self.blockParametersList) - 1:
-                for inner_block_info in cigt_layer_info:
-                    feature_edge_size = int(feature_edge_size / inner_block_info["stride"])
-                routing_layer = self.get_routing_layer(cigt_layer_id=cigt_layer_id,
-                                                       input_feature_map_size=feature_edge_size,
-                                                       input_feature_map_count=cigt_layer_info[-1]["out_dimension"])
-                if self.useDataParallelism:
-                    routing_layer = nn.DataParallel(routing_layer)
-                self.blockEndLayers.append(routing_layer)
-        # if cigt_layer_id == len(self.blockParametersList) - 1:
-        self.get_loss_layer()
-
-    # OK
-    def get_loss_layer(self, final_layer_dimension_multiplier=1):
-        self.lossLayers = nn.ModuleList()
-        final_feature_dimension = \
-            final_layer_dimension_multiplier * self.blockParametersList[-1][-1][-1]["out_dimension"]
-        if self.lossCalculationKind == "SingleLogitSingleLoss":
-            end_module = nn.Sequential(OrderedDict([
-                ('avg_pool', torch.nn.AvgPool2d(kernel_size=8)),
-                ('flatten', torch.nn.Flatten()),
-                ('logits', torch.nn.Linear(in_features=final_feature_dimension, out_features=self.numClasses))
-            ]))
-            self.lossLayers.append(end_module)
-        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses" \
-                or self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
-            for block_id in range(self.pathCounts[-1]):
-                end_module = nn.Sequential(OrderedDict([
-                    ('avg_pool_{0}'.format(block_id), torch.nn.AvgPool2d(kernel_size=8)),
-                    ('flatten_{0}'.format(block_id), torch.nn.Flatten()),
-                    ('logits_{0}'.format(block_id), torch.nn.Linear(
-                        in_features=final_feature_dimension, out_features=self.numClasses))
-                ]))
-                self.lossLayers.append(end_module)
 
     # OK
     def create_optimizer(self):
@@ -561,13 +452,20 @@ class CigtIgHardRoutingX(nn.Module):
         weighted_sum_tensor = torch.sum(weighted_tensors, dim=1)
         return weighted_sum_tensor
 
+    def preprocess_input(self, x):
+        if self.modelBackbone == "ResNet":
+            out = F.relu(self.bn1(self.conv1(x)))
+        else:
+            out = x
+        return out
+
     def forward(self, x, labels, temperature):
         balance_coefficient_list = self.informationGainBalanceCoeffList
         # Routing Matrices
         routing_matrices_hard = []
         routing_matrices_soft = []
         # Initial layer
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.preprocess_input(x=x)
         routing_matrices_hard.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         routing_matrices_soft.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         block_outputs = []
@@ -880,7 +778,7 @@ class CigtIgHardRoutingX(nn.Module):
 
                 # Cigt moe output, information gain losses
                 routing_matrices_hard, routing_matrices_soft, \
-                block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
+                    block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
                 classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
                     list_of_logits,
                     routing_matrices_hard,
@@ -1076,7 +974,7 @@ class CigtIgHardRoutingX(nn.Module):
 
                 # Cigt moe output, information gain losses
                 routing_matrices_hard, routing_matrices_soft, \
-                block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
+                    block_outputs, list_of_logits, routing_activations_list = self(input_var, target_var, temperature)
                 classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
                     list_of_logits,
                     routing_matrices_hard,
@@ -1180,9 +1078,10 @@ class CigtIgHardRoutingX(nn.Module):
             }
             return res_dict
 
-    def calculate_mac(self):
-        self.macCountsPerBlock = [{"cigtLayers": 0, "blockEndLayers": 0, "lossLayers": 0}
-                                  for _ in range(len(self.pathCounts))]
+    @staticmethod
+    def calculate_mac(model):
+        mac_counts_per_block = [{"cigtLayers": 0, "blockEndLayers": 0, "lossLayers": 0}
+                                for _ in range(len(model.pathCounts))]
 
         # for layer_id in range(len(self.pathCounts)):
         # Add hooks for Mac counting
@@ -1239,20 +1138,31 @@ class CigtIgHardRoutingX(nn.Module):
                 else:
                     raise ValueError("Unexpected module.")
 
-        for tpl in self.named_modules():
+        for tpl in model.named_modules():
             module_name = tpl[0]
             module = tpl[1]
             if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
                 module.register_forward_hook(hook=hook_fn)
                 module.module_name = module_name
-                module.mac_counts_per_block = self.macCountsPerBlock
+                module.mac_counts_per_block = mac_counts_per_block
             print(module_name)
 
-        self(torch.from_numpy(
-            np.random.uniform(size=(self.batchSize, *self.inputDims)).astype(dtype=np.float32)).to(self.device),
-             torch.ones(size=(self.batchSize,), dtype=torch.int64).to(self.device), 0.1)
+        model.eval()
+        model(torch.from_numpy(
+            np.random.uniform(size=(model.batchSize, *model.inputDims)).astype(dtype=np.float32)).to(model.device),
+              torch.ones(size=(model.batchSize,), dtype=torch.int64).to(model.device), 0.1)
 
-        print("X")
+        return mac_counts_per_block
+
+    def get_total_parameter_count(self):
+        total_size = 0
+        for k, v in self.named_parameters():
+            if v.requires_grad:
+                total_size += np.prod(v.shape)
+                print("{0} is trainable.".format(k))
+            else:
+                print("{0} is not trainable.".format(k))
+        return total_size
 
     # def random_fine_tuning(self):
     #     self.isInWarmUp = False

@@ -60,7 +60,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         sample_indices = torch.arange(0, labels.shape[0], device=self.device)
         balance_coefficient_list = self.informationGainBalanceCoeffList
         # Initial layer
-        net = F.relu(self.bn1(self.conv1(x)))
+        net = self.preprocess_input(x=x)
         layer_outputs = [{"net": net,
                           "labels": labels,
                           "sample_indices": sample_indices,
@@ -149,7 +149,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         result_buffers = []
         # Create buffers for holding the results.
         # Initial layer
-        net = F.relu(self.bn1(self.conv1(x)))
+        net = self.preprocess_input(x=x)
         routing_matrices_soft = torch.ones(size=(x.shape[0], 1),
                                            dtype=torch.float32,
                                            device=self.device)

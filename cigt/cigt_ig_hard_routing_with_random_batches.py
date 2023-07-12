@@ -7,7 +7,7 @@ from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_hard_routing import CigtIgHardRouting
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
 from cigt.cigt_soft_routing import CigtSoftRouting
-from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.cigt_constants import CigtConstants
 from cigt.routing_layers.hard_routing_layer import HardRoutingLayer
 
 
@@ -15,10 +15,10 @@ class CigtIgHardRoutingWithRandomBatches(CigtIgHardRouting):
     def __init__(self, run_id, model_definition):
         self.classCount = 10
         super().__init__(run_id, model_definition)
-        self.randomBatchRatio = ResnetCigtConstants.random_batch_ratio
-        self.igBatchSize = int(self.batchSize * (1.0 - ResnetCigtConstants.random_batch_ratio))
+        self.randomBatchRatio = CigtConstants.random_batch_ratio
+        self.igBatchSize = int(self.batchSize * (1.0 - CigtConstants.random_batch_ratio))
         self.randomBatchSize = self.batchSize - self.igBatchSize
-        self.randomClassificationLossWeight = ResnetCigtConstants.random_classification_loss_weight
+        self.randomClassificationLossWeight = CigtConstants.random_classification_loss_weight
 
     def forward(self, x, labels, temperature):
         moe_probs = 0.0

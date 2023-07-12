@@ -12,8 +12,9 @@ def adjust_to_batch_size(original_value, target_batch_size):
     return adjusted_value
 
 
-class ResnetCigtConstants:
+class CigtConstants:
     # Standart Parameters
+    backbone = "ResNet"
     input_dims = (3, 32, 32)
     class_count = 10
     batch_size = 1024
@@ -81,15 +82,17 @@ class ResnetCigtConstants:
     model_file_root_path_tetam_tuna = "/cta/users/hmeral/cigt"
     model_file_root_path_jr = "C://Users//ufuk.bicici//PycharmProjects//cigt"
 
-    # Thick Baseline
-    # resnet_config_list = [
+
+
+    # Resnet110 Thick Baseline
+    # layer_config_list = [
     #     {"path_count": 1,
     #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16},
     #                          {"layer_count": 18, "feature_map_count": 32},
     #                          {"layer_count": 18, "feature_map_count": 64}]}]
 
-    # Thin Baseline
-    # resnet_config_list = [
+    # Resnet110 Thin Baseline
+    # layer_config_list = [
     #     {"path_count": 1,
     #      "layer_structure": [{"layer_count": 9, "feature_map_count": 16},
     #                          {"layer_count": 9, "feature_map_count": 12},
@@ -105,8 +108,17 @@ class ResnetCigtConstants:
     random_batch_ratio = 0.5
 
     random_classification_loss_weight = 1.0
-
-    resnet_config_list = None
+    layer_config_list = [
+        {"path_count": 1,
+         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+                              "use_max_pool": True, "use_batch_normalization": False}]},
+        {"path_count": 2,
+         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+                              "use_max_pool": True, "use_batch_normalization": False}]},
+        {"path_count": 4,
+         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
+                              "use_max_pool": True, "use_batch_normalization": False}]}
+    ]
 
     double_stride_layers = {18, 36}
 

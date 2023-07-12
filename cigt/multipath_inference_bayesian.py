@@ -6,7 +6,7 @@ from auxillary.bayesian_optimizer import BayesianOptimizer
 from auxillary.db_logger import DbLogger
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.cigt_constants import CigtConstants
 from tqdm import tqdm
 
 
@@ -28,7 +28,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         self.maxEntropies = []
         self.optimization_bounds_continuous = {}
         # Load the trained model
-        ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         self.model = model
         max_branch_count = np.prod(self.model.pathCounts)
         for path_count in self.model.pathCounts[1:]:

@@ -14,7 +14,7 @@ from auxillary.utilities import Utilities
 from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
 from cigt.cigt_soft_routing import CigtSoftRouting
-from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.cigt_constants import CigtConstants
 from cigt.routing_layers.info_gain_routing_layer import InfoGainRoutingLayer
 from cigt.routing_layers.soft_routing_module import SoftRoutingModule
 from convnet_aig import BasicBlock, Sequential_ext

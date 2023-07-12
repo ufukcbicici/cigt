@@ -13,20 +13,20 @@ from auxillary.average_meter import AverageMeter
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cigt_model import conv3x3, BasicBlock, Sequential_ext
-from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.cigt_constants import CigtConstants
 
 
 class CigtBayesianMultipath(CigtIgGatherScatterImplementation):
     def __init__(self, run_id, model_definition, num_classes):
         super().__init__(run_id, model_definition, num_classes)
-        self.temperatureOptimizationEpochCount = ResnetCigtConstants.temperature_optimization_epoch_count
+        self.temperatureOptimizationEpochCount = CigtConstants.temperature_optimization_epoch_count
         self.softmaxTemperatures = nn.Parameter(torch.Tensor([1.0] * (len(self.pathCounts) - 1)))
 
     def forward(self, x, labels, temperature):
         sample_indices = torch.arange(0, labels.shape[0], device=self.device)
         balance_coefficient_list = self.informationGainBalanceCoeffList
         # Initial layer
-        net = F.relu(self.bn1(self.conv1(x)))
+        net = self.preprocess_input(x=x)
         layer_outputs = [{"net": net,
                           "labels": labels,
                           "sample_indices": sample_indices,

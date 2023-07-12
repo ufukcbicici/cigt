@@ -17,7 +17,7 @@ from cigt.cigt_model import conv3x3, BasicBlock, Sequential_ext
 from cigt.cigt_soft_routing import CigtSoftRouting
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.moe_layer import MoeLayer
-from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.cigt_constants import CigtConstants
 from cigt.routing_layers.hard_routing_layer import HardRoutingLayer
 from randaugment import RandAugment
 from torchvision import transforms
@@ -29,9 +29,9 @@ from cigt.routing_layers.soft_routing_layer import SoftRoutingLayer
 
 class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
     def __init__(self, run_id, model_definition, num_classes, teacher_model):
-        self.useKdForRouting = ResnetCigtConstants.use_kd_for_routing
-        self.teacherTemperature = ResnetCigtConstants.kd_teacher_temperature
-        self.teacherAlpha = ResnetCigtConstants.kd_loss_alpha
+        self.useKdForRouting = CigtConstants.use_kd_for_routing
+        self.teacherTemperature = CigtConstants.kd_teacher_temperature
+        self.teacherAlpha = CigtConstants.kd_loss_alpha
         super().__init__(run_id, model_definition, num_classes)
         self.teacherModel = teacher_model
 

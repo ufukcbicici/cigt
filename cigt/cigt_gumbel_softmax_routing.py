@@ -14,13 +14,13 @@ from cigt.cigt_gumbel_softmax import GumbelSoftmax
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cigt_model import conv3x3, BasicBlock, Sequential_ext
-from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.cigt_constants import CigtConstants
 
 
 class CigtGumbelSoftmaxRouting(CigtIgHardRoutingX):
     def __init__(self, run_id, model_definition, num_classes):
         super().__init__(run_id, model_definition, num_classes)
-        self.zSampleCount = ResnetCigtConstants.z_sample_count
+        self.zSampleCount = CigtConstants.z_sample_count
         self.gumbelSoftmaxOperations = [GumbelSoftmax() for _ in range(len(self.pathCounts) - 1)]
 
     def apply_gumbel_softmax_routing(self, raw_activations, layer_id, temperature):
@@ -42,7 +42,7 @@ class CigtGumbelSoftmaxRouting(CigtIgHardRoutingX):
         routing_matrices_hard = []
         routing_matrices_soft = []
         # Initial layer
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.preprocess_input(x=x)
         routing_matrices_hard.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         routing_matrices_soft.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         block_outputs = []

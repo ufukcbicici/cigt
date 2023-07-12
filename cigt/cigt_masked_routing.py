@@ -220,7 +220,7 @@ class CigtMaskedRouting(CigtIgHardRoutingX):
         routing_activations_list = []
         block_outputs = []
         # Initial layer
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.preprocess_input(x=x)
         routing_matrices_hard.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         routing_matrices_soft.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))
         # routing_activations_list.append(torch.ones(size=(x.shape[0], 1), dtype=torch.float32, device=self.device))

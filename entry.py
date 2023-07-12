@@ -20,7 +20,7 @@ from cigt.cigt_model import Cigt
 from cigt.cigt_soft_routing import CigtSoftRouting
 from cigt.cigt_soft_routing_with_balance import CigtSoftRoutingWithBalance
 from cigt.cigt_variance_routing import CigtVarianceRouting
-from cigt.resnet_cigt_constants import ResnetCigtConstants
+from cigt.cigt_constants import CigtConstants
 import torch
 
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 
     for param_tpl in param_grid:
-        ResnetCigtConstants.resnet_config_list = [
+        CigtConstants.layer_config_list = [
             {"path_count": 1,
              "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
             {"path_count": 2,
@@ -45,33 +45,33 @@ if __name__ == "__main__":
                                  {"layer_count": 18, "feature_map_count": 16}]},
             {"path_count": 4,
              "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
-        ResnetCigtConstants.classification_wd = param_tpl[0]
-        ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
-        ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-        ResnetCigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-        ResnetCigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-        ResnetCigtConstants.decision_drop_probability = 0.5
-        ResnetCigtConstants.number_of_cbam_layers_in_routing_layers = 6
-        ResnetCigtConstants.cbam_reduction_ratio = 4
-        ResnetCigtConstants.cbam_layer_input_reduction_ratio = 0
-        ResnetCigtConstants.apply_relu_dropout_to_decision_layer = False
-        ResnetCigtConstants.decision_dimensions = [128, 128]
-        ResnetCigtConstants.apply_mask_to_batch_norm = False
-        ResnetCigtConstants.advanced_augmentation = True
-        ResnetCigtConstants.use_focal_loss = False
-        ResnetCigtConstants.focal_loss_gamma = 2.0
-        ResnetCigtConstants.batch_norm_type = "BatchNorm"
-        ResnetCigtConstants.data_parallelism = False
+        CigtConstants.classification_wd = param_tpl[0]
+        CigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
+        CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        CigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+        CigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+        CigtConstants.decision_drop_probability = 0.5
+        CigtConstants.number_of_cbam_layers_in_routing_layers = 6
+        CigtConstants.cbam_reduction_ratio = 4
+        CigtConstants.cbam_layer_input_reduction_ratio = 0
+        CigtConstants.apply_relu_dropout_to_decision_layer = False
+        CigtConstants.decision_dimensions = [128, 128]
+        CigtConstants.apply_mask_to_batch_norm = False
+        CigtConstants.advanced_augmentation = True
+        CigtConstants.use_focal_loss = False
+        CigtConstants.focal_loss_gamma = 2.0
+        CigtConstants.batch_norm_type = "BatchNorm"
+        CigtConstants.data_parallelism = False
         # ResnetCigtConstants.use_kd_for_routing = False
         # ResnetCigtConstants.kd_teacher_temperature = 10.0
         # ResnetCigtConstants.kd_loss_alpha = 0.95
 
-        ResnetCigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
+        CigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
-            initial_value=ResnetCigtConstants.softmax_decay_initial,
-            decay_coefficient=ResnetCigtConstants.softmax_decay_coefficient,
-            decay_period=ResnetCigtConstants.softmax_decay_period,
-            decay_min_limit=ResnetCigtConstants.softmax_decay_min_limit)
+            initial_value=CigtConstants.softmax_decay_initial,
+            decay_coefficient=CigtConstants.softmax_decay_coefficient,
+            decay_period=CigtConstants.softmax_decay_period,
+            decay_min_limit=CigtConstants.softmax_decay_min_limit)
 
         run_id = DbLogger.get_run_id()
 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
         # model = CigtIdealRouting()
 
-        model.modelFilesRootPath = ResnetCigtConstants.model_file_root_path_tetam_tuna
+        model.modelFilesRootPath = CigtConstants.model_file_root_path_tetam_tuna
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
