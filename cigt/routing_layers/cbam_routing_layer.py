@@ -18,7 +18,8 @@ class CbamRoutingLayer(nn.Module):
                  conv_block_reduction,
                  cbam_reduction_ratio,
                  feature_dim, avg_pool_stride, path_count, class_count, input_feature_map_count,
-                 input_feature_map_size, device, apply_relu_dropout, dropout_probability, from_logits=True):
+                 input_feature_map_size, device, apply_relu_dropout, dropout_probability, from_logits=True,
+                 input_dimension_predetermined=None):
         super().__init__()
         layers = OrderedDict()
         self.convBlockReduction = conv_block_reduction
@@ -57,7 +58,10 @@ class CbamRoutingLayer(nn.Module):
         #  Change the GAP Layer with average pooling with size
         self.avgPool = nn.AvgPool2d(self.avgPoolStride, stride=self.avgPoolStride)
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(self.linearLayerInputDim, self.featureDim)
+        if input_dimension_predetermined is None:
+            self.fc1 = nn.Linear(self.linearLayerInputDim, self.featureDim)
+        else:
+            self.fc1 = nn.Linear(input_dimension_predetermined, self.featureDim)
         self.reluNonlinearity = nn.ReLU()
         self.dropout = nn.Dropout(p=self.dropoutProbability)
         self.igBatchNorm = nn.BatchNorm1d(self.featureDim)

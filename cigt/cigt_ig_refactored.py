@@ -11,6 +11,7 @@ from focal_loss.focal_loss import FocalLoss
 
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
+from auxillary.lenet_config_interpreter import LenetConfigInterpreter
 from auxillary.resnet_config_interpreter import ResnetConfigInterpreter
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
@@ -38,6 +39,8 @@ class CigtIgHardRoutingX(nn.Module):
         self.configInterpreter = None
         if self.modelBackbone == "ResNet":
             self.configInterpreter = ResnetConfigInterpreter
+        elif self.modelBackbone == "LeNet":
+            self.configInterpreter = LenetConfigInterpreter
         else:
             raise NotImplementedError()
 
@@ -69,6 +72,7 @@ class CigtIgHardRoutingX(nn.Module):
         self.optimizerType = CigtConstants.optimizer_type
         self.learningRateSchedule = CigtConstants.learning_schedule
         self.initialLr = CigtConstants.initial_lr
+        self.classificationDropout = CigtConstants.classification_drop_probability
         self.layerConfigList = CigtConstants.layer_config_list
         self.firstConvKernelSize = CigtConstants.first_conv_kernel_size
         self.firstConvOutputDim = CigtConstants.first_conv_output_dim
@@ -203,6 +207,8 @@ class CigtIgHardRoutingX(nn.Module):
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Warm Up Period", value=self.warmUpPeriod,
                                            explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Classification Dropout", value=self.classificationDropout,
+                                           explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Optimizer Type", value=self.optimizerType,
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Data Parallelism", value=self.useDataParallelism,
@@ -293,7 +299,8 @@ class CigtIgHardRoutingX(nn.Module):
         return explanation
 
     # OK
-    def get_routing_layer(self, cigt_layer_id, input_feature_map_size, input_feature_map_count):
+    def get_routing_layer(self, cigt_layer_id, input_feature_map_size, input_feature_map_count,
+                          input_dimension_predetermined=None):
         if self.numberOfCbamLayersInRoutingLayers == 0:
             routing_layer = SoftRoutingLayer(
                 feature_dim=self.decisionDimensions[cigt_layer_id],
@@ -304,7 +311,8 @@ class CigtIgHardRoutingX(nn.Module):
                 input_feature_map_count=input_feature_map_count,
                 apply_relu_dropout=self.applyReluDropoutToDecisionLayers,
                 dropout_probability=self.routingDropoutProbability,
-                device=self.device)
+                device=self.device,
+                input_dimension_predetermined=input_dimension_predetermined)
         else:
             routing_layer = CbamRoutingLayer(
                 block_id=cigt_layer_id,
@@ -320,7 +328,8 @@ class CigtIgHardRoutingX(nn.Module):
                 input_feature_map_count=input_feature_map_count,
                 apply_relu_dropout=self.applyReluDropoutToDecisionLayers,
                 dropout_probability=self.routingDropoutProbability,
-                device=self.device)
+                device=self.device,
+                input_dimension_predetermined=input_dimension_predetermined)
         print("Layer {0} Routing Layer: {1}".format(cigt_layer_id, routing_layer))
         return routing_layer
 
@@ -1164,56 +1173,8 @@ class CigtIgHardRoutingX(nn.Module):
                 print("{0} is not trainable.".format(k))
         return total_size
 
-    # def random_fine_tuning(self):
-    #     self.isInWarmUp = False
-    #     original_decision_coeff = self.decisionLossCoeff
-    #     self.to(self.device)
-    #     torch.manual_seed(1)
-    #     best_performance = 0.0
-    #
-    #     # Cifar 10 Dataset
-    #     kwargs = {'num_workers': 2, 'pin_memory': True}
-    #     train_loader = torch.utils.data.DataLoader(
-    #         datasets.CIFAR10('../data', train=True, download=True, transform=self.transformTrain),
-    #         batch_size=self.batchSize, shuffle=True, **kwargs)
-    #     val_loader = torch.utils.data.DataLoader(
-    #         datasets.CIFAR10('../data', train=False, transform=self.transformTest),
-    #         batch_size=self.batchSize, shuffle=False, **kwargs)
-    #
-    #     print("Type of optimizer:{0}".format(self.modelOptimizer))
-    #
-    #     total_epoch_count = self.epochCount
-    #     for epoch in range(0, total_epoch_count):
-    #         self.adjust_learning_rate(epoch)
-    #         print("***************Random Fine Tuning "
-    #               "Epoch {0} End, Test Evaluation***************".format(epoch))
-    #         # test_accuracy = self.validate(loader=val_loader, epoch=epoch, data_kind="test")
-    #
-    #         # train for one epoch, disabling information gain, randomly routing samples
-    #         self.randomFineTuning = True
-    #         self.decisionLossCoeff = 0.0
-    #         train_mean_batch_time = self.train_single_epoch(epoch_id=epoch, train_loader=train_loader)
-    #
-    #         if epoch % self.evaluationPeriod == 0 or epoch >= (total_epoch_count - 10):
-    #             self.randomFineTuning = False
-    #             self.decisionLossCoeff = original_decision_coeff
-    #             print("***************Epoch {0} End, Training Evaluation***************".format(epoch))
-    #             train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
-    #             print("***************Epoch {0} End, Test Evaluation***************".format(epoch))
-    #             test_accuracy = self.validate(loader=val_loader, epoch=epoch, data_kind="test")
-    #
-    #             if test_accuracy > best_performance:
-    #                 self.save_cigt_model(epoch=epoch)
-    #                 best_performance = test_accuracy
-    #
-    #             DbLogger.write_into_table(
-    #                 rows=[(self.runId,
-    #                        self.numOfTrainingIterations,
-    #                        epoch,
-    #                        train_accuracy,
-    #                        0.0,
-    #                        test_accuracy,
-    #                        train_mean_batch_time,
-    #                        0.0,
-    #                        0.0,
-    #                        "YYY")], table=DbLogger.logsTable)
+    def execute_forward_with_random_input(self):
+        self.eval()
+        self(torch.from_numpy(
+            np.random.uniform(size=(self.batchSize, *self.inputDims)).astype(dtype=np.float32)).to(self.device),
+              torch.ones(size=(self.batchSize,), dtype=torch.int64).to(self.device), 0.1)

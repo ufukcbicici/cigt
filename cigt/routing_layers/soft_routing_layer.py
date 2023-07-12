@@ -15,7 +15,8 @@ class SoftRoutingLayer(nn.Module):
                  device,
                  apply_relu_dropout,
                  dropout_probability,
-                 from_logits=True):
+                 from_logits=True,
+                 input_dimension_predetermined=None):
         super().__init__()
         self.featureDim = feature_dim
         self.avgPoolStride = avg_pool_stride
@@ -36,7 +37,10 @@ class SoftRoutingLayer(nn.Module):
         #  Change the GAP Layer with average pooling with size
         self.avgPool = nn.AvgPool2d(self.avgPoolStride, stride=self.avgPoolStride)
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(self.linearLayerInputDim, self.featureDim)
+        if input_dimension_predetermined is None:
+            self.fc1 = nn.Linear(self.linearLayerInputDim, self.featureDim)
+        else:
+            self.fc1 = nn.Linear(input_dimension_predetermined, self.featureDim)
         self.reluNonlinearity = nn.ReLU()
         self.dropout = nn.Dropout(p=self.dropoutProbability)
         self.igBatchNorm = nn.BatchNorm1d(self.featureDim)

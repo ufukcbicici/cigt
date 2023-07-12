@@ -22,7 +22,8 @@ class CigtSoftRouting(Cigt):
         self.identityLayer = nn.Identity()
         self.crossEntropyLosses = [nn.CrossEntropyLoss(reduction='none') for _ in range(self.pathCounts[-1])]
 
-    def get_routing_layer(self, cigt_layer_id, input_feature_map_size, input_feature_map_count):
+    def get_routing_layer(self, cigt_layer_id, input_feature_map_size, input_feature_map_count,
+                          input_dimension_predetermined=None):
         routing_layer = SoftRoutingLayer(
             feature_dim=self.decisionDimensions[cigt_layer_id],
             avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],

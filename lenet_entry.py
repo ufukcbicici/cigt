@@ -53,13 +53,32 @@ if __name__ == "__main__":
     #                          {"layer_count": 18, "feature_map_count": 32},
     #                          {"layer_count": 18, "feature_map_count": 64}]}]
 
+    CigtConstants.backbone = "LeNet"
+    CigtConstants.input_dims = (1, 28, 28)
+    CigtConstants.layer_config_list = [
+        {"path_count": 1,
+         "final_dimension": 288,
+         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+                              "use_max_pool": True, "use_batch_normalization": False}]},
+        {"path_count": 2,
+         "final_dimension": 128,
+         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+                              "use_max_pool": True, "use_batch_normalization": False}]},
+        {"path_count": 4,
+         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
+                              "use_max_pool": True, "use_batch_normalization": False},
+                             {"layer_type": "flatten"},
+                             {"layer_type": "fc", "dimension": 128, "use_dropout": True,
+                              "use_batch_normalization": False},
+                             {"layer_type": "fc", "dimension": 64, "use_dropout": True,
+                              "use_batch_normalization": False}]}]
     CigtConstants.classification_wd = 0.0005
     CigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
     CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
     CigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
     CigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
     CigtConstants.decision_drop_probability = 0.5
-    CigtConstants.number_of_cbam_layers_in_routing_layers = 3
+    CigtConstants.number_of_cbam_layers_in_routing_layers = 0
     CigtConstants.cbam_reduction_ratio = 4
     CigtConstants.cbam_layer_input_reduction_ratio = 4
     CigtConstants.apply_relu_dropout_to_decision_layer = False
@@ -89,44 +108,34 @@ if __name__ == "__main__":
         transforms.Resize((32, 32)),
         transforms.ToTensor(),
     ])
-    train_loader_hard = torch.utils.data.DataLoader(
-        datasets.CIFAR10('../data', download=True, train=True, transform=heavyweight_augmentation),
-        batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
-    test_loader_light = torch.utils.data.DataLoader(
-        datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
-        batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
-
-    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                             "checkpoints/dblogger2_94_epoch1390.pth")
-    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
+    # train_loader_hard = torch.utils.data.DataLoader(
+    #     datasets.CIFAR10('../data', download=True, train=True, transform=heavyweight_augmentation),
+    #     batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
+    # test_loader_light = torch.utils.data.DataLoader(
+    #     datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
+    #     batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
+    #
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+    #                          "checkpoints/dblogger2_94_epoch1390.pth")
+    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
     DbLogger.log_db_path = DbLogger.home_asus
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
         run_id=run_id,
-        model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+        model_definition="Gather Scatter LeNet Cigt - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
         num_classes=10)
 
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    checkpoint = torch.load(chck_path, map_location="cpu")
-    model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    model.execute_forward_with_random_input()
+    # checkpoint = torch.load(chck_path, map_location="cpu")
+    # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
-    # total_parameter_count = model.get_total_parameter_count()
-    # mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
-    accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
-
-    mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
-        data_root_path=data_path,
-        train_dataset=train_loader_hard,
-        test_dataset=test_loader_light,
-        xi=0.01,
-        n_iter=1000,
-        init_points=500,
-        train_dataset_repeat_count=10,
-        evaluate_network_first=False,
-        model=model)
+    total_parameter_count = model.get_total_parameter_count()
+    mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
+    # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 
     # # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     # weight_decay = 10 * [0.0005]
