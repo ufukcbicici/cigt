@@ -117,8 +117,9 @@ class CigtConstants:
                               "use_max_pool": True, "use_batch_normalization": False}]},
         {"path_count": 4,
          "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
-                              "use_max_pool": True, "use_batch_normalization": False}]}
-    ]
+                              "use_max_pool": True, "use_batch_normalization": False},
+                             {"layer_type": "fc", "dimension": 128, "use_batch_normalization": False},
+                             {"layer_type": "fc", "dimension": 64, "use_batch_normalization": False}]}]
 
     double_stride_layers = {18, 36}
 
