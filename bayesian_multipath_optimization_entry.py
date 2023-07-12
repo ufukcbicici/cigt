@@ -28,6 +28,7 @@ from cigt.multipath_inference_bayesian import MultiplePathBayesianOptimizer
 from cigt.resnet_cigt_constants import ResnetCigtConstants
 import torch
 import random
+from torchsummary import summary
 
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 
@@ -46,6 +47,13 @@ if __name__ == "__main__":
                              {"layer_count": 18, "feature_map_count": 16}]},
         {"path_count": 4,
          "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
+
+    # ResnetCigtConstants.resnet_config_list = [
+    #     {"path_count": 1,
+    #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16},
+    #                          {"layer_count": 18, "feature_map_count": 32},
+    #                          {"layer_count": 18, "feature_map_count": 64}]}]
+
     ResnetCigtConstants.classification_wd = 0.0005
     ResnetCigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
     ResnetCigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
@@ -93,7 +101,7 @@ if __name__ == "__main__":
                              "checkpoints/dblogger2_94_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
@@ -102,8 +110,9 @@ if __name__ == "__main__":
         num_classes=10)
 
     explanation = model.get_explanation_string()
-    checkpoint = torch.load(chck_path, map_location="cpu")
-    model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    # checkpoint = torch.load(chck_path, map_location="cpu")
+    # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    model.calculate_mac()
 
     mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
         data_root_path=data_path,

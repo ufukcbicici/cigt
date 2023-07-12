@@ -157,6 +157,7 @@ class CigtIgHardRoutingX(nn.Module):
         self.numOfTrainingIterations = 0
         self.temperatureDecayStartIteration = 0
 
+        self.macCountsPerBlock = []
         self.layerCoefficients = []
         self.modelOptimizer = self.create_optimizer()
 
@@ -1178,6 +1179,80 @@ class CigtIgHardRoutingX(nn.Module):
                 "list_of_logits_complete": list_of_logits_complete
             }
             return res_dict
+
+    def calculate_mac(self):
+        self.macCountsPerBlock = [{"cigtLayers": 0, "blockEndLayers": 0, "lossLayers": 0}
+                                  for _ in range(len(self.pathCounts))]
+
+        # for layer_id in range(len(self.pathCounts)):
+        # Add hooks for Mac counting
+        def hook_fn(mod_, input_, output_):
+            print(mod_.module_name)
+            # if isinstance(mod_, torch.nn.Linear):
+            #     print(mod_.module_name)
+            # if "cigtLayers" in mod_.module_name or "lossLayers" in mod_.module_name:
+            if "cigtLayers" in mod_.module_name:
+                name_parts = mod_.module_name.split(".")
+                block_type = "cigtLayers"
+                # assert len(name_parts) == 5
+                block_id = int(name_parts[1])
+                unit_id = int(name_parts[2])
+            elif "lossLayers" in mod_.module_name:
+                name_parts = mod_.module_name.split(".")
+                block_type = "lossLayers"
+                block_id = len(mod_.mac_counts_per_block) - 1
+                unit_id = int(name_parts[1])
+            elif "blockEndLayers" in mod_.module_name:
+                name_parts = mod_.module_name.split(".")
+                block_type = "blockEndLayers"
+                block_id = int(name_parts[1])
+                unit_id = 0
+            else:
+                return
+
+            if unit_id == 0:
+                if isinstance(mod_, torch.nn.Conv2d):
+                    assert len(input_) == 1
+                    input_shape = input_[0].shape
+                    mac_count = Utilities.calculate_mac_of_computation(
+                        convolution_stride=mod_.stride[0],
+                        height_of_input_map=input_shape[2],
+                        width_of_input_map=input_shape[3],
+                        height_of_filter=mod_.kernel_size[0],
+                        width_of_filter=mod_.kernel_size[1],
+                        num_of_input_channels=input_shape[1],
+                        num_of_output_channels=mod_.out_channels,
+                        type="conv")
+                    mod_.mac_counts_per_block[block_id][block_type] += mac_count
+                elif isinstance(mod_, torch.nn.Linear):
+                    input_shape = input_[0].shape
+                    mac_count = Utilities.calculate_mac_of_computation(
+                        convolution_stride=None,
+                        height_of_input_map=None,
+                        width_of_input_map=None,
+                        height_of_filter=None,
+                        width_of_filter=None,
+                        num_of_input_channels=input_shape[1],
+                        num_of_output_channels=mod_.out_features,
+                        type="fc")
+                    mod_.mac_counts_per_block[block_id][block_type] += mac_count
+                else:
+                    raise ValueError("Unexpected module.")
+
+        for tpl in self.named_modules():
+            module_name = tpl[0]
+            module = tpl[1]
+            if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
+                module.register_forward_hook(hook=hook_fn)
+                module.module_name = module_name
+                module.mac_counts_per_block = self.macCountsPerBlock
+            print(module_name)
+
+        self(torch.from_numpy(
+            np.random.uniform(size=(self.batchSize, *self.inputDims)).astype(dtype=np.float32)).to(self.device),
+             torch.ones(size=(self.batchSize,), dtype=torch.int64).to(self.device), 0.1)
+
+        print("X")
 
     # def random_fine_tuning(self):
     #     self.isInWarmUp = False
