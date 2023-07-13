@@ -55,6 +55,8 @@ if __name__ == "__main__":
 
     CigtConstants.backbone = "LeNet"
     CigtConstants.input_dims = (1, 28, 28)
+
+    # CIGT-[1,2,4]
     CigtConstants.layer_config_list = [
         {"path_count": 1,
          "final_dimension": 288,
@@ -72,6 +74,23 @@ if __name__ == "__main__":
                               "use_batch_normalization": False},
                              {"layer_type": "fc", "dimension": 64, "use_dropout": True,
                               "use_batch_normalization": False}]}]
+
+    # Thick Baseline
+    # CigtConstants.layer_config_list = [
+    #     {"path_count": 1,
+    #      "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+    #                           "use_max_pool": True, "use_batch_normalization": False},
+    #                          {"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+    #                           "use_max_pool": True, "use_batch_normalization": False},
+    #                          {"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
+    #                           "use_max_pool": True, "use_batch_normalization": False},
+    #                          {"layer_type": "flatten"},
+    #                          {"layer_type": "fc", "dimension": 128, "use_dropout": True,
+    #                           "use_batch_normalization": False},
+    #                          {"layer_type": "fc", "dimension": 64, "use_dropout": True,
+    #                           "use_batch_normalization": False}]}]
+
+
     CigtConstants.classification_wd = 0.0005
     CigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
     CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
@@ -135,6 +154,7 @@ if __name__ == "__main__":
 
     total_parameter_count = model.get_total_parameter_count()
     mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
+    print("X")
     # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 
     # # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]

@@ -38,15 +38,27 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
+    CigtConstants.layer_config_list = [
+        {"path_count": 1,
+         "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
+        {"path_count": 2,
+         "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
+                             {"layer_count": 18, "feature_map_count": 16}]},
+        {"path_count": 2,
+         "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
+
+    CigtConstants.backbone = "ResNet"
+    CigtConstants.input_dims = (3, 32, 32)
+
+    # Thin Baseline
     # CigtConstants.layer_config_list = [
     #     {"path_count": 1,
-    #      "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
-    #     {"path_count": 2,
-    #      "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
-    #                          {"layer_count": 18, "feature_map_count": 16}]},
-    #     {"path_count": 4,
-    #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
+    #      "layer_structure": [{"layer_count": 9, "feature_map_count": 16},
+    #                          {"layer_count": 9, "feature_map_count": 12},
+    #                          {"layer_count": 18, "feature_map_count": 16},
+    #                          {"layer_count": 18, "feature_map_count": 16}]}]
 
+    # Thick Baseline
     # CigtConstants.layer_config_list = [
     #     {"path_count": 1,
     #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16},
@@ -110,12 +122,12 @@ if __name__ == "__main__":
 
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    checkpoint = torch.load(chck_path, map_location="cpu")
-    model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    # checkpoint = torch.load(chck_path, map_location="cpu")
+    # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
-    # total_parameter_count = model.get_total_parameter_count()
-    # mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
-    accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
+    total_parameter_count = model.get_total_parameter_count()
+    mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
+    # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 
     mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
         data_root_path=data_path,

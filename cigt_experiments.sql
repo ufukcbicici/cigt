@@ -377,6 +377,9 @@ ORDER BY TestAccuracy DESC
 2|0.999676294326782|0.918441963553429|0.0005|1.0|1.0|0.999899999999999|0.1|50
 4|0.999661313027752|0.918347655653953|0.0005|1.0|1.0|0.999899999999999|0.1|50
 1|0.999506890579146|0.918038463830948|0.0005|1.0|1.0|0.999899999999999|0.1|50
+SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Resnet Hard Routing - 1,2,4. Random Routing Regularization. Batch Size 1024%";
+SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID >= 0 AND RunID <= 5 GROUP BY RunID;
+SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID >= 0 AND RunID <= 5 GROUP BY RunID;
 
 --Experiments: Resnet Hard Routing - Only Routing - Temperature Reset Fixed. 1,2,2. Batch Size 1024.
 --weight_decay = 5 * [0.0005]
