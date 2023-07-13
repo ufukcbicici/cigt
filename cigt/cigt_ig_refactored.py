@@ -117,30 +117,30 @@ class CigtIgHardRoutingX(nn.Module):
         # Train and test time augmentations
         self.normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
 
-        if not self.advancedAugmentation:
-            print("WILL BE USING ONLY CROP AND HORIZONTAL FLIP AUGMENTATION")
-            self.transformTrain = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                self.normalize,
-            ])
-            self.transformTest = transforms.Compose([
-                transforms.ToTensor(),
-                self.normalize
-            ])
-        else:
-            print("WILL BE USING RANDOM AUGMENTATION")
-            self.transformTrain = transforms.Compose([
-                transforms.Resize(self.imageSize),
-                CutoutPIL(cutout_factor=0.5),
-                RandAugment(),
-                transforms.ToTensor(),
-            ])
-            self.transformTest = transforms.Compose([
-                transforms.Resize(self.imageSize),
-                transforms.ToTensor(),
-            ])
+        # if not self.advancedAugmentation:
+        #     print("WILL BE USING ONLY CROP AND HORIZONTAL FLIP AUGMENTATION")
+        #     self.transformTrain = transforms.Compose([
+        #         transforms.RandomCrop(32, padding=4),
+        #         transforms.RandomHorizontalFlip(),
+        #         transforms.ToTensor(),
+        #         self.normalize,
+        #     ])
+        #     self.transformTest = transforms.Compose([
+        #         transforms.ToTensor(),
+        #         self.normalize
+        #     ])
+        # else:
+        #     print("WILL BE USING RANDOM AUGMENTATION")
+        #     self.transformTrain = transforms.Compose([
+        #         transforms.Resize(self.imageSize),
+        #         CutoutPIL(cutout_factor=0.5),
+        #         RandAugment(),
+        #         transforms.ToTensor(),
+        #     ])
+        #     self.transformTest = transforms.Compose([
+        #         transforms.Resize(self.imageSize),
+        #         transforms.ToTensor(),
+        #     ])
 
         # Initial layer
         self.in_planes = None
@@ -177,7 +177,7 @@ class CigtIgHardRoutingX(nn.Module):
 
         self.macCountsPerBlock = []
         self.layerCoefficients = []
-        self.modelOptimizer = self.create_optimizer()
+        self.modelOptimizer = None
 
     # OK
     def add_explanation(self, name_of_param, value, explanation, kv_rows):
@@ -854,20 +854,16 @@ class CigtIgHardRoutingX(nn.Module):
             "optimizer_state_dict": self.modelOptimizer.state_dict()
         }, checkpoint_file_path)
 
-    def fit(self):
-        original_decision_coeff = self.decisionLossCoeff
+    def fit(self, train_loader, test_loader):
         self.to(self.device)
         torch.manual_seed(1)
         best_performance = 0.0
 
-        # Cifar 10 Dataset
-        kwargs = {'num_workers': 2, 'pin_memory': True}
-        train_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10('../data', train=True, download=True, transform=self.transformTrain),
-            batch_size=self.batchSize, shuffle=True, **kwargs)
-        test_loader = torch.utils.data.DataLoader(
-            datasets.CIFAR10('../data', train=False, transform=self.transformTest),
-            batch_size=self.batchSize, shuffle=False, **kwargs)
+        # Run a forward pass first to initialize each LazyXXX layer.
+        self.execute_forward_with_random_input()
+
+        # Create the model optimizer, we should have every parameter initialized right now.
+        self.modelOptimizer = self.create_optimizer()
 
         print("Type of optimizer:{0}".format(self.modelOptimizer))
         # self.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)

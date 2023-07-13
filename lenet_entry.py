@@ -38,24 +38,29 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    # CigtConstants.layer_config_list = [
-    #     {"path_count": 1,
-    #      "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
-    #     {"path_count": 2,
-    #      "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
-    #                          {"layer_count": 18, "feature_map_count": 16}]},
-    #     {"path_count": 4,
-    #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
+    DbLogger.log_db_path = DbLogger.hpc_db
+    # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
+    p_dropout = 10 * [0.3]
+    p_dropout = sorted(p_dropout)
+    param_grid = Utilities.get_cartesian_product(list_of_lists=[p_dropout])
 
+    # Thick Baseline
     # CigtConstants.layer_config_list = [
     #     {"path_count": 1,
-    #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16},
-    #                          {"layer_count": 18, "feature_map_count": 32},
-    #                          {"layer_count": 18, "feature_map_count": 64}]}]
+    #      "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+    #                           "use_max_pool": True, "use_batch_normalization": False},
+    #                          {"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+    #                           "use_max_pool": True, "use_batch_normalization": False},
+    #                          {"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
+    #                           "use_max_pool": True, "use_batch_normalization": False},
+    #                          {"layer_type": "flatten"},
+    #                          {"layer_type": "fc", "dimension": 128, "use_dropout": True,
+    #                           "use_batch_normalization": False},
+    #                          {"layer_type": "fc", "dimension": 64, "use_dropout": True,
+    #                           "use_batch_normalization": False}]}]
 
     CigtConstants.backbone = "LeNet"
     CigtConstants.input_dims = (1, 28, 28)
-
     # CIGT-[1,2,4]
     CigtConstants.layer_config_list = [
         {"path_count": 1,
@@ -74,41 +79,14 @@ if __name__ == "__main__":
                               "use_batch_normalization": False},
                              {"layer_type": "fc", "dimension": 64, "use_dropout": True,
                               "use_batch_normalization": False}]}]
-
-    # Thick Baseline
-    # CigtConstants.layer_config_list = [
-    #     {"path_count": 1,
-    #      "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
-    #                           "use_max_pool": True, "use_batch_normalization": False},
-    #                          {"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
-    #                           "use_max_pool": True, "use_batch_normalization": False},
-    #                          {"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
-    #                           "use_max_pool": True, "use_batch_normalization": False},
-    #                          {"layer_type": "flatten"},
-    #                          {"layer_type": "fc", "dimension": 128, "use_dropout": True,
-    #                           "use_batch_normalization": False},
-    #                          {"layer_type": "fc", "dimension": 64, "use_dropout": True,
-    #                           "use_batch_normalization": False}]}]
-
-
-    CigtConstants.classification_wd = 0.0005
-    CigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
-    CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-    CigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-    CigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-    CigtConstants.decision_drop_probability = 0.5
-    CigtConstants.number_of_cbam_layers_in_routing_layers = 0
-    CigtConstants.cbam_reduction_ratio = 4
-    CigtConstants.cbam_layer_input_reduction_ratio = 4
+    # These are especially important for the LeNet-CIGT
+    CigtConstants.classification_wd = 0.0
+    CigtConstants.information_gain_balance_coeff_list = [2.5, 2.5]
+    CigtConstants.classification_drop_probability = 0.3
     CigtConstants.apply_relu_dropout_to_decision_layer = False
+    CigtConstants.decision_drop_probability = 0.0
+    CigtConstants.decision_loss_coeff = 0.7
     CigtConstants.decision_dimensions = [128, 128]
-    CigtConstants.apply_mask_to_batch_norm = False
-    CigtConstants.advanced_augmentation = True
-    CigtConstants.use_focal_loss = False
-    CigtConstants.focal_loss_gamma = 2.0
-    CigtConstants.batch_norm_type = "BatchNorm"
-    CigtConstants.data_parallelism = False
-
     CigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
         decay_name="Stepwise",
         initial_value=CigtConstants.softmax_decay_initial,
@@ -116,7 +94,21 @@ if __name__ == "__main__":
         decay_period=CigtConstants.softmax_decay_period,
         decay_min_limit=CigtConstants.softmax_decay_min_limit)
 
-    kwargs = {'num_workers': 0, 'pin_memory': True}
+    # The rest can be left like they are
+    CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+    CigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+    CigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+    CigtConstants.number_of_cbam_layers_in_routing_layers = 0
+    CigtConstants.cbam_reduction_ratio = 4
+    CigtConstants.cbam_layer_input_reduction_ratio = 4
+    CigtConstants.apply_mask_to_batch_norm = False
+    CigtConstants.advanced_augmentation = True
+    CigtConstants.use_focal_loss = False
+    CigtConstants.focal_loss_gamma = 2.0
+    CigtConstants.batch_norm_type = "BatchNorm"
+    CigtConstants.data_parallelism = False
+
+    kwargs = {'num_workers': 2, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
         transforms.Resize((32, 32)),
         CutoutPIL(cutout_factor=0.5),
