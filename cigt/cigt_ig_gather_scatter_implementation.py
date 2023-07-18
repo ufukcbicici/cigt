@@ -412,6 +412,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         losses_t = AverageMeter()
         losses_t_layer_wise = [AverageMeter() for _ in range(len(self.pathCounts) - 1)]
         accuracy_avg = AverageMeter()
+        list_of_original_inputs = []
         list_of_labels = []
         list_of_routing_probability_matrices = []
         list_of_routing_activations = []
@@ -484,6 +485,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 for idx_, matr_ in enumerate(layer_outputs[-1]["list_of_logits"]):
                     list_of_logits_complete[idx_].append(matr_.detach().cpu().numpy())
                 list_of_logits_unified.append(layer_outputs[-1]["logits_unified"].detach().cpu().numpy())
+                list_of_original_inputs.append(input_.cpu().numpy())
 
                 # measure accuracy and record loss
                 losses.update(total_loss.detach().cpu().numpy().item(), 1)
@@ -505,6 +507,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         for idx_ in range(len(list_of_logits_complete)):
             list_of_logits_complete[idx_] = np.concatenate(list_of_logits_complete[idx_], axis=0)
         list_of_logits_unified = np.concatenate(list_of_logits_unified, axis=0)
+        list_of_original_inputs = np.concatenate(list_of_original_inputs, axis=0)
 
         self.calculate_branch_statistics(
             run_id=self.runId,
@@ -562,7 +565,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 "list_of_routing_probability_matrices": list_of_routing_probability_matrices,
                 "list_of_routing_activations": list_of_routing_activations,
                 "list_of_logits_complete": list_of_logits_complete,
-                "list_of_logits_unified": list_of_logits_unified
+                "list_of_logits_unified": list_of_logits_unified,
+                "list_of_original_inputs": list_of_original_inputs
             }
             return res_dict
 

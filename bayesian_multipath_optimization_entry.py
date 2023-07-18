@@ -44,7 +44,7 @@ if __name__ == "__main__":
         {"path_count": 2,
          "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
                              {"layer_count": 18, "feature_map_count": 16}]},
-        {"path_count": 2,
+        {"path_count": 4,
          "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
 
     CigtConstants.backbone = "ResNet"
@@ -112,21 +112,27 @@ if __name__ == "__main__":
                              "checkpoints/dblogger2_94_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
         run_id=run_id,
         model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
         num_classes=10)
+    model_mac = CigtIgGatherScatterImplementation(
+        run_id=run_id,
+        model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+        num_classes=10)
 
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    # checkpoint = torch.load(chck_path, map_location="cpu")
-    # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    checkpoint = torch.load(chck_path, map_location="cpu")
+    model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    model_mac.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
-    total_parameter_count = model.get_total_parameter_count()
-    mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
+    # total_parameter_count = model.get_total_parameter_count()
+    mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model_mac)
+    model_mac = None
     # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 
     mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
@@ -138,7 +144,8 @@ if __name__ == "__main__":
         init_points=500,
         train_dataset_repeat_count=10,
         evaluate_network_first=False,
-        model=model)
+        model=model,
+        mac_counts_per_block=mac_counts_per_block)
 
     # # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     # weight_decay = 10 * [0.0005]

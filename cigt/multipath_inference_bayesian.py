@@ -18,11 +18,12 @@ class NetworkOutput(object):
 
 class MultiplePathBayesianOptimizer(BayesianOptimizer):
     def __init__(self, data_root_path, model,
-                 train_dataset, test_dataset, xi, init_points, n_iter, train_dataset_repeat_count,
-                 evaluate_network_first):
+                 train_dataset, test_dataset, xi, init_points, n_iter, mac_counts_per_block,
+                 train_dataset_repeat_count, evaluate_network_first):
         super().__init__(xi, init_points, n_iter)
         self.dataRootPath = data_root_path
         self.repeatCount = train_dataset_repeat_count
+        self.macCountsPerBlock = mac_counts_per_block
         self.trainDataset = train_dataset
         self.testDataset = test_dataset
         self.maxEntropies = []
@@ -108,6 +109,9 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 arr_to_compare = network_output.logits[0][k]
                 assert np.allclose(v, arr_to_compare, rtol=1e-3)
 
+    def evaluate_with_thresholds(self, network_output, probability_thresholds):
+        pass
+
     def create_outputs(self, dataloader, repeat_count):
         network_outputs = []
         data_kind = "test" if not dataloader.dataset.train else "train"
@@ -131,6 +135,11 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
 
                 Utilities.pickle_save_to_file(path=output_file_path, file_content={
                     "raw_outputs_dict": raw_outputs_dict, "interpreted_output": interpreted_output})
+
+            # Assert that the interpretation is correct.
+
+
+
             network_outputs.append(interpreted_output)
 
         complete_output = NetworkOutput()
