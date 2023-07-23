@@ -2590,23 +2590,33 @@ SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 71 AND RunID <=
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Vanilla With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
 SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID >= 75 AND RunID <= 78 GROUP BY RunID;
 
-SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID >= 75 AND RunID <= 80 GROUP BY RunID;
+SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID >= 75 AND RunID <= 84 GROUP BY RunID;
 75|0.93820000371933
 76|0.939700002145767
 77|0.937300003159046
 78|0.937600000214577
 79|0.939199999707937
-80|0.937700006979704
+80|0.938600001621246
+81|0.93869999730587
+82|0.940099999547005
+83|0.932700000286102
+84|0.928299997353554
+
+
 
 
 
 
 SELECT RunID, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 75 AND
-RunID <= 80 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
+RunID <= 84 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
 79|-9.98696050643921
+82|-9.9860592842102
 77|-9.98210973739624
+81|-9.97422924041748
 76|-9.97394971847534
 78|-9.97310676574707
-80|-9.96806879043579
+80|-9.970982837677
 75|-9.96447162628174
+84|-9.8981616973877
+83|-8.84032039642334
 

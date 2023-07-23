@@ -45,7 +45,6 @@ class CigtIgHardRoutingX(nn.Module):
             raise NotImplementedError()
 
         self.modelDefinition = model_definition
-        self.imageSize = (32, 32)
         self.numClasses = num_classes
         self.classCount = 10
         self.useDataParallelism = CigtConstants.data_parallelism

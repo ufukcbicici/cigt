@@ -38,7 +38,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.hpc_db
+    DbLogger.log_db_path = DbLogger.home_asus
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     p_dropout = 10 * [0.3]
     p_dropout = sorted(p_dropout)
@@ -110,13 +110,13 @@ if __name__ == "__main__":
 
     kwargs = {'num_workers': 2, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
-        transforms.Resize((32, 32)),
+        # transforms.Resize((32, 32)),
         CutoutPIL(cutout_factor=0.5),
         RandAugment(),
         transforms.ToTensor(),
     ])
     lightweight_augmentation = transforms.Compose([
-        transforms.Resize((32, 32)),
+        # transforms.Resize((32, 32)),
         transforms.ToTensor(),
     ])
     # train_loader_hard = torch.utils.data.DataLoader(
