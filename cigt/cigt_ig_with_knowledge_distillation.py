@@ -8,14 +8,14 @@ import torch.nn.functional as F
 
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
-from configs.lenet_cigt_configs import LenetCigtConfigs
+from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 
 
 class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
     def __init__(self, run_id, model_definition, num_classes, teacher_model):
-        self.useKdForRouting = LenetCigtConfigs.use_kd_for_routing
-        self.teacherTemperature = LenetCigtConfigs.kd_teacher_temperature
-        self.teacherAlpha = LenetCigtConfigs.kd_loss_alpha
+        self.useKdForRouting = FashionLenetCigtConfigs.use_kd_for_routing
+        self.teacherTemperature = FashionLenetCigtConfigs.kd_teacher_temperature
+        self.teacherAlpha = FashionLenetCigtConfigs.kd_loss_alpha
         super().__init__(run_id, model_definition, num_classes)
         self.teacherModel = teacher_model
 

@@ -5,7 +5,7 @@ import torch
 from auxillary.bayesian_optimizer import BayesianOptimizer
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-from configs.lenet_cigt_configs import LenetCigtConfigs
+from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 from tqdm import tqdm
 
 
@@ -28,7 +28,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         self.maxEntropies = []
         self.optimization_bounds_continuous = {}
         # Load the trained model
-        LenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         self.model = model
         max_branch_count = np.prod(self.model.pathCounts)
         for path_count in self.model.pathCounts[1:]:

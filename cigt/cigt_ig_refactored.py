@@ -107,7 +107,7 @@ class CigtIgHardRoutingX(nn.Module):
             self.device = "cpu"
         print("Device:{0}".format(self.device))
         # Train and test time augmentations
-        self.normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        # self.normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
 
         # if not self.advancedAugmentation:
         #     print("WILL BE USING ONLY CROP AND HORIZONTAL FLIP AUGMENTATION")

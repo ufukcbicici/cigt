@@ -5,13 +5,13 @@ from torch import optim
 
 from auxillary.average_meter import AverageMeter
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-from configs.lenet_cigt_configs import LenetCigtConfigs
+from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 
 
 class CigtBayesianMultipath(CigtIgGatherScatterImplementation):
     def __init__(self, run_id, model_definition, num_classes):
         super().__init__(run_id, model_definition, num_classes)
-        self.temperatureOptimizationEpochCount = LenetCigtConfigs.temperature_optimization_epoch_count
+        self.temperatureOptimizationEpochCount = FashionLenetCigtConfigs.temperature_optimization_epoch_count
         self.softmaxTemperatures = nn.Parameter(torch.Tensor([1.0] * (len(self.pathCounts) - 1)))
 
     def forward(self, x, labels, temperature):

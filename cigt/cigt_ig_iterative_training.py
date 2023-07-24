@@ -7,7 +7,7 @@ import torchvision.datasets as datasets
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
-from configs.lenet_cigt_configs import LenetCigtConfigs
+from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 
 
 class CigtIgIterativeTraining(CigtIgDifferentLosses):
@@ -189,12 +189,12 @@ class CigtIgIterativeTraining(CigtIgDifferentLosses):
         iterations_list = [{"warm_up": True,
                             "epoch_count": self.warmUpPeriod,
                             "loss": "classification_optimizer"}]
-        for i_ in range(LenetCigtConfigs.outer_loop_count):
+        for i_ in range(FashionLenetCigtConfigs.outer_loop_count):
             iterations_list.append({"warm_up": False,
-                                    "epoch_count": LenetCigtConfigs.single_loss_epoch_count,
+                                    "epoch_count": FashionLenetCigtConfigs.single_loss_epoch_count,
                                     "loss": "routing_optimizer"})
             iterations_list.append({"warm_up": False,
-                                    "epoch_count": LenetCigtConfigs.single_loss_epoch_count,
+                                    "epoch_count": FashionLenetCigtConfigs.single_loss_epoch_count,
                                     "loss": "classification_optimizer"})
 
         total_epoch_count = 0

@@ -14,7 +14,7 @@ from auxillary.similar_dataset_division_algorithm import SimilarDatasetDivisionA
 from auxillary.softmax_temperature_optimizer import SoftmaxTemperatureOptimizer
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
-from configs.lenet_cigt_configs import LenetCigtConfigs
+from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 
 
 class MultiplePathOptimizer(BayesianOptimizer):
@@ -25,7 +25,7 @@ class MultiplePathOptimizer(BayesianOptimizer):
         self.dataset = dataset
         # Load the trained model
         self.runId = DbLogger.get_run_id()
-        LenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         self.model = CigtIgHardRoutingX(
             run_id=self.runId,
             model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Multiple Path Inference",

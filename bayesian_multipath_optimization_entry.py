@@ -9,10 +9,11 @@ from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplem
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.multipath_inference_bayesian import MultiplePathBayesianOptimizer
-from configs.lenet_cigt_configs import LenetCigtConfigs
+# from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 import torch
 
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
+from configs.cifar10_resnet_cigt_configs import Cifar10ResnetCigtConfigs
 
 # random.seed(53)
 # np.random.seed(61)
@@ -21,7 +22,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    LenetCigtConfigs.layer_config_list = [
+    Cifar10ResnetCigtConfigs.layer_config_list = [
         {"path_count": 1,
          "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
         {"path_count": 2,
@@ -30,8 +31,8 @@ if __name__ == "__main__":
         {"path_count": 4,
          "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
 
-    LenetCigtConfigs.backbone = "ResNet"
-    LenetCigtConfigs.input_dims = (3, 32, 32)
+    Cifar10ResnetCigtConfigs.backbone = "ResNet"
+    Cifar10ResnetCigtConfigs.input_dims = (3, 32, 32)
 
     # Thin Baseline
     # CigtConstants.layer_config_list = [
@@ -48,30 +49,30 @@ if __name__ == "__main__":
     #                          {"layer_count": 18, "feature_map_count": 32},
     #                          {"layer_count": 18, "feature_map_count": 64}]}]
 
-    LenetCigtConfigs.classification_wd = 0.0005
-    LenetCigtConfigs.information_gain_balance_coeff_list = [5.0, 5.0]
-    LenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-    LenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-    LenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-    LenetCigtConfigs.decision_drop_probability = 0.5
-    LenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 3
-    LenetCigtConfigs.cbam_reduction_ratio = 4
-    LenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
-    LenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
-    LenetCigtConfigs.decision_dimensions = [128, 128]
-    LenetCigtConfigs.apply_mask_to_batch_norm = False
-    LenetCigtConfigs.advanced_augmentation = True
-    LenetCigtConfigs.use_focal_loss = False
-    LenetCigtConfigs.focal_loss_gamma = 2.0
-    LenetCigtConfigs.batch_norm_type = "BatchNorm"
-    LenetCigtConfigs.data_parallelism = False
+    Cifar10ResnetCigtConfigs.classification_wd = 0.0005
+    Cifar10ResnetCigtConfigs.information_gain_balance_coeff_list = [5.0, 5.0]
+    Cifar10ResnetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+    Cifar10ResnetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+    Cifar10ResnetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+    Cifar10ResnetCigtConfigs.decision_drop_probability = 0.5
+    Cifar10ResnetCigtConfigs.number_of_cbam_layers_in_routing_layers = 3
+    Cifar10ResnetCigtConfigs.cbam_reduction_ratio = 4
+    Cifar10ResnetCigtConfigs.cbam_layer_input_reduction_ratio = 4
+    Cifar10ResnetCigtConfigs.apply_relu_dropout_to_decision_layer = False
+    Cifar10ResnetCigtConfigs.decision_dimensions = [128, 128]
+    Cifar10ResnetCigtConfigs.apply_mask_to_batch_norm = False
+    Cifar10ResnetCigtConfigs.advanced_augmentation = True
+    Cifar10ResnetCigtConfigs.use_focal_loss = False
+    Cifar10ResnetCigtConfigs.focal_loss_gamma = 2.0
+    Cifar10ResnetCigtConfigs.batch_norm_type = "BatchNorm"
+    Cifar10ResnetCigtConfigs.data_parallelism = False
 
-    LenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
+    Cifar10ResnetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
         decay_name="Stepwise",
-        initial_value=LenetCigtConfigs.softmax_decay_initial,
-        decay_coefficient=LenetCigtConfigs.softmax_decay_coefficient,
-        decay_period=LenetCigtConfigs.softmax_decay_period,
-        decay_min_limit=LenetCigtConfigs.softmax_decay_min_limit)
+        initial_value=Cifar10ResnetCigtConfigs.softmax_decay_initial,
+        decay_coefficient=Cifar10ResnetCigtConfigs.softmax_decay_coefficient,
+        decay_period=Cifar10ResnetCigtConfigs.softmax_decay_period,
+        decay_min_limit=Cifar10ResnetCigtConfigs.softmax_decay_min_limit)
 
     kwargs = {'num_workers': 0, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
@@ -86,10 +87,10 @@ if __name__ == "__main__":
     ])
     train_loader_hard = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', download=True, train=True, transform=heavyweight_augmentation),
-        batch_size=LenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+        batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
     test_loader_light = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
-        batch_size=LenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+        batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
                              "checkpoints/dblogger2_94_epoch1390.pth")
@@ -101,11 +102,15 @@ if __name__ == "__main__":
     model = CigtIgGatherScatterImplementation(
         run_id=run_id,
         model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
-        num_classes=10)
+        num_classes=10,
+        configs=Cifar10ResnetCigtConfigs)
+    model.execute_forward_with_random_input()
     model_mac = CigtIgGatherScatterImplementation(
         run_id=run_id,
         model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
-        num_classes=10)
+        num_classes=10,
+        configs=Cifar10ResnetCigtConfigs)
+    model_mac.execute_forward_with_random_input()
 
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
@@ -116,7 +121,7 @@ if __name__ == "__main__":
     # total_parameter_count = model.get_total_parameter_count()
     mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model_mac)
     model_mac = None
-    # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
+    accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 
     mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
         data_root_path=data_path,

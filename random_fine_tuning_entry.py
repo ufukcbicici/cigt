@@ -4,7 +4,7 @@ import torch
 from auxillary.db_logger import DbLogger
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_hard_routing import CigtIgHardRouting
-from configs.lenet_cigt_configs import LenetCigtConfigs
+from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 
@@ -19,27 +19,27 @@ if __name__ == "__main__":
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 
     for param_tpl in param_grid:
-        LenetCigtConfigs.epoch_count = 1400
-        LenetCigtConfigs.initial_lr = 0.1
+        FashionLenetCigtConfigs.epoch_count = 1400
+        FashionLenetCigtConfigs.initial_lr = 0.1
         # ResnetCigtConstants.learning_schedule = [(300, 0.1)]
-        LenetCigtConfigs.learning_schedule = [(600, 0.1), (1000, 0.01)]
-        LenetCigtConfigs.optimizer_type = "Adam"
-        LenetCigtConfigs.classification_wd = param_tpl[0]
-        LenetCigtConfigs.softmax_decay_initial = 0.1
-        LenetCigtConfigs.advanced_augmentation = False
-        LenetCigtConfigs.evaluation_period = 1
-        LenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
+        FashionLenetCigtConfigs.learning_schedule = [(600, 0.1), (1000, 0.01)]
+        FashionLenetCigtConfigs.optimizer_type = "Adam"
+        FashionLenetCigtConfigs.classification_wd = param_tpl[0]
+        FashionLenetCigtConfigs.softmax_decay_initial = 0.1
+        FashionLenetCigtConfigs.advanced_augmentation = False
+        FashionLenetCigtConfigs.evaluation_period = 1
+        FashionLenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
-            initial_value=LenetCigtConfigs.softmax_decay_initial,
-            decay_coefficient=LenetCigtConfigs.softmax_decay_coefficient,
-            decay_period=LenetCigtConfigs.softmax_decay_period,
-            decay_min_limit=LenetCigtConfigs.softmax_decay_min_limit)
+            initial_value=FashionLenetCigtConfigs.softmax_decay_initial,
+            decay_coefficient=FashionLenetCigtConfigs.softmax_decay_coefficient,
+            decay_period=FashionLenetCigtConfigs.softmax_decay_period,
+            decay_min_limit=FashionLenetCigtConfigs.softmax_decay_min_limit)
 
         run_id = DbLogger.get_run_id()
         trained_model = CigtIgHardRouting(
             run_id=run_id,
             model_definition="Resnet 1,2,4 - Random routing fine tuning")
-        trained_model.modelFilesRootPath = LenetCigtConfigs.model_file_root_path_tetam_tuna
+        trained_model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_tetam_tuna
 
         checkpoint_pth = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger_14_epoch1180.pth")
         checkpoint = torch.load(checkpoint_pth, map_location="cpu")

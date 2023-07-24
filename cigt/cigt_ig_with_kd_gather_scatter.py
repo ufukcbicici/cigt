@@ -8,15 +8,15 @@ import torch.nn.functional as F
 
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
-from configs.lenet_cigt_configs import LenetCigtConfigs
+from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 
 
 class CigtIgWithKdGatherScatter(CigtIgGatherScatterImplementation):
     def __init__(self, run_id, model_definition, num_classes, teacher_model):
-        self.idealRoutingErrorRatio = LenetCigtConfigs.ideal_routing_error_ratio
-        self.useKdForRouting = LenetCigtConfigs.use_kd_for_routing
-        self.teacherTemperature = LenetCigtConfigs.kd_teacher_temperature
-        self.teacherAlpha = LenetCigtConfigs.kd_loss_alpha
+        self.idealRoutingErrorRatio = FashionLenetCigtConfigs.ideal_routing_error_ratio
+        self.useKdForRouting = FashionLenetCigtConfigs.use_kd_for_routing
+        self.teacherTemperature = FashionLenetCigtConfigs.kd_teacher_temperature
+        self.teacherAlpha = FashionLenetCigtConfigs.kd_loss_alpha
         super().__init__(run_id, model_definition, num_classes)
         self.teacherModel = teacher_model
 

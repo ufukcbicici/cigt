@@ -8,7 +8,7 @@ from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cutout_augmentation import CutoutPIL
-from configs.lenet_cigt_configs import LenetCigtConfigs
+from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 
@@ -40,10 +40,10 @@ if __name__ == "__main__":
     #                          {"layer_type": "fc", "dimension": 64, "use_dropout": True,
     #                           "use_batch_normalization": False}]}]
 
-    LenetCigtConfigs.backbone = "LeNet"
-    LenetCigtConfigs.input_dims = (1, 28, 28)
+    FashionLenetCigtConfigs.backbone = "LeNet"
+    FashionLenetCigtConfigs.input_dims = (1, 28, 28)
     # CIGT-[1,2,4]
-    LenetCigtConfigs.layer_config_list = [
+    FashionLenetCigtConfigs.layer_config_list = [
         {"path_count": 1,
          "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
                               "use_max_pool": True, "use_batch_normalization": False}]},
@@ -59,33 +59,33 @@ if __name__ == "__main__":
                              {"layer_type": "fc", "dimension": 64, "use_dropout": True,
                               "use_batch_normalization": False}]}]
     # These are especially important for the LeNet-CIGT
-    LenetCigtConfigs.classification_wd = 0.0
-    LenetCigtConfigs.information_gain_balance_coeff_list = [2.5, 2.5]
-    LenetCigtConfigs.classification_drop_probability = 0.3
-    LenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
-    LenetCigtConfigs.decision_drop_probability = 0.0
-    LenetCigtConfigs.decision_loss_coeff = 0.7
-    LenetCigtConfigs.decision_dimensions = [128, 128]
-    LenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
+    FashionLenetCigtConfigs.classification_wd = 0.0
+    FashionLenetCigtConfigs.information_gain_balance_coeff_list = [2.5, 2.5]
+    FashionLenetCigtConfigs.classification_drop_probability = 0.3
+    FashionLenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
+    FashionLenetCigtConfigs.decision_drop_probability = 0.0
+    FashionLenetCigtConfigs.decision_loss_coeff = 0.7
+    FashionLenetCigtConfigs.decision_dimensions = [128, 128]
+    FashionLenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
         decay_name="Stepwise",
-        initial_value=LenetCigtConfigs.softmax_decay_initial,
-        decay_coefficient=LenetCigtConfigs.softmax_decay_coefficient,
-        decay_period=LenetCigtConfigs.softmax_decay_period,
-        decay_min_limit=LenetCigtConfigs.softmax_decay_min_limit)
+        initial_value=FashionLenetCigtConfigs.softmax_decay_initial,
+        decay_coefficient=FashionLenetCigtConfigs.softmax_decay_coefficient,
+        decay_period=FashionLenetCigtConfigs.softmax_decay_period,
+        decay_min_limit=FashionLenetCigtConfigs.softmax_decay_min_limit)
 
     # The rest can be left like they are
-    LenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-    LenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-    LenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-    LenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 0
-    LenetCigtConfigs.cbam_reduction_ratio = 4
-    LenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
-    LenetCigtConfigs.apply_mask_to_batch_norm = False
-    LenetCigtConfigs.advanced_augmentation = True
-    LenetCigtConfigs.use_focal_loss = False
-    LenetCigtConfigs.focal_loss_gamma = 2.0
-    LenetCigtConfigs.batch_norm_type = "BatchNorm"
-    LenetCigtConfigs.data_parallelism = False
+    FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+    FashionLenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+    FashionLenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+    FashionLenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 0
+    FashionLenetCigtConfigs.cbam_reduction_ratio = 4
+    FashionLenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
+    FashionLenetCigtConfigs.apply_mask_to_batch_norm = False
+    FashionLenetCigtConfigs.advanced_augmentation = True
+    FashionLenetCigtConfigs.use_focal_loss = False
+    FashionLenetCigtConfigs.focal_loss_gamma = 2.0
+    FashionLenetCigtConfigs.batch_norm_type = "BatchNorm"
+    FashionLenetCigtConfigs.data_parallelism = False
 
     kwargs = {'num_workers': 0, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
@@ -100,10 +100,10 @@ if __name__ == "__main__":
     ])
     train_loader = torch.utils.data.DataLoader(
         datasets.FashionMNIST('../data', download=True, train=True, transform=lightweight_augmentation),
-        batch_size=LenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+        batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
     test_loader = torch.utils.data.DataLoader(
         datasets.FashionMNIST('../data', download=True, train=False, transform=lightweight_augmentation),
-        batch_size=LenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+        batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
     #                          "checkpoints/dblogger2_94_epoch1390.pth")
@@ -111,11 +111,11 @@ if __name__ == "__main__":
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
-        configs=LenetCigtConfigs,
+        configs=FashionLenetCigtConfigs,
         run_id=run_id,
         model_definition="Gather Scatter LeNet Cigt - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
         num_classes=10)
-    model.modelFilesRootPath = LenetCigtConfigs.model_file_root_path_tetam
+    model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_tetam
 
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)

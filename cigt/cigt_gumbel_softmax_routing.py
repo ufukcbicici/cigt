@@ -3,13 +3,13 @@ import torch.nn.functional as F
 
 from cigt.cigt_gumbel_softmax import GumbelSoftmax
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
-from configs.lenet_cigt_configs import LenetCigtConfigs
+from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 
 
 class CigtGumbelSoftmaxRouting(CigtIgHardRoutingX):
     def __init__(self, run_id, model_definition, num_classes):
         super().__init__(run_id, model_definition, num_classes)
-        self.zSampleCount = LenetCigtConfigs.z_sample_count
+        self.zSampleCount = FashionLenetCigtConfigs.z_sample_count
         self.gumbelSoftmaxOperations = [GumbelSoftmax() for _ in range(len(self.pathCounts) - 1)]
 
     def apply_gumbel_softmax_routing(self, raw_activations, layer_id, temperature):

@@ -12,7 +12,7 @@ def adjust_to_batch_size(original_value, target_batch_size):
     return adjusted_value
 
 
-class LenetCigtConfigs:
+class FashionLenetCigtConfigs:
     # Standart Parameters
     backbone = "LeNet"
     input_dims = (1, 28, 28)
