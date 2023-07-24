@@ -40,96 +40,97 @@ if __name__ == "__main__":
     #                          {"layer_type": "fc", "dimension": 64, "use_dropout": True,
     #                           "use_batch_normalization": False}]}]
 
-    FashionLenetCigtConfigs.backbone = "LeNet"
-    FashionLenetCigtConfigs.input_dims = (1, 28, 28)
-    # CIGT-[1,2,4]
-    FashionLenetCigtConfigs.layer_config_list = [
-        {"path_count": 1,
-         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
-                              "use_max_pool": True, "use_batch_normalization": False}]},
-        {"path_count": 2,
-         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
-                              "use_max_pool": True, "use_batch_normalization": False}]},
-        {"path_count": 4,
-         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
-                              "use_max_pool": True, "use_batch_normalization": False},
-                             {"layer_type": "flatten"},
-                             {"layer_type": "fc", "dimension": 128, "use_dropout": True,
-                              "use_batch_normalization": False},
-                             {"layer_type": "fc", "dimension": 64, "use_dropout": True,
-                              "use_batch_normalization": False}]}]
-    # These are especially important for the LeNet-CIGT
-    FashionLenetCigtConfigs.classification_wd = 0.0
-    FashionLenetCigtConfigs.information_gain_balance_coeff_list = [2.5, 2.5]
-    FashionLenetCigtConfigs.classification_drop_probability = 0.3
-    FashionLenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
-    FashionLenetCigtConfigs.decision_drop_probability = 0.0
-    FashionLenetCigtConfigs.decision_loss_coeff = 0.7
-    FashionLenetCigtConfigs.decision_dimensions = [128, 128]
-    FashionLenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
-        decay_name="Stepwise",
-        initial_value=FashionLenetCigtConfigs.softmax_decay_initial,
-        decay_coefficient=FashionLenetCigtConfigs.softmax_decay_coefficient,
-        decay_period=FashionLenetCigtConfigs.softmax_decay_period,
-        decay_min_limit=FashionLenetCigtConfigs.softmax_decay_min_limit)
+    for param_tpl in param_grid:
+        FashionLenetCigtConfigs.backbone = "LeNet"
+        FashionLenetCigtConfigs.input_dims = (1, 28, 28)
+        # CIGT-[1,2,4]
+        FashionLenetCigtConfigs.layer_config_list = [
+            {"path_count": 1,
+             "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+                                  "use_max_pool": True, "use_batch_normalization": False}]},
+            {"path_count": 2,
+             "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+                                  "use_max_pool": True, "use_batch_normalization": False}]},
+            {"path_count": 4,
+             "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
+                                  "use_max_pool": True, "use_batch_normalization": False},
+                                 {"layer_type": "flatten"},
+                                 {"layer_type": "fc", "dimension": 128, "use_dropout": True,
+                                  "use_batch_normalization": False},
+                                 {"layer_type": "fc", "dimension": 64, "use_dropout": True,
+                                  "use_batch_normalization": False}]}]
+        # These are especially important for the LeNet-CIGT
+        FashionLenetCigtConfigs.classification_wd = 0.0
+        FashionLenetCigtConfigs.information_gain_balance_coeff_list = [2.5, 2.5]
+        FashionLenetCigtConfigs.classification_drop_probability = param_tpl[0]
+        FashionLenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
+        FashionLenetCigtConfigs.decision_drop_probability = 0.0
+        FashionLenetCigtConfigs.decision_loss_coeff = 0.7
+        FashionLenetCigtConfigs.decision_dimensions = [128, 128]
+        FashionLenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
+            decay_name="Stepwise",
+            initial_value=FashionLenetCigtConfigs.softmax_decay_initial,
+            decay_coefficient=FashionLenetCigtConfigs.softmax_decay_coefficient,
+            decay_period=FashionLenetCigtConfigs.softmax_decay_period,
+            decay_min_limit=FashionLenetCigtConfigs.softmax_decay_min_limit)
 
-    # The rest can be left like they are
-    FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-    FashionLenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-    FashionLenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-    FashionLenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 0
-    FashionLenetCigtConfigs.cbam_reduction_ratio = 4
-    FashionLenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
-    FashionLenetCigtConfigs.apply_mask_to_batch_norm = False
-    FashionLenetCigtConfigs.advanced_augmentation = True
-    FashionLenetCigtConfigs.use_focal_loss = False
-    FashionLenetCigtConfigs.focal_loss_gamma = 2.0
-    FashionLenetCigtConfigs.batch_norm_type = "BatchNorm"
-    FashionLenetCigtConfigs.data_parallelism = False
+        # The rest can be left like they are
+        FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        FashionLenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+        FashionLenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+        FashionLenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 0
+        FashionLenetCigtConfigs.cbam_reduction_ratio = 4
+        FashionLenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
+        FashionLenetCigtConfigs.apply_mask_to_batch_norm = False
+        FashionLenetCigtConfigs.advanced_augmentation = True
+        FashionLenetCigtConfigs.use_focal_loss = False
+        FashionLenetCigtConfigs.focal_loss_gamma = 2.0
+        FashionLenetCigtConfigs.batch_norm_type = "BatchNorm"
+        FashionLenetCigtConfigs.data_parallelism = False
 
-    kwargs = {'num_workers': 0, 'pin_memory': True}
-    heavyweight_augmentation = transforms.Compose([
-        # transforms.Resize((32, 32)),
-        CutoutPIL(cutout_factor=0.5),
-        RandAugment(),
-        transforms.ToTensor(),
-    ])
-    lightweight_augmentation = transforms.Compose([
-        # transforms.Resize((32, 32)),
-        transforms.ToTensor(),
-    ])
-    train_loader = torch.utils.data.DataLoader(
-        datasets.FashionMNIST('../data', download=True, train=True, transform=lightweight_augmentation),
-        batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
-    test_loader = torch.utils.data.DataLoader(
-        datasets.FashionMNIST('../data', download=True, train=False, transform=lightweight_augmentation),
-        batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+        kwargs = {'num_workers': 0, 'pin_memory': True}
+        heavyweight_augmentation = transforms.Compose([
+            # transforms.Resize((32, 32)),
+            CutoutPIL(cutout_factor=0.5),
+            RandAugment(),
+            transforms.ToTensor(),
+        ])
+        lightweight_augmentation = transforms.Compose([
+            # transforms.Resize((32, 32)),
+            transforms.ToTensor(),
+        ])
+        train_loader = torch.utils.data.DataLoader(
+            datasets.FashionMNIST('../data', download=True, train=True, transform=lightweight_augmentation),
+            batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+        test_loader = torch.utils.data.DataLoader(
+            datasets.FashionMNIST('../data', download=True, train=False, transform=lightweight_augmentation),
+            batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
-    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-    #                          "checkpoints/dblogger2_94_epoch1390.pth")
-    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
+        # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+        #                          "checkpoints/dblogger2_94_epoch1390.pth")
+        # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    run_id = DbLogger.get_run_id()
-    model = CigtIgGatherScatterImplementation(
-        configs=FashionLenetCigtConfigs,
-        run_id=run_id,
-        model_definition="Gather Scatter LeNet Cigt - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
-        num_classes=10)
-    model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_tetam
+        run_id = DbLogger.get_run_id()
+        model = CigtIgGatherScatterImplementation(
+            configs=FashionLenetCigtConfigs,
+            run_id=run_id,
+            model_definition="Gather Scatter LeNet Cigt - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            num_classes=10)
+        model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_tetam
 
-    explanation = model.get_explanation_string()
-    DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    # model.execute_forward_with_random_input()
+        explanation = model.get_explanation_string()
+        DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+        # model.execute_forward_with_random_input()
 
-    model.fit(train_loader=train_loader, test_loader=test_loader)
+        model.fit(train_loader=train_loader, test_loader=test_loader)
 
 
-    # checkpoint = torch.load(chck_path, map_location="cpu")
-    # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+        # checkpoint = torch.load(chck_path, map_location="cpu")
+        # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
-    # total_parameter_count = model.get_total_parameter_count()
-    # mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
-    print("X")
+        # total_parameter_count = model.get_total_parameter_count()
+        # mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
+        print("X")
     # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 
     # # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
