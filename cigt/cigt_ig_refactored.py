@@ -1165,12 +1165,18 @@ class CigtIgHardRoutingX(nn.Module):
         max_batch_size = np.prod(self.pathCounts) * self.batchSize
 
         for path_count in self.pathCounts[1:]:
-            self.enforcedRoutingMatrices.append(torch.ones(size=(max_batch_size, path_count), dtype=torch.int64))
+            self.enforcedRoutingMatrices.append(torch.ones(size=(max_batch_size, path_count),
+                                                           dtype=torch.int64).to(self.device))
+        fake_input = torch.from_numpy(
+            np.random.uniform(size=(self.batchSize, *self.inputDims)).astype(dtype=np.float32)).to(self.device)
+        fake_target = torch.ones(size=(self.batchSize,), dtype=torch.int64).to(self.device)
+        print("fake_input.device:{0}".format(fake_input.device))
+        print("fake_target.device:{0}".format(fake_target.device))
+        for name, param in self.named_parameters():
+            print("Parameter {0} Device:{1}".format(name, param.device))
 
         self.eval()
-        self(torch.from_numpy(
-            np.random.uniform(size=(self.batchSize, *self.inputDims)).astype(dtype=np.float32)).to(self.device),
-              torch.ones(size=(self.batchSize,), dtype=torch.int64).to(self.device), 0.1)
+        self(fake_input, fake_target, 0.1)
 
         self.hardRoutingAlgorithmKind = original_hard_routing_algorithm
         self.enforcedRoutingMatrices = []
