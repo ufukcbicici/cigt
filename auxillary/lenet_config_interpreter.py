@@ -45,16 +45,9 @@ class LenetConfigInterpreter:
 
     @staticmethod
     def create_cigt_blocks(model):
-        curr_input_shape = (model.batchSize, *model.inputDims)
-        feature_edge_size = curr_input_shape[-1]
-
         for block_id, block_dict in enumerate(model.blockParametersList):
             path_count_in_layer = block_dict["path_count"]
             block_elements = block_dict["layer_structure"]
-            if "final_dimension" not in block_dict:
-                final_dimension = None
-            else:
-                final_dimension = block_dict["final_dimension"]
             cigt_layer_blocks = nn.ModuleList()
             for path_id in range(path_count_in_layer):
                 layers = []
@@ -67,7 +60,7 @@ class LenetConfigInterpreter:
                         use_batch_normalization = layer_dict["use_batch_normalization"]
 
                         conv_layer = nn.LazyConv2d(out_planes, kernel_size=kernel_size,
-                                                   stride=stride, padding=1, bias=True)
+                                                   stride=stride, padding="same", bias=True)
                         layers.append(conv_layer)
 
                         if use_batch_normalization:
@@ -109,13 +102,8 @@ class LenetConfigInterpreter:
             model.cigtLayers.append(cigt_layer_blocks)
             # Block end layers: Routing layers for inner layers, loss layer for the last one.
             if block_id < len(model.blockParametersList) - 1:
-                for layer_dict in block_elements:
-                    if "use_max_pool" in layer_dict and layer_dict["use_max_pool"] == True:
-                        feature_edge_size = int(feature_edge_size / 2)
                 routing_layer = model.get_routing_layer(cigt_layer_id=block_id,
-                                                        input_feature_map_size=feature_edge_size,
-                                                        input_feature_map_count=block_elements[-1]["feature_map_count"],
-                                                        input_dimension_predetermined=final_dimension)
+                                                        input_feature_map_count=block_elements[-1]["feature_map_count"])
                 model.blockEndLayers.append(routing_layer)
 
         LenetConfigInterpreter.get_loss_layer(model=model)

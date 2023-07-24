@@ -85,15 +85,15 @@ class ResnetConfigInterpreter:
         return kv_rows, explanation
 
     @staticmethod
-    def get_loss_layer(model, final_layer_dimension_multiplier=1):
+    def get_loss_layer(model):
         model.lossLayers = nn.ModuleList()
-        final_feature_dimension = final_layer_dimension_multiplier * \
-                                  model.blockParametersList[-1][-1][-1]["out_dimension"]
+        # final_feature_dimension = final_layer_dimension_multiplier * \
+        #                           model.blockParametersList[-1][-1][-1]["out_dimension"]
         if model.lossCalculationKind == "SingleLogitSingleLoss":
             end_module = nn.Sequential(OrderedDict([
                 ('avg_pool', nn.AvgPool2d(kernel_size=8)),
                 ('flatten', nn.Flatten()),
-                ('logits', nn.Linear(in_features=final_feature_dimension, out_features=model.numClasses))
+                ('logits', nn.LazyLinear(out_features=model.numClasses))
             ]))
             model.lossLayers.append(end_module)
         elif model.lossCalculationKind == "MultipleLogitsMultipleLosses" \
@@ -102,15 +102,13 @@ class ResnetConfigInterpreter:
                 end_module = nn.Sequential(OrderedDict([
                     ('avg_pool_{0}'.format(block_id), nn.AvgPool2d(kernel_size=8)),
                     ('flatten_{0}'.format(block_id), nn.Flatten()),
-                    ('logits_{0}'.format(block_id), nn.Linear(
-                        in_features=final_feature_dimension, out_features=model.numClasses))
+                    ('logits_{0}'.format(block_id), nn.LazyLinear(out_features=model.numClasses))
                 ]))
                 model.lossLayers.append(end_module)
 
     @staticmethod
     def create_cigt_blocks(model):
         curr_input_shape = (model.batchSize, *model.inputDims)
-        feature_edge_size = curr_input_shape[-1]
         for cigt_layer_id, cigt_layer_info in model.blockParametersList:
             path_count_in_layer = model.pathCounts[cigt_layer_id]
             cigt_layer_blocks = nn.ModuleList()
@@ -130,10 +128,7 @@ class ResnetConfigInterpreter:
             model.cigtLayers.append(cigt_layer_blocks)
             # Block end layers: Routing layers for inner layers, loss layer for the last one.
             if cigt_layer_id < len(model.blockParametersList) - 1:
-                for inner_block_info in cigt_layer_info:
-                    feature_edge_size = int(feature_edge_size / inner_block_info["stride"])
                 routing_layer = model.get_routing_layer(cigt_layer_id=cigt_layer_id,
-                                                        input_feature_map_size=feature_edge_size,
                                                         input_feature_map_count=cigt_layer_info[-1]["out_dimension"])
                 if model.useDataParallelism:
                     routing_layer = nn.DataParallel(routing_layer)

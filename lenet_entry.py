@@ -64,11 +64,11 @@ if __name__ == "__main__":
     # CIGT-[1,2,4]
     CigtConstants.layer_config_list = [
         {"path_count": 1,
-         "final_dimension": 288,
+         # "final_dimension": 288,
          "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
                               "use_max_pool": True, "use_batch_normalization": False}]},
         {"path_count": 2,
-         "final_dimension": 128,
+         # "final_dimension": 128,
          "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
                               "use_max_pool": True, "use_batch_normalization": False}]},
         {"path_count": 4,

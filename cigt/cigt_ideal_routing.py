@@ -31,7 +31,7 @@ class CigtIdealRouting(CigtIgGatherScatterImplementation):
     def adjust_decision_loss_coeff(self):
         return 0.0
 
-    def get_routing_layer(self, cigt_layer_id, input_feature_map_size, input_feature_map_count):
+    def get_routing_layer(self, cigt_layer_id, input_feature_map_size):
         routing_layer = IdealRoutingLayer(
             ideal_routes=self.classToRouteMappings[cigt_layer_id],
             path_count=self.pathCounts[cigt_layer_id + 1],

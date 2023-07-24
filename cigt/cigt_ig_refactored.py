@@ -298,20 +298,16 @@ class CigtIgHardRoutingX(nn.Module):
         return explanation
 
     # OK
-    def get_routing_layer(self, cigt_layer_id, input_feature_map_size, input_feature_map_count,
-                          input_dimension_predetermined=None):
+    def get_routing_layer(self, cigt_layer_id, input_feature_map_count):
         if self.numberOfCbamLayersInRoutingLayers == 0:
             routing_layer = SoftRoutingLayer(
                 feature_dim=self.decisionDimensions[cigt_layer_id],
                 avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],
                 path_count=self.pathCounts[cigt_layer_id + 1],
                 class_count=self.numClasses,
-                input_feature_map_size=input_feature_map_size,
-                input_feature_map_count=input_feature_map_count,
                 apply_relu_dropout=self.applyReluDropoutToDecisionLayers,
                 dropout_probability=self.routingDropoutProbability,
-                device=self.device,
-                input_dimension_predetermined=input_dimension_predetermined)
+                device=self.device)
         else:
             routing_layer = CbamRoutingLayer(
                 block_id=cigt_layer_id,
@@ -323,12 +319,10 @@ class CigtIgHardRoutingX(nn.Module):
                 avg_pool_stride=self.decisionAveragePoolingStrides[cigt_layer_id],
                 path_count=self.pathCounts[cigt_layer_id + 1],
                 class_count=self.numClasses,
-                input_feature_map_size=input_feature_map_size,
                 input_feature_map_count=input_feature_map_count,
                 apply_relu_dropout=self.applyReluDropoutToDecisionLayers,
                 dropout_probability=self.routingDropoutProbability,
-                device=self.device,
-                input_dimension_predetermined=input_dimension_predetermined)
+                device=self.device)
         print("Layer {0} Routing Layer: {1}".format(cigt_layer_id, routing_layer))
         return routing_layer
 

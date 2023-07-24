@@ -10,13 +10,10 @@ class SoftRoutingLayer(nn.Module):
                  avg_pool_stride,
                  path_count,
                  class_count,
-                 input_feature_map_count,
-                 input_feature_map_size,
                  device,
                  apply_relu_dropout,
                  dropout_probability,
-                 from_logits=True,
-                 input_dimension_predetermined=None):
+                 from_logits=True):
         super().__init__()
         self.featureDim = feature_dim
         self.avgPoolStride = avg_pool_stride
@@ -26,21 +23,20 @@ class SoftRoutingLayer(nn.Module):
         self.applyReluDropout = apply_relu_dropout
         self.dropoutProbability = dropout_probability
         self.fromLogits = True
-        self.inputFeatureMapCount = input_feature_map_count
-        self.inputFeatureMapSize = input_feature_map_size
-        self.linearLayerInputDim = \
-            int(
-                self.inputFeatureMapCount * \
-                (self.inputFeatureMapSize / self.avgPoolStride) *
-                (self.inputFeatureMapSize / self.avgPoolStride))
+        # self.linearLayerInputDim = \
+        #     int(
+        #         self.inputFeatureMapCount * \
+        #         (self.inputFeatureMapSize / self.avgPoolStride) *
+        #         (self.inputFeatureMapSize / self.avgPoolStride))
         self.identityLayer = nn.Identity()
         #  Change the GAP Layer with average pooling with size
         self.avgPool = nn.AvgPool2d(self.avgPoolStride, stride=self.avgPoolStride)
         self.flatten = nn.Flatten()
-        if input_dimension_predetermined is None:
-            self.fc1 = nn.Linear(self.linearLayerInputDim, self.featureDim)
-        else:
-            self.fc1 = nn.Linear(input_dimension_predetermined, self.featureDim)
+        self.fc1 = nn.LazyLinear(self.featureDim)
+        # if input_dimension_predetermined is None:
+        #     self.fc1 = nn.Linear(self.linearLayerInputDim, self.featureDim)
+        # else:
+        #     self.fc1 = nn.Linear(input_dimension_predetermined, self.featureDim)
         self.reluNonlinearity = nn.ReLU()
         self.dropout = nn.Dropout(p=self.dropoutProbability)
         self.igBatchNorm = nn.BatchNorm1d(self.featureDim)
