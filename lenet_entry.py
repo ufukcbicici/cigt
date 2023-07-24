@@ -115,10 +115,11 @@ if __name__ == "__main__":
         run_id=run_id,
         model_definition="Gather Scatter LeNet Cigt - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
         num_classes=10)
+    model.modelFilesRootPath = LenetCigtConfigs.model_file_root_path_tetam
 
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    model.execute_forward_with_random_input()
+    # model.execute_forward_with_random_input()
 
     model.fit(train_loader=train_loader, test_loader=test_loader)
 
