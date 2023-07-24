@@ -31,8 +31,8 @@ class NetworkOutputs(object):
 
 
 class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
-    def __init__(self, run_id, model_definition, num_classes):
-        super().__init__(run_id, model_definition, num_classes)
+    def __init__(self, configs, run_id, model_definition, num_classes):
+        super().__init__(configs, run_id, model_definition, num_classes)
 
     @staticmethod
     def divide_tensor_wrt_routing_matrix(tens, routing_matrix):

@@ -17,7 +17,7 @@ from auxillary.utilities import Utilities
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.routing_layers.info_gain_routing_layer import InfoGainRoutingLayer
 from cigt.moe_layer import MoeLayer
-from cigt.cigt_constants import CigtConstants
+from configs.lenet_cigt_configs import LenetCigtConfigs
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -115,38 +115,38 @@ class Cigt(nn.Module):
         self.imageSize = (32, 32)
         self.numClasses = num_classes
         self.modelFilesRootPath = None
-        self.routingStrategyName = CigtConstants.routing_strategy_name
-        self.useStraightThrough = CigtConstants.use_straight_through
-        self.decisionNonLinearity = CigtConstants.decision_non_linearity
-        self.warmUpPeriod = CigtConstants.warm_up_period
-        self.optimizerType = CigtConstants.optimizer_type
-        self.learningRateSchedule = CigtConstants.learning_schedule
-        self.initialLr = CigtConstants.initial_lr
-        self.resnetConfigList = CigtConstants.layer_config_list
-        self.firstConvKernelSize = CigtConstants.first_conv_kernel_size
-        self.firstConvOutputDim = CigtConstants.first_conv_output_dim
-        self.firstConvStride = CigtConstants.first_conv_stride
-        self.bnMomentum = CigtConstants.bn_momentum
-        self.batchNormType = CigtConstants.batch_norm_type
-        self.applyMaskToBatchNorm = CigtConstants.apply_mask_to_batch_norm
-        self.doubleStrideLayers = CigtConstants.double_stride_layers
-        self.batchSize = CigtConstants.batch_size
-        self.inputDims = CigtConstants.input_dims
-        self.advancedAugmentation = CigtConstants.advanced_augmentation
-        self.decisionDimensions = CigtConstants.decision_dimensions
-        self.decisionAveragePoolingStrides = CigtConstants.decision_average_pooling_strides
-        self.routerLayersCount = CigtConstants.router_layers_count
+        self.routingStrategyName = LenetCigtConfigs.routing_strategy_name
+        self.useStraightThrough = LenetCigtConfigs.use_straight_through
+        self.decisionNonLinearity = LenetCigtConfigs.decision_non_linearity
+        self.warmUpPeriod = LenetCigtConfigs.warm_up_period
+        self.optimizerType = LenetCigtConfigs.optimizer_type
+        self.learningRateSchedule = LenetCigtConfigs.learning_schedule
+        self.initialLr = LenetCigtConfigs.initial_lr
+        self.resnetConfigList = LenetCigtConfigs.layer_config_list
+        self.firstConvKernelSize = LenetCigtConfigs.first_conv_kernel_size
+        self.firstConvOutputDim = LenetCigtConfigs.first_conv_output_dim
+        self.firstConvStride = LenetCigtConfigs.first_conv_stride
+        self.bnMomentum = LenetCigtConfigs.bn_momentum
+        self.batchNormType = LenetCigtConfigs.batch_norm_type
+        self.applyMaskToBatchNorm = LenetCigtConfigs.apply_mask_to_batch_norm
+        self.doubleStrideLayers = LenetCigtConfigs.double_stride_layers
+        self.batchSize = LenetCigtConfigs.batch_size
+        self.inputDims = LenetCigtConfigs.input_dims
+        self.advancedAugmentation = LenetCigtConfigs.advanced_augmentation
+        self.decisionDimensions = LenetCigtConfigs.decision_dimensions
+        self.decisionAveragePoolingStrides = LenetCigtConfigs.decision_average_pooling_strides
+        self.routerLayersCount = LenetCigtConfigs.router_layers_count
         self.isInWarmUp = True
-        self.temperatureController = CigtConstants.softmax_decay_controller
-        self.decisionLossCoeff = CigtConstants.decision_loss_coeff
-        self.informationGainBalanceCoeffList = CigtConstants.information_gain_balance_coeff_list
-        self.classificationWd = CigtConstants.classification_wd
-        self.decisionWd = CigtConstants.decision_wd
-        self.epochCount = CigtConstants.epoch_count
-        self.boostLearningRatesLayerWise = CigtConstants.boost_learning_rates_layer_wise
-        self.multipleCeLosses = CigtConstants.multiple_ce_losses
-        self.perSampleEntropyBalance = CigtConstants.per_sample_entropy_balance
-        self.evaluationPeriod = CigtConstants.evaluation_period
+        self.temperatureController = LenetCigtConfigs.softmax_decay_controller
+        self.decisionLossCoeff = LenetCigtConfigs.decision_loss_coeff
+        self.informationGainBalanceCoeffList = LenetCigtConfigs.information_gain_balance_coeff_list
+        self.classificationWd = LenetCigtConfigs.classification_wd
+        self.decisionWd = LenetCigtConfigs.decision_wd
+        self.epochCount = LenetCigtConfigs.epoch_count
+        self.boostLearningRatesLayerWise = LenetCigtConfigs.boost_learning_rates_layer_wise
+        self.multipleCeLosses = LenetCigtConfigs.multiple_ce_losses
+        self.perSampleEntropyBalance = LenetCigtConfigs.per_sample_entropy_balance
+        self.evaluationPeriod = LenetCigtConfigs.evaluation_period
         self.pathCounts = [1]
         self.pathCounts.extend([d_["path_count"] for d_ in self.resnetConfigList][1:])
         self.blockParametersList = self.interpret_config_list()

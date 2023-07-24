@@ -1,23 +1,13 @@
-import torch
 import time
 import numpy as np
 import torch
 import os
 import torchvision.datasets as datasets
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
 
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
-from auxillary.utilities import Utilities
 from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
-from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
-from cigt.cigt_soft_routing import CigtSoftRouting
-from cigt.cigt_constants import CigtConstants
-from cigt.routing_layers.info_gain_routing_layer import InfoGainRoutingLayer
-from cigt.routing_layers.soft_routing_module import SoftRoutingModule
-from convnet_aig import BasicBlock, Sequential_ext
+from configs.lenet_cigt_configs import LenetCigtConfigs
 
 
 class CigtIgIterativeTraining(CigtIgDifferentLosses):
@@ -199,12 +189,12 @@ class CigtIgIterativeTraining(CigtIgDifferentLosses):
         iterations_list = [{"warm_up": True,
                             "epoch_count": self.warmUpPeriod,
                             "loss": "classification_optimizer"}]
-        for i_ in range(CigtConstants.outer_loop_count):
+        for i_ in range(LenetCigtConfigs.outer_loop_count):
             iterations_list.append({"warm_up": False,
-                                    "epoch_count": CigtConstants.single_loss_epoch_count,
+                                    "epoch_count": LenetCigtConfigs.single_loss_epoch_count,
                                     "loss": "routing_optimizer"})
             iterations_list.append({"warm_up": False,
-                                    "epoch_count": CigtConstants.single_loss_epoch_count,
+                                    "epoch_count": LenetCigtConfigs.single_loss_epoch_count,
                                     "loss": "classification_optimizer"})
 
         total_epoch_count = 0

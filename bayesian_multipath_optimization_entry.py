@@ -1,4 +1,3 @@
-import numpy as np
 import os
 
 from randaugment import RandAugment
@@ -6,28 +5,12 @@ from torchvision import datasets
 from torchvision.transforms import transforms
 
 from auxillary.db_logger import DbLogger
-from auxillary.utilities import Utilities
-from cigt.cigt_bayesian_multipath import CigtBayesianMultipath
-from cigt.cigt_constant_routing_weights import CigtConstantRoutingWeights
-from cigt.cigt_ideal_routing import CigtIdealRouting
-from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-from cigt.cigt_ig_hard_routing import CigtIgHardRouting
-from cigt.cigt_ig_hard_routing_with_random_batches import CigtIgHardRoutingWithRandomBatches
-from cigt.cigt_ig_iterative_training import CigtIgIterativeTraining
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
-from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
-from cigt.cigt_ig_with_knowledge_distillation import CigtIgWithKnowledgeDistillation
-from cigt.cigt_masked_routing import CigtMaskedRouting
-from cigt.cigt_model import Cigt
-from cigt.cigt_soft_routing import CigtSoftRouting
-from cigt.cigt_soft_routing_with_balance import CigtSoftRoutingWithBalance
-from cigt.cigt_variance_routing import CigtVarianceRouting
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.multipath_inference_bayesian import MultiplePathBayesianOptimizer
-from cigt.cigt_constants import CigtConstants
+from configs.lenet_cigt_configs import LenetCigtConfigs
 import torch
-import random
 
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 
@@ -38,7 +21,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    CigtConstants.layer_config_list = [
+    LenetCigtConfigs.layer_config_list = [
         {"path_count": 1,
          "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
         {"path_count": 2,
@@ -47,8 +30,8 @@ if __name__ == "__main__":
         {"path_count": 4,
          "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
 
-    CigtConstants.backbone = "ResNet"
-    CigtConstants.input_dims = (3, 32, 32)
+    LenetCigtConfigs.backbone = "ResNet"
+    LenetCigtConfigs.input_dims = (3, 32, 32)
 
     # Thin Baseline
     # CigtConstants.layer_config_list = [
@@ -65,30 +48,30 @@ if __name__ == "__main__":
     #                          {"layer_count": 18, "feature_map_count": 32},
     #                          {"layer_count": 18, "feature_map_count": 64}]}]
 
-    CigtConstants.classification_wd = 0.0005
-    CigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
-    CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-    CigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-    CigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-    CigtConstants.decision_drop_probability = 0.5
-    CigtConstants.number_of_cbam_layers_in_routing_layers = 3
-    CigtConstants.cbam_reduction_ratio = 4
-    CigtConstants.cbam_layer_input_reduction_ratio = 4
-    CigtConstants.apply_relu_dropout_to_decision_layer = False
-    CigtConstants.decision_dimensions = [128, 128]
-    CigtConstants.apply_mask_to_batch_norm = False
-    CigtConstants.advanced_augmentation = True
-    CigtConstants.use_focal_loss = False
-    CigtConstants.focal_loss_gamma = 2.0
-    CigtConstants.batch_norm_type = "BatchNorm"
-    CigtConstants.data_parallelism = False
+    LenetCigtConfigs.classification_wd = 0.0005
+    LenetCigtConfigs.information_gain_balance_coeff_list = [5.0, 5.0]
+    LenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+    LenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+    LenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+    LenetCigtConfigs.decision_drop_probability = 0.5
+    LenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 3
+    LenetCigtConfigs.cbam_reduction_ratio = 4
+    LenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
+    LenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
+    LenetCigtConfigs.decision_dimensions = [128, 128]
+    LenetCigtConfigs.apply_mask_to_batch_norm = False
+    LenetCigtConfigs.advanced_augmentation = True
+    LenetCigtConfigs.use_focal_loss = False
+    LenetCigtConfigs.focal_loss_gamma = 2.0
+    LenetCigtConfigs.batch_norm_type = "BatchNorm"
+    LenetCigtConfigs.data_parallelism = False
 
-    CigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
+    LenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
         decay_name="Stepwise",
-        initial_value=CigtConstants.softmax_decay_initial,
-        decay_coefficient=CigtConstants.softmax_decay_coefficient,
-        decay_period=CigtConstants.softmax_decay_period,
-        decay_min_limit=CigtConstants.softmax_decay_min_limit)
+        initial_value=LenetCigtConfigs.softmax_decay_initial,
+        decay_coefficient=LenetCigtConfigs.softmax_decay_coefficient,
+        decay_period=LenetCigtConfigs.softmax_decay_period,
+        decay_min_limit=LenetCigtConfigs.softmax_decay_min_limit)
 
     kwargs = {'num_workers': 0, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
@@ -103,10 +86,10 @@ if __name__ == "__main__":
     ])
     train_loader_hard = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', download=True, train=True, transform=heavyweight_augmentation),
-        batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
+        batch_size=LenetCigtConfigs.batch_size, shuffle=False, **kwargs)
     test_loader_light = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
-        batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
+        batch_size=LenetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
                              "checkpoints/dblogger2_94_epoch1390.pth")

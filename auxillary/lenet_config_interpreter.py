@@ -45,12 +45,16 @@ class LenetConfigInterpreter:
 
     @staticmethod
     def create_cigt_blocks(model):
+        block_in_planes = model.inputDims[0]
         for block_id, block_dict in enumerate(model.blockParametersList):
             path_count_in_layer = block_dict["path_count"]
             block_elements = block_dict["layer_structure"]
             cigt_layer_blocks = nn.ModuleList()
+
+            in_planes_list = []
             for path_id in range(path_count_in_layer):
                 layers = []
+                in_planes_list = [block_in_planes]
                 for layer_dict in block_elements:
                     if layer_dict["layer_type"] == "conv":
                         out_planes = layer_dict["feature_map_count"]
@@ -59,8 +63,9 @@ class LenetConfigInterpreter:
                         use_max_pool = layer_dict["use_max_pool"]
                         use_batch_normalization = layer_dict["use_batch_normalization"]
 
-                        conv_layer = nn.LazyConv2d(out_planes, kernel_size=kernel_size,
-                                                   stride=stride, padding="same", bias=True)
+                        conv_layer = nn.Conv2d(in_planes_list[-1], out_planes, kernel_size=kernel_size,
+                                               stride=stride, padding="same", bias=True)
+                        in_planes_list.append(out_planes)
                         layers.append(conv_layer)
 
                         if use_batch_normalization:
@@ -99,11 +104,15 @@ class LenetConfigInterpreter:
                         raise NotImplementedError()
                 block_obj = Sequential_ext(*layers)
                 cigt_layer_blocks.append(block_obj)
+
             model.cigtLayers.append(cigt_layer_blocks)
             # Block end layers: Routing layers for inner layers, loss layer for the last one.
             if block_id < len(model.blockParametersList) - 1:
+                assert block_elements[-1]["layer_type"] == "conv"
+                assert in_planes_list[-1] == block_elements[-1]["feature_map_count"]
                 routing_layer = model.get_routing_layer(cigt_layer_id=block_id,
-                                                        input_feature_map_count=block_elements[-1]["feature_map_count"])
+                                                        input_feature_map_count=in_planes_list[-1])
                 model.blockEndLayers.append(routing_layer)
+            block_in_planes = in_planes_list[-1]
 
         LenetConfigInterpreter.get_loss_layer(model=model)

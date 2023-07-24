@@ -17,15 +17,14 @@
 #             device=self.device)
 #         return routing_layer
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-from cigt.cigt_ig_refactored import CigtIgHardRoutingX
-from cigt.cigt_constants import CigtConstants
+from configs.lenet_cigt_configs import LenetCigtConfigs
 from cigt.routing_layers.ideal_routing_layer import IdealRoutingLayer
 
 
 class CigtIdealRouting(CigtIgGatherScatterImplementation):
     def __init__(self, run_id, model_definition, num_classes, class_to_route_mappings):
         self.classToRouteMappings = class_to_route_mappings
-        self.idealRoutingErrorRatio = CigtConstants.ideal_routing_error_ratio
+        self.idealRoutingErrorRatio = LenetCigtConfigs.ideal_routing_error_ratio
         super().__init__(run_id, model_definition, num_classes)
 
     def adjust_decision_loss_coeff(self):

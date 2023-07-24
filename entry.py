@@ -1,27 +1,7 @@
-import numpy as np
-import os
-
-from torchvision import datasets
-
 from auxillary.db_logger import DbLogger
 from auxillary.utilities import Utilities
-from cigt.cigt_constant_routing_weights import CigtConstantRoutingWeights
-from cigt.cigt_ideal_routing import CigtIdealRouting
-from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
-from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-from cigt.cigt_ig_hard_routing import CigtIgHardRouting
-from cigt.cigt_ig_hard_routing_with_random_batches import CigtIgHardRoutingWithRandomBatches
-from cigt.cigt_ig_iterative_training import CigtIgIterativeTraining
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
-from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
-from cigt.cigt_ig_with_knowledge_distillation import CigtIgWithKnowledgeDistillation
-from cigt.cigt_masked_routing import CigtMaskedRouting
-from cigt.cigt_model import Cigt
-from cigt.cigt_soft_routing import CigtSoftRouting
-from cigt.cigt_soft_routing_with_balance import CigtSoftRoutingWithBalance
-from cigt.cigt_variance_routing import CigtVarianceRouting
-from cigt.cigt_constants import CigtConstants
-import torch
+from configs.lenet_cigt_configs import LenetCigtConfigs
 
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 
@@ -37,7 +17,7 @@ if __name__ == "__main__":
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
 
     for param_tpl in param_grid:
-        CigtConstants.layer_config_list = [
+        LenetCigtConfigs.layer_config_list = [
             {"path_count": 1,
              "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
             {"path_count": 2,
@@ -45,33 +25,33 @@ if __name__ == "__main__":
                                  {"layer_count": 18, "feature_map_count": 16}]},
             {"path_count": 4,
              "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
-        CigtConstants.classification_wd = param_tpl[0]
-        CigtConstants.information_gain_balance_coeff_list = [5.0, 5.0]
-        CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-        CigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-        CigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-        CigtConstants.decision_drop_probability = 0.5
-        CigtConstants.number_of_cbam_layers_in_routing_layers = 6
-        CigtConstants.cbam_reduction_ratio = 4
-        CigtConstants.cbam_layer_input_reduction_ratio = 0
-        CigtConstants.apply_relu_dropout_to_decision_layer = False
-        CigtConstants.decision_dimensions = [128, 128]
-        CigtConstants.apply_mask_to_batch_norm = False
-        CigtConstants.advanced_augmentation = True
-        CigtConstants.use_focal_loss = False
-        CigtConstants.focal_loss_gamma = 2.0
-        CigtConstants.batch_norm_type = "BatchNorm"
-        CigtConstants.data_parallelism = False
+        LenetCigtConfigs.classification_wd = param_tpl[0]
+        LenetCigtConfigs.information_gain_balance_coeff_list = [5.0, 5.0]
+        LenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        LenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+        LenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+        LenetCigtConfigs.decision_drop_probability = 0.5
+        LenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 6
+        LenetCigtConfigs.cbam_reduction_ratio = 4
+        LenetCigtConfigs.cbam_layer_input_reduction_ratio = 0
+        LenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
+        LenetCigtConfigs.decision_dimensions = [128, 128]
+        LenetCigtConfigs.apply_mask_to_batch_norm = False
+        LenetCigtConfigs.advanced_augmentation = True
+        LenetCigtConfigs.use_focal_loss = False
+        LenetCigtConfigs.focal_loss_gamma = 2.0
+        LenetCigtConfigs.batch_norm_type = "BatchNorm"
+        LenetCigtConfigs.data_parallelism = False
         # ResnetCigtConstants.use_kd_for_routing = False
         # ResnetCigtConstants.kd_teacher_temperature = 10.0
         # ResnetCigtConstants.kd_loss_alpha = 0.95
 
-        CigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
+        LenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
-            initial_value=CigtConstants.softmax_decay_initial,
-            decay_coefficient=CigtConstants.softmax_decay_coefficient,
-            decay_period=CigtConstants.softmax_decay_period,
-            decay_min_limit=CigtConstants.softmax_decay_min_limit)
+            initial_value=LenetCigtConfigs.softmax_decay_initial,
+            decay_coefficient=LenetCigtConfigs.softmax_decay_coefficient,
+            decay_period=LenetCigtConfigs.softmax_decay_period,
+            decay_min_limit=LenetCigtConfigs.softmax_decay_min_limit)
 
         run_id = DbLogger.get_run_id()
 
@@ -120,7 +100,7 @@ if __name__ == "__main__":
 
         # model = CigtIdealRouting()
 
-        model.modelFilesRootPath = CigtConstants.model_file_root_path_tetam_tuna
+        model.modelFilesRootPath = LenetCigtConfigs.model_file_root_path_tetam_tuna
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 

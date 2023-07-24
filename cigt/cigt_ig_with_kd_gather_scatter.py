@@ -1,39 +1,22 @@
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-from cigt.cigt_ig_refactored import CigtIgHardRoutingX
-import os
-from collections import OrderedDict, Counter
 
 import torch
 import time
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import optim
 
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
-from auxillary.utilities import Utilities
-from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
-from cigt.cigt_model import conv3x3, BasicBlock, Sequential_ext
-from cigt.cigt_soft_routing import CigtSoftRouting
-from cigt.cutout_augmentation import CutoutPIL
-from cigt.moe_layer import MoeLayer
-from cigt.cigt_constants import CigtConstants
-from cigt.routing_layers.hard_routing_layer import HardRoutingLayer
-from randaugment import RandAugment
-from torchvision import transforms
-import torchvision.datasets as datasets
-
-from cigt.routing_layers.info_gain_routing_layer import InfoGainRoutingLayer
-from cigt.routing_layers.soft_routing_layer import SoftRoutingLayer
+from configs.lenet_cigt_configs import LenetCigtConfigs
 
 
 class CigtIgWithKdGatherScatter(CigtIgGatherScatterImplementation):
     def __init__(self, run_id, model_definition, num_classes, teacher_model):
-        self.idealRoutingErrorRatio = CigtConstants.ideal_routing_error_ratio
-        self.useKdForRouting = CigtConstants.use_kd_for_routing
-        self.teacherTemperature = CigtConstants.kd_teacher_temperature
-        self.teacherAlpha = CigtConstants.kd_loss_alpha
+        self.idealRoutingErrorRatio = LenetCigtConfigs.ideal_routing_error_ratio
+        self.useKdForRouting = LenetCigtConfigs.use_kd_for_routing
+        self.teacherTemperature = LenetCigtConfigs.kd_teacher_temperature
+        self.teacherAlpha = LenetCigtConfigs.kd_loss_alpha
         super().__init__(run_id, model_definition, num_classes)
         self.teacherModel = teacher_model
 

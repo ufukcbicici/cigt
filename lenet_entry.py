@@ -1,33 +1,14 @@
-import numpy as np
-import os
-
+import torch
 from randaugment import RandAugment
 from torchvision import datasets
 from torchvision.transforms import transforms
 
 from auxillary.db_logger import DbLogger
 from auxillary.utilities import Utilities
-from cigt.cigt_bayesian_multipath import CigtBayesianMultipath
-from cigt.cigt_constant_routing_weights import CigtConstantRoutingWeights
-from cigt.cigt_ideal_routing import CigtIdealRouting
-from cigt.cigt_ig_different_losses import CigtIgDifferentLosses
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-from cigt.cigt_ig_hard_routing import CigtIgHardRouting
-from cigt.cigt_ig_hard_routing_with_random_batches import CigtIgHardRoutingWithRandomBatches
-from cigt.cigt_ig_iterative_training import CigtIgIterativeTraining
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
-from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
-from cigt.cigt_ig_with_knowledge_distillation import CigtIgWithKnowledgeDistillation
-from cigt.cigt_masked_routing import CigtMaskedRouting
-from cigt.cigt_model import Cigt
-from cigt.cigt_soft_routing import CigtSoftRouting
-from cigt.cigt_soft_routing_with_balance import CigtSoftRoutingWithBalance
-from cigt.cigt_variance_routing import CigtVarianceRouting
 from cigt.cutout_augmentation import CutoutPIL
-from cigt.multipath_inference_bayesian import MultiplePathBayesianOptimizer
-from cigt.cigt_constants import CigtConstants
-import torch
-import random
+from configs.lenet_cigt_configs import LenetCigtConfigs
 
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 
@@ -38,7 +19,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     p_dropout = 10 * [0.3]
     p_dropout = sorted(p_dropout)
@@ -59,16 +40,14 @@ if __name__ == "__main__":
     #                          {"layer_type": "fc", "dimension": 64, "use_dropout": True,
     #                           "use_batch_normalization": False}]}]
 
-    CigtConstants.backbone = "LeNet"
-    CigtConstants.input_dims = (1, 28, 28)
+    LenetCigtConfigs.backbone = "LeNet"
+    LenetCigtConfigs.input_dims = (1, 28, 28)
     # CIGT-[1,2,4]
-    CigtConstants.layer_config_list = [
+    LenetCigtConfigs.layer_config_list = [
         {"path_count": 1,
-         # "final_dimension": 288,
          "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
                               "use_max_pool": True, "use_batch_normalization": False}]},
         {"path_count": 2,
-         # "final_dimension": 128,
          "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
                               "use_max_pool": True, "use_batch_normalization": False}]},
         {"path_count": 4,
@@ -80,35 +59,35 @@ if __name__ == "__main__":
                              {"layer_type": "fc", "dimension": 64, "use_dropout": True,
                               "use_batch_normalization": False}]}]
     # These are especially important for the LeNet-CIGT
-    CigtConstants.classification_wd = 0.0
-    CigtConstants.information_gain_balance_coeff_list = [2.5, 2.5]
-    CigtConstants.classification_drop_probability = 0.3
-    CigtConstants.apply_relu_dropout_to_decision_layer = False
-    CigtConstants.decision_drop_probability = 0.0
-    CigtConstants.decision_loss_coeff = 0.7
-    CigtConstants.decision_dimensions = [128, 128]
-    CigtConstants.softmax_decay_controller = StepWiseDecayAlgorithm(
+    LenetCigtConfigs.classification_wd = 0.0
+    LenetCigtConfigs.information_gain_balance_coeff_list = [2.5, 2.5]
+    LenetCigtConfigs.classification_drop_probability = 0.3
+    LenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
+    LenetCigtConfigs.decision_drop_probability = 0.0
+    LenetCigtConfigs.decision_loss_coeff = 0.7
+    LenetCigtConfigs.decision_dimensions = [128, 128]
+    LenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
         decay_name="Stepwise",
-        initial_value=CigtConstants.softmax_decay_initial,
-        decay_coefficient=CigtConstants.softmax_decay_coefficient,
-        decay_period=CigtConstants.softmax_decay_period,
-        decay_min_limit=CigtConstants.softmax_decay_min_limit)
+        initial_value=LenetCigtConfigs.softmax_decay_initial,
+        decay_coefficient=LenetCigtConfigs.softmax_decay_coefficient,
+        decay_period=LenetCigtConfigs.softmax_decay_period,
+        decay_min_limit=LenetCigtConfigs.softmax_decay_min_limit)
 
     # The rest can be left like they are
-    CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-    CigtConstants.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-    CigtConstants.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
-    CigtConstants.number_of_cbam_layers_in_routing_layers = 0
-    CigtConstants.cbam_reduction_ratio = 4
-    CigtConstants.cbam_layer_input_reduction_ratio = 4
-    CigtConstants.apply_mask_to_batch_norm = False
-    CigtConstants.advanced_augmentation = True
-    CigtConstants.use_focal_loss = False
-    CigtConstants.focal_loss_gamma = 2.0
-    CigtConstants.batch_norm_type = "BatchNorm"
-    CigtConstants.data_parallelism = False
+    LenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+    LenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
+    LenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+    LenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 0
+    LenetCigtConfigs.cbam_reduction_ratio = 4
+    LenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
+    LenetCigtConfigs.apply_mask_to_batch_norm = False
+    LenetCigtConfigs.advanced_augmentation = True
+    LenetCigtConfigs.use_focal_loss = False
+    LenetCigtConfigs.focal_loss_gamma = 2.0
+    LenetCigtConfigs.batch_norm_type = "BatchNorm"
+    LenetCigtConfigs.data_parallelism = False
 
-    kwargs = {'num_workers': 2, 'pin_memory': True}
+    kwargs = {'num_workers': 0, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
         # transforms.Resize((32, 32)),
         CutoutPIL(cutout_factor=0.5),
@@ -119,21 +98,20 @@ if __name__ == "__main__":
         # transforms.Resize((32, 32)),
         transforms.ToTensor(),
     ])
-    # train_loader_hard = torch.utils.data.DataLoader(
-    #     datasets.CIFAR10('../data', download=True, train=True, transform=heavyweight_augmentation),
-    #     batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
-    # test_loader_light = torch.utils.data.DataLoader(
-    #     datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
-    #     batch_size=CigtConstants.batch_size, shuffle=False, **kwargs)
-    #
+    train_loader = torch.utils.data.DataLoader(
+        datasets.FashionMNIST('../data', download=True, train=True, transform=lightweight_augmentation),
+        batch_size=LenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+    test_loader = torch.utils.data.DataLoader(
+        datasets.FashionMNIST('../data', download=True, train=False, transform=lightweight_augmentation),
+        batch_size=LenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
     #                          "checkpoints/dblogger2_94_epoch1390.pth")
     # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.home_asus
-
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
+        configs=LenetCigtConfigs,
         run_id=run_id,
         model_definition="Gather Scatter LeNet Cigt - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
         num_classes=10)
@@ -141,11 +119,15 @@ if __name__ == "__main__":
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
     model.execute_forward_with_random_input()
+
+    model.fit(train_loader=train_loader, test_loader=test_loader)
+
+
     # checkpoint = torch.load(chck_path, map_location="cpu")
     # model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
-    total_parameter_count = model.get_total_parameter_count()
-    mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
+    # total_parameter_count = model.get_total_parameter_count()
+    # mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
     print("X")
     # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 

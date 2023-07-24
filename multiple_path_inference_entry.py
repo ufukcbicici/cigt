@@ -3,21 +3,18 @@ from collections import Counter, deque
 
 import torch
 import numpy as np
-import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 
 from auxillary.bayesian_optimizer import BayesianOptimizer
 from auxillary.db_logger import DbLogger
 from torchvision import transforms
-from time import time
 import torchvision.datasets as datasets
 
-from auxillary.rump_dataset import RumpDataset
 from auxillary.similar_dataset_division_algorithm import SimilarDatasetDivisionAlgorithm
 from auxillary.softmax_temperature_optimizer import SoftmaxTemperatureOptimizer
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
-from cigt.cigt_constants import CigtConstants
+from configs.lenet_cigt_configs import LenetCigtConfigs
 
 
 class MultiplePathOptimizer(BayesianOptimizer):
@@ -28,7 +25,7 @@ class MultiplePathOptimizer(BayesianOptimizer):
         self.dataset = dataset
         # Load the trained model
         self.runId = DbLogger.get_run_id()
-        CigtConstants.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        LenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         self.model = CigtIgHardRoutingX(
             run_id=self.runId,
             model_definition="Cigt - [1,2,4] - MultipleLogitsMultipleLosses - Multiple Path Inference",

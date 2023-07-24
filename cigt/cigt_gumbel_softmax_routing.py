@@ -1,26 +1,15 @@
-from collections import OrderedDict, Counter
-import time
-
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from torchvision import datasets
-from torch import optim
 
-from auxillary.db_logger import DbLogger
-from auxillary.average_meter import AverageMeter
 from cigt.cigt_gumbel_softmax import GumbelSoftmax
-from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
-from cigt.cigt_model import conv3x3, BasicBlock, Sequential_ext
-from cigt.cigt_constants import CigtConstants
+from configs.lenet_cigt_configs import LenetCigtConfigs
 
 
 class CigtGumbelSoftmaxRouting(CigtIgHardRoutingX):
     def __init__(self, run_id, model_definition, num_classes):
         super().__init__(run_id, model_definition, num_classes)
-        self.zSampleCount = CigtConstants.z_sample_count
+        self.zSampleCount = LenetCigtConfigs.z_sample_count
         self.gumbelSoftmaxOperations = [GumbelSoftmax() for _ in range(len(self.pathCounts) - 1)]
 
     def apply_gumbel_softmax_routing(self, raw_activations, layer_id, temperature):

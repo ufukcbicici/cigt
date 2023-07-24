@@ -1,5 +1,5 @@
 import os
-from collections import OrderedDict, Counter
+from collections import Counter
 
 import torch
 import time
@@ -14,27 +14,20 @@ from auxillary.db_logger import DbLogger
 from auxillary.lenet_config_interpreter import LenetConfigInterpreter
 from auxillary.resnet_config_interpreter import ResnetConfigInterpreter
 from auxillary.utilities import Utilities
-from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
-from cigt.cigt_model import conv3x3, BasicBlock, Sequential_ext
-from cigt.cigt_soft_routing import CigtSoftRouting
-from cigt.cutout_augmentation import CutoutPIL
+from cigt.cigt_model import conv3x3
 from cigt.moe_layer import MoeLayer
-from cigt.cigt_constants import CigtConstants
+# from configs.lenet_cigt_configs import LenetCigtConfigs
 from cigt.routing_layers.cbam_routing_layer import CbamRoutingLayer
-from cigt.routing_layers.hard_routing_layer import HardRoutingLayer
-from randaugment import RandAugment
 from torchvision import transforms
-import torchvision.datasets as datasets
 
-from cigt.routing_layers.info_gain_routing_layer import InfoGainRoutingLayer
 from cigt.routing_layers.soft_routing_layer import SoftRoutingLayer
 
 
 class CigtIgHardRoutingX(nn.Module):
-    def __init__(self, run_id, model_definition, num_classes):
+    def __init__(self, configs, run_id, model_definition, num_classes):
         super().__init__()
         self.runId = run_id
-        self.modelBackbone = CigtConstants.backbone
+        self.modelBackbone = configs.backbone
         assert self.modelBackbone in {"ResNet", "LeNet"}
         self.configInterpreter = None
         if self.modelBackbone == "ResNet":
@@ -47,67 +40,67 @@ class CigtIgHardRoutingX(nn.Module):
         self.modelDefinition = model_definition
         self.numClasses = num_classes
         self.classCount = 10
-        self.useDataParallelism = CigtConstants.data_parallelism
+        self.useDataParallelism = configs.data_parallelism
         self.hardRoutingAlgorithmTypes = {"InformationGainRouting",
                                           "InformationGainRoutingWithRandomization",
                                           "RandomRouting",
                                           "RandomRoutingButInformationGainOptimizationEnabled",
                                           "EnforcedRouting"}
-        self.hardRoutingAlgorithmKind = CigtConstants.hard_routing_algorithm_kind
-        self.afterWarmupRoutingAlgorithmKind = CigtConstants.after_warmup_routing_algorithm_kind
-        self.warmupRoutingAlgorithmKind = CigtConstants.warmup_routing_algorithm_kind
+        self.hardRoutingAlgorithmKind = configs.hard_routing_algorithm_kind
+        self.afterWarmupRoutingAlgorithmKind = configs.after_warmup_routing_algorithm_kind
+        self.warmupRoutingAlgorithmKind = configs.warmup_routing_algorithm_kind
         self.enforcedRoutingMatrices = []
-        self.routingRandomizationRatio = CigtConstants.routing_randomization_ratio
+        self.routingRandomizationRatio = configs.routing_randomization_ratio
         self.lossCalculationTypes = {"SingleLogitSingleLoss",
                                      "MultipleLogitsMultipleLosses",
                                      "MultipleLogitsMultipleLossesAveraged"}
-        self.lossCalculationKind = CigtConstants.loss_calculation_kind
+        self.lossCalculationKind = configs.loss_calculation_kind
         self.lossLayers = None
         self.modelFilesRootPath = None
-        self.routingStrategyName = CigtConstants.routing_strategy_name
-        self.useStraightThrough = CigtConstants.use_straight_through
-        self.decisionNonLinearity = CigtConstants.decision_non_linearity
-        self.warmUpPeriod = CigtConstants.warm_up_period
-        self.optimizerType = CigtConstants.optimizer_type
-        self.learningRateSchedule = CigtConstants.learning_schedule
-        self.initialLr = CigtConstants.initial_lr
-        self.classificationDropout = CigtConstants.classification_drop_probability
-        self.layerConfigList = CigtConstants.layer_config_list
-        self.firstConvKernelSize = CigtConstants.first_conv_kernel_size
-        self.firstConvOutputDim = CigtConstants.first_conv_output_dim
-        self.firstConvStride = CigtConstants.first_conv_stride
-        self.applyReluDropoutToDecisionLayers = CigtConstants.apply_relu_dropout_to_decision_layer
-        self.cbamReductionRatio = CigtConstants.cbam_reduction_ratio
-        self.cbamLayerInputReductionRatio = CigtConstants.cbam_layer_input_reduction_ratio
-        self.numberOfCbamLayersInRoutingLayers = CigtConstants.number_of_cbam_layers_in_routing_layers
-        self.bnMomentum = CigtConstants.bn_momentum
-        self.batchNormType = CigtConstants.batch_norm_type
-        self.applyMaskToBatchNorm = CigtConstants.apply_mask_to_batch_norm
-        self.doubleStrideLayers = CigtConstants.double_stride_layers
-        self.batchSize = CigtConstants.batch_size
-        self.inputDims = CigtConstants.input_dims
-        self.advancedAugmentation = CigtConstants.advanced_augmentation
-        self.decisionDimensions = CigtConstants.decision_dimensions
-        self.decisionAveragePoolingStrides = CigtConstants.decision_average_pooling_strides
-        self.routerLayersCount = CigtConstants.router_layers_count
+        self.routingStrategyName = configs.routing_strategy_name
+        self.useStraightThrough = configs.use_straight_through
+        self.decisionNonLinearity = configs.decision_non_linearity
+        self.warmUpPeriod = configs.warm_up_period
+        self.optimizerType = configs.optimizer_type
+        self.learningRateSchedule = configs.learning_schedule
+        self.initialLr = configs.initial_lr
+        self.classificationDropout = configs.classification_drop_probability
+        self.layerConfigList = configs.layer_config_list
+        self.firstConvKernelSize = configs.first_conv_kernel_size
+        self.firstConvOutputDim = configs.first_conv_output_dim
+        self.firstConvStride = configs.first_conv_stride
+        self.applyReluDropoutToDecisionLayers = configs.apply_relu_dropout_to_decision_layer
+        self.cbamReductionRatio = configs.cbam_reduction_ratio
+        self.cbamLayerInputReductionRatio = configs.cbam_layer_input_reduction_ratio
+        self.numberOfCbamLayersInRoutingLayers = configs.number_of_cbam_layers_in_routing_layers
+        self.bnMomentum = configs.bn_momentum
+        self.batchNormType = configs.batch_norm_type
+        self.applyMaskToBatchNorm = configs.apply_mask_to_batch_norm
+        self.doubleStrideLayers = configs.double_stride_layers
+        self.batchSize = configs.batch_size
+        self.inputDims = configs.input_dims
+        self.advancedAugmentation = configs.advanced_augmentation
+        self.decisionDimensions = configs.decision_dimensions
+        self.decisionAveragePoolingStrides = configs.decision_average_pooling_strides
+        self.routerLayersCount = configs.router_layers_count
         self.isInWarmUp = True
-        self.temperatureController = CigtConstants.softmax_decay_controller
-        self.decisionLossCoeff = CigtConstants.decision_loss_coeff
-        self.routingDropoutProbability = CigtConstants.decision_drop_probability
-        self.informationGainBalanceCoeffList = CigtConstants.information_gain_balance_coeff_list
-        self.classificationWd = CigtConstants.classification_wd
-        self.decisionWd = CigtConstants.decision_wd
-        self.epochCount = CigtConstants.epoch_count
-        self.boostLearningRatesLayerWise = CigtConstants.boost_learning_rates_layer_wise
-        self.multipleCeLosses = CigtConstants.multiple_ce_losses
-        self.perSampleEntropyBalance = CigtConstants.per_sample_entropy_balance
-        self.useFocalLoss = CigtConstants.use_focal_loss
-        self.focalLossGamma = CigtConstants.focal_loss_gamma
-        self.evaluationPeriod = CigtConstants.evaluation_period
+        self.temperatureController = configs.softmax_decay_controller
+        self.decisionLossCoeff = configs.decision_loss_coeff
+        self.routingDropoutProbability = configs.decision_drop_probability
+        self.informationGainBalanceCoeffList = configs.information_gain_balance_coeff_list
+        self.classificationWd = configs.classification_wd
+        self.decisionWd = configs.decision_wd
+        self.epochCount = configs.epoch_count
+        self.boostLearningRatesLayerWise = configs.boost_learning_rates_layer_wise
+        self.multipleCeLosses = configs.multiple_ce_losses
+        self.perSampleEntropyBalance = configs.per_sample_entropy_balance
+        self.useFocalLoss = configs.use_focal_loss
+        self.focalLossGamma = configs.focal_loss_gamma
+        self.evaluationPeriod = configs.evaluation_period
         self.pathCounts = [1]
         self.pathCounts.extend([d_["path_count"] for d_ in self.layerConfigList][1:])
         self.finalLayerDimension = None
-        self.blockParametersList = self.configInterpreter.interpret_config_list(configs=CigtConstants)
+        self.blockParametersList = self.configInterpreter.interpret_config_list(configs=configs)
         if torch.cuda.is_available():
             self.device = "cuda"
         else:
@@ -1167,7 +1160,17 @@ class CigtIgHardRoutingX(nn.Module):
         return total_size
 
     def execute_forward_with_random_input(self):
+        original_hard_routing_algorithm = self.hardRoutingAlgorithmKind
+        self.hardRoutingAlgorithmKind = "EnforcedRouting"
+        max_batch_size = np.prod(self.pathCounts) * self.batchSize
+
+        for path_count in self.pathCounts[1:]:
+            self.enforcedRoutingMatrices.append(torch.ones(size=(max_batch_size, path_count), dtype=torch.int64))
+
         self.eval()
         self(torch.from_numpy(
             np.random.uniform(size=(self.batchSize, *self.inputDims)).astype(dtype=np.float32)).to(self.device),
               torch.ones(size=(self.batchSize,), dtype=torch.int64).to(self.device), 0.1)
+
+        self.hardRoutingAlgorithmKind = original_hard_routing_algorithm
+        self.enforcedRoutingMatrices = []

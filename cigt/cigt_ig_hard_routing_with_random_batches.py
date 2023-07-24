@@ -5,20 +5,17 @@ import torch.nn.functional as F
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_hard_routing import CigtIgHardRouting
-from cigt.cigt_ig_soft_routing import CigtIgSoftRouting
-from cigt.cigt_soft_routing import CigtSoftRouting
-from cigt.cigt_constants import CigtConstants
-from cigt.routing_layers.hard_routing_layer import HardRoutingLayer
+from configs.lenet_cigt_configs import LenetCigtConfigs
 
 
 class CigtIgHardRoutingWithRandomBatches(CigtIgHardRouting):
     def __init__(self, run_id, model_definition):
         self.classCount = 10
         super().__init__(run_id, model_definition)
-        self.randomBatchRatio = CigtConstants.random_batch_ratio
-        self.igBatchSize = int(self.batchSize * (1.0 - CigtConstants.random_batch_ratio))
+        self.randomBatchRatio = LenetCigtConfigs.random_batch_ratio
+        self.igBatchSize = int(self.batchSize * (1.0 - LenetCigtConfigs.random_batch_ratio))
         self.randomBatchSize = self.batchSize - self.igBatchSize
-        self.randomClassificationLossWeight = CigtConstants.random_classification_loss_weight
+        self.randomClassificationLossWeight = LenetCigtConfigs.random_classification_loss_weight
 
     def forward(self, x, labels, temperature):
         moe_probs = 0.0
