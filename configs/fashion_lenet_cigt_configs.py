@@ -17,8 +17,8 @@ class FashionLenetCigtConfigs:
     backbone = "LeNet"
     input_dims = (1, 28, 28)
     class_count = 10
-    batch_size = 1000
-    warm_up_period = adjust_to_batch_size(original_value=25, target_batch_size=batch_size)
+    batch_size = 125
+    warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size)
     epoch_count = adjust_to_batch_size(original_value=125, target_batch_size=batch_size)
     temperature_optimization_epoch_count = 1000
     data_parallelism = True
@@ -67,9 +67,9 @@ class FashionLenetCigtConfigs:
     first_conv_output_dim = 16
     first_conv_stride = 1
     learning_schedule = [
-        (adjust_to_batch_size(original_value=32, target_batch_size=batch_size) + warm_up_period, 0.5),
-        (adjust_to_batch_size(original_value=64, target_batch_size=batch_size) + warm_up_period, 0.25),
-        (adjust_to_batch_size(original_value=86, target_batch_size=batch_size) + warm_up_period, 0.025)]
+        (adjust_to_batch_size(original_value=35, target_batch_size=batch_size) + warm_up_period, 0.5),
+        (adjust_to_batch_size(original_value=70, target_batch_size=batch_size) + warm_up_period, 0.25),
+        (adjust_to_batch_size(original_value=95, target_batch_size=batch_size) + warm_up_period, 0.025)]
     hard_routing_algorithm_kind = "InformationGainRouting"
     after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
     routing_randomization_ratio = 0.5
