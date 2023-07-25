@@ -23,6 +23,10 @@ class Cifar10ResnetCigtConfigs:
     data_parallelism = True
     classification_wd = 0.0
     decision_wd = 0.0
+    enable_information_gain_during_warm_up = True
+    enable_strict_routing_randomization = False
+    routing_randomization_ratio = 0.5
+
     softmax_decay_initial = 25.0
     softmax_decay_coefficient = 0.9999
     softmax_decay_period = 1
@@ -69,10 +73,6 @@ class Cifar10ResnetCigtConfigs:
     learning_schedule = [
         (adjust_to_batch_size(original_value=600, target_batch_size=batch_size) + warm_up_period, 0.1),
         (adjust_to_batch_size(original_value=1000, target_batch_size=batch_size) + warm_up_period, 0.01)]
-    hard_routing_algorithm_kind = "InformationGainRouting"
-    after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-    routing_randomization_ratio = 0.5
-    warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
     loss_calculation_kind = "MultipleLogitsMultipleLosses"
 
     model_file_root_path_hpc = "/clusterusers/can.bicici@boun.edu.tr/cigt"

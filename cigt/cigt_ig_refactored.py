@@ -41,16 +41,12 @@ class CigtIgHardRoutingX(nn.Module):
         self.numClasses = num_classes
         self.classCount = 10
         self.useDataParallelism = configs.data_parallelism
-        self.hardRoutingAlgorithmTypes = {"InformationGainRouting",
-                                          "InformationGainRoutingWithRandomization",
-                                          "RandomRouting",
-                                          "RandomRoutingButInformationGainOptimizationEnabled",
-                                          "EnforcedRouting"}
-        self.hardRoutingAlgorithmKind = configs.hard_routing_algorithm_kind
-        self.afterWarmupRoutingAlgorithmKind = configs.after_warmup_routing_algorithm_kind
-        self.warmupRoutingAlgorithmKind = configs.warmup_routing_algorithm_kind
         self.enforcedRoutingMatrices = []
+        self.warmUpEndingIteration = 0
         self.routingRandomizationRatio = configs.routing_randomization_ratio
+        self.enableInformationGainDuringWarmUp = configs.enable_information_gain_during_warm_up
+        self.enableStrictRandomRouting = configs.enable_strict_routing_randomization
+
         self.lossCalculationTypes = {"SingleLogitSingleLoss",
                                      "MultipleLogitsMultipleLosses",
                                      "MultipleLogitsMultipleLossesAveraged"}
@@ -224,6 +220,12 @@ class CigtIgHardRoutingX(nn.Module):
         explanation = self.add_explanation(name_of_param="Decision Dropout Probability",
                                            value=self.routingDropoutProbability,
                                            explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Routing Randomization Ratio",
+                                           value=self.routingRandomizationRatio,
+                                           explanation=explanation, kv_rows=kv_rows)
+        explanation = self.add_explanation(name_of_param="Enable Information Gain During Warm Up",
+                                           value=self.enableInformationGainDuringWarmUp,
+                                           explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="Cbam Reduction Ratio",
                                            value=self.cbamReductionRatio,
                                            explanation=explanation, kv_rows=kv_rows)
@@ -371,49 +373,6 @@ class CigtIgHardRoutingX(nn.Module):
         else:
             raise ValueError("{0} is not supported as optimizer.".format(self.optimizerType))
         return model_optimizer
-
-    # OK
-    def get_hard_routing_matrix(self, layer_id, p_n_given_x_soft):
-        if self.hardRoutingAlgorithmKind == "InformationGainRouting":
-            p_n_given_x_hard = torch.zeros_like(p_n_given_x_soft)
-            arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
-            p_n_given_x_hard[torch.arange(p_n_given_x_hard.shape[0]), arg_max_entries] = 1.0
-        elif self.hardRoutingAlgorithmKind == "InformationGainRoutingWithRandomization":
-            ig_routing_matrix_hard = torch.zeros_like(p_n_given_x_soft)
-            arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
-            ig_routing_matrix_hard[torch.arange(ig_routing_matrix_hard.shape[0]), arg_max_entries] = 1.0
-            # Pick random entries with given probability
-            random_routing_matrix = torch.rand(size=p_n_given_x_soft.shape)
-            arg_max_entries = torch.argmax(random_routing_matrix, dim=1)
-            random_routing_matrix_hard = torch.zeros_like(p_n_given_x_soft)
-            random_routing_matrix_hard[torch.arange(random_routing_matrix_hard.shape[0]), arg_max_entries] = 1.0
-            # Random entries
-            random_entries = torch.from_numpy(
-                np.random.choice(np.arange(ig_routing_matrix_hard.shape[0]),
-                                 replace=True,
-                                 size=int(ig_routing_matrix_hard.shape[0] * self.routingRandomizationRatio)).astype(
-                    np.int64)).to(self.device)
-            selection_vec = torch.zeros(size=(ig_routing_matrix_hard.shape[0],), dtype=torch.bool,
-                                        device=self.device)
-            selection_vec[random_entries] = True
-            p_n_given_x_hard = torch.where(torch.unsqueeze(selection_vec, dim=1),
-                                           random_routing_matrix_hard,
-                                           ig_routing_matrix_hard)
-        elif self.hardRoutingAlgorithmKind == "RandomRouting" or \
-                self.hardRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled":
-            random_routing_matrix = torch.rand(size=p_n_given_x_soft.shape)
-            arg_max_entries = torch.argmax(random_routing_matrix, dim=1)
-            random_routing_matrix_hard = torch.zeros_like(p_n_given_x_soft)
-            random_routing_matrix_hard[torch.arange(random_routing_matrix_hard.shape[0]), arg_max_entries] = 1.0
-            p_n_given_x_hard = random_routing_matrix_hard
-        elif self.hardRoutingAlgorithmKind == "EnforcedRouting":
-            enforced_routing_matrix = self.enforcedRoutingMatrices[layer_id]
-            enforced_routing_matrix = enforced_routing_matrix[0:p_n_given_x_soft.shape[0], :]
-            p_n_given_x_hard = enforced_routing_matrix
-        else:
-            raise ValueError("Unknown routing algorithm: {0}".format(self.hardRoutingAlgorithmKind))
-
-        return p_n_given_x_hard
 
     # OK
     def calculate_logits(self, p_n_given_x_hard, loss_block_outputs):
@@ -695,43 +654,12 @@ class CigtIgHardRoutingX(nn.Module):
             if epoch >= self.warmUpPeriod:
                 print("Warmup is ending!")
                 self.isInWarmUp = False
-                if self.warmupRoutingAlgorithmKind == "RandomRouting":
-                    self.temperatureDecayStartIteration = self.numOfTrainingIterations
-                assert self.afterWarmupRoutingAlgorithmKind in {
-                    "InformationGainRouting",
-                    "InformationGainRoutingWithRandomization"}
-                self.hardRoutingAlgorithmKind = self.afterWarmupRoutingAlgorithmKind
+                self.warmUpEndingIteration = self.numOfTrainingIterations
             else:
                 print("Still in warm up!")
                 self.isInWarmUp = True
-                self.hardRoutingAlgorithmKind = self.warmupRoutingAlgorithmKind
         else:
             print("Warmup has ended!")
-        print("Epoch:{0} Routing Kind:{1}".format(epoch, self.hardRoutingAlgorithmKind))
-
-    def adjust_decision_loss_coeff(self):
-        if self.hardRoutingAlgorithmKind in {"InformationGainRouting",
-                                             "InformationGainRoutingWithRandomization",
-                                             "RandomRoutingButInformationGainOptimizationEnabled"}:
-            decision_loss_coeff = self.decisionLossCoeff
-        elif self.hardRoutingAlgorithmKind in {"RandomRouting", "EnforcedRouting"}:
-            decision_loss_coeff = 0.0
-        else:
-            raise ValueError("Unknown Hard routing algorithm:{0}".format(self.hardRoutingAlgorithmKind))
-        return decision_loss_coeff
-
-    def adjust_temperature(self):
-        if self.hardRoutingAlgorithmKind in {"InformationGainRouting",
-                                             "InformationGainRoutingWithRandomization",
-                                             "RandomRoutingButInformationGainOptimizationEnabled"}:
-            decay_t = self.numOfTrainingIterations - self.temperatureDecayStartIteration
-            self.temperatureController.update(iteration=decay_t)
-            temperature = self.temperatureController.get_value()
-        elif self.hardRoutingAlgorithmKind in {"RandomRouting", "EnforcedRouting"}:
-            temperature = 1.0
-        else:
-            raise ValueError("Unknown Hard routing algorithm:{0}".format(self.hardRoutingAlgorithmKind))
-        return temperature
 
     def train_single_epoch(self, epoch_id, train_loader):
         """Train for one epoch on the training set"""
