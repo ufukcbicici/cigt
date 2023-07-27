@@ -52,8 +52,10 @@ if __name__ == "__main__":
     Cifar10ResnetCigtConfigs.classification_wd = 0.0005
     Cifar10ResnetCigtConfigs.information_gain_balance_coeff_list = [5.0, 5.0]
     Cifar10ResnetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-    Cifar10ResnetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-    Cifar10ResnetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
+    Cifar10ResnetCigtConfigs.enable_information_gain_during_warm_up = True
+    Cifar10ResnetCigtConfigs.enable_strict_routing_randomization = False
+    Cifar10ResnetCigtConfigs.routing_randomization_ratio = 0.5
+    Cifar10ResnetCigtConfigs.warm_up_kind = "RandomRouting"
     Cifar10ResnetCigtConfigs.decision_drop_probability = 0.5
     Cifar10ResnetCigtConfigs.number_of_cbam_layers_in_routing_layers = 3
     Cifar10ResnetCigtConfigs.cbam_reduction_ratio = 4

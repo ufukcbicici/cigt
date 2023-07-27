@@ -111,7 +111,10 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                                                                                       balance_coefficient_list[
                                                                                           layer_id])
                 # Calculate the hard routing matrix
-                p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id, p_n_given_x_soft=p_n_given_x_soft)
+                p_n_given_x_hard = self.routingManager.get_hard_routing_matrix(
+                    model=self,
+                    layer_id=layer_id,
+                    p_n_given_x_soft=p_n_given_x_soft)
                 layer_outputs.append({"net": layer_outputs_unified,
                                       "labels": layer_labels_unified,
                                       "sample_indices": layer_sample_indices_unified,
@@ -180,8 +183,10 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                                                                                               balance_coefficient_list[
                                                                                                   layer_id])
                         # Calculate the hard routing matrix
-                        p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id,
-                                                                        p_n_given_x_soft=p_n_given_x_soft)
+                        p_n_given_x_hard = self.routingManager.get_hard_routing_matrix(
+                            model=self,
+                            layer_id=layer_id,
+                            p_n_given_x_soft=p_n_given_x_soft)
                         routing_matrices_soft_dict[output_id] = p_n_given_x_soft
                         routing_matrices_hard_dict[output_id] = p_n_given_x_hard
                         routing_activations_dict[output_id] = routing_activations
@@ -289,8 +294,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 target_var = torch.autograd.Variable(target).to(self.device)
                 batch_size = input_var.size(0)
 
-                decision_loss_coeff = self.adjust_decision_loss_coeff()
-                temperature = self.adjust_temperature()
+                decision_loss_coeff = self.routingManager.adjust_decision_loss_coeff(model=self)
+                temperature = self.routingManager.adjust_temperature(model=self)
 
                 print("temperature:{0}".format(temperature))
                 print("decision_loss_coeff:{0}".format(decision_loss_coeff))
@@ -432,11 +437,6 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
 
         # switch to evaluate mode
         self.eval()
-        if enforced_hard_routing_kind is None:
-            self.hardRoutingAlgorithmKind = "InformationGainRouting"
-        else:
-            assert enforced_hard_routing_kind in self.hardRoutingAlgorithmTypes
-            self.hardRoutingAlgorithmKind = enforced_hard_routing_kind
 
         for i, (input_, target) in enumerate(loader):
             time_begin = time.time()
@@ -555,7 +555,6 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                             "{0}".format(losses_t_layer_wise[lid].avg)))
 
         DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
-        self.hardRoutingAlgorithmKind = self.afterWarmupRoutingAlgorithmKind
         if not return_network_outputs:
             return accuracy_avg.avg
         else:
@@ -576,11 +575,6 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
 
         # switch to evaluate mode
         self.eval()
-        if enforced_hard_routing_kind is None:
-            self.hardRoutingAlgorithmKind = "InformationGainRouting"
-        else:
-            assert enforced_hard_routing_kind in self.hardRoutingAlgorithmTypes
-            self.hardRoutingAlgorithmKind = enforced_hard_routing_kind
 
         block_outputs_complete = {}
         routing_matrices_soft_complete = {}
@@ -620,4 +614,3 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
 
         return block_outputs_complete, routing_matrices_soft_complete, \
             routing_matrices_hard_complete, routing_activations_complete, logits_complete
-

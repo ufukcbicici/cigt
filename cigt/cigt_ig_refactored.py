@@ -21,6 +21,7 @@ from cigt.routing_layers.cbam_routing_layer import CbamRoutingLayer
 from torchvision import transforms
 
 from cigt.routing_layers.soft_routing_layer import SoftRoutingLayer
+from cigt.routing_manager_algorithms.information_gain_routing_manager import InformationGainRoutingManager
 
 
 class CigtIgHardRoutingX(nn.Module):
@@ -50,6 +51,11 @@ class CigtIgHardRoutingX(nn.Module):
         self.lossCalculationTypes = {"SingleLogitSingleLoss",
                                      "MultipleLogitsMultipleLosses",
                                      "MultipleLogitsMultipleLossesAveraged"}
+        self.warmUpTypes = {
+            "RandomRouting",
+            "FullRouting"
+        }
+
         self.lossCalculationKind = configs.loss_calculation_kind
         self.lossLayers = None
         self.modelFilesRootPath = None
@@ -57,6 +63,7 @@ class CigtIgHardRoutingX(nn.Module):
         self.useStraightThrough = configs.use_straight_through
         self.decisionNonLinearity = configs.decision_non_linearity
         self.warmUpPeriod = configs.warm_up_period
+        self.warmUpKind = configs.warm_up_kind
         self.optimizerType = configs.optimizer_type
         self.learningRateSchedule = configs.learning_schedule
         self.initialLr = configs.initial_lr
@@ -102,6 +109,7 @@ class CigtIgHardRoutingX(nn.Module):
         else:
             self.device = "cpu"
         print("Device:{0}".format(self.device))
+        self.routingManager = InformationGainRoutingManager()
         # Train and test time augmentations
         # self.normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
 
@@ -275,15 +283,6 @@ class CigtIgHardRoutingX(nn.Module):
                                            explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="doubleStrideLayers", value=self.doubleStrideLayers,
                                            explanation=explanation, kv_rows=kv_rows)
-        explanation = self.add_explanation(name_of_param="hardRoutingAlgorithmKind",
-                                           value=self.hardRoutingAlgorithmKind,
-                                           explanation=explanation, kv_rows=kv_rows)
-        explanation = self.add_explanation(name_of_param="afterWarmupRoutingAlgorithmKind",
-                                           value=self.afterWarmupRoutingAlgorithmKind,
-                                           explanation=explanation, kv_rows=kv_rows)
-        explanation = self.add_explanation(name_of_param="warmupRoutingAlgorithmKind",
-                                           value=self.warmupRoutingAlgorithmKind,
-                                           explanation=explanation, kv_rows=kv_rows)
         explanation = self.add_explanation(name_of_param="lossCalculationKind", value=self.lossCalculationKind,
                                            explanation=explanation, kv_rows=kv_rows)
         # Explanation for block configurations
@@ -446,7 +445,9 @@ class CigtIgHardRoutingX(nn.Module):
                 routing_matrices_soft.append(p_n_given_x_soft)
                 routing_activations_list.append(routing_activations)
                 # Calculate the hard routing matrix
-                p_n_given_x_hard = self.get_hard_routing_matrix(layer_id=layer_id, p_n_given_x_soft=p_n_given_x_soft)
+                p_n_given_x_hard = self.routingManager.get_hard_routing_matrix(model=self,
+                                                                               layer_id=layer_id,
+                                                                               p_n_given_x_soft=p_n_given_x_soft)
                 routing_matrices_hard.append(p_n_given_x_hard)
             # Logits layer
             else:
@@ -633,22 +634,6 @@ class CigtIgHardRoutingX(nn.Module):
             for p_group in self.modelOptimizer.param_groups:
                 assert p_group["lr"] == base_lr
 
-    # *************** Scenario 0: No Warmup Period ***************
-    # warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size) - CORRECT
-    # if self.warmupRoutingAlgorithmKind == "RandomRouting" then
-    # self.temperatureDecayStartIteration = self.numOfTrainingIterations
-    # However, self.numOfTrainingIterations is already 0 from the constructor.
-    # if self.warmupRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled" then
-    # Again, self.numOfTrainingIterations is already 0 from the constructor.
-    # decay_t = self.numOfTrainingIterations - self.temperatureDecayStartIteration will always start from 0.
-
-    # *************** Scenario 1: With Warmup Period, self.warmupRoutingAlgorithmKind == "RandomRouting" ***************
-    # CORRECT
-
-    # *************** Scenario 2: With Warmup Period,
-    # self.warmupRoutingAlgorithmKind == "RandomRoutingButInformationGainOptimizationEnabled" ***************
-    # CORRECT
-
     def adjust_warmup(self, epoch):
         if self.isInWarmUp:
             if epoch >= self.warmUpPeriod:
@@ -693,8 +678,8 @@ class CigtIgHardRoutingX(nn.Module):
                 target_var = torch.autograd.Variable(target).to(self.device)
                 batch_size = input_var.size(0)
 
-                decision_loss_coeff = self.adjust_decision_loss_coeff()
-                temperature = self.adjust_temperature()
+                decision_loss_coeff = self.routingManager.adjust_decision_loss_coeff(model=self)
+                temperature = self.routingManager.adjust_temperature(model=self)
 
                 print("temperature:{0}".format(temperature))
                 print("decision_loss_coeff:{0}".format(decision_loss_coeff))
@@ -853,7 +838,7 @@ class CigtIgHardRoutingX(nn.Module):
     #                     elem[jdx] = np.concatenate([y.cpu().numpy() for y in elem[jdx]], axis=0)
 
     def validate(self, loader, epoch, data_kind, temperature=None,
-                 enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
+                 print_avg_measurements=False, return_network_outputs=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()
         losses = AverageMeter()
@@ -879,11 +864,6 @@ class CigtIgHardRoutingX(nn.Module):
 
         # switch to evaluate mode
         self.eval()
-        if enforced_hard_routing_kind is None:
-            self.hardRoutingAlgorithmKind = "InformationGainRouting"
-        else:
-            assert enforced_hard_routing_kind in self.hardRoutingAlgorithmTypes
-            self.hardRoutingAlgorithmKind = enforced_hard_routing_kind
 
         for i, (input_, target) in enumerate(loader):
             time_begin = time.time()
@@ -987,7 +967,6 @@ class CigtIgHardRoutingX(nn.Module):
                             "{0}".format(losses_t_layer_wise[lid].avg)))
 
         DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
-        self.hardRoutingAlgorithmKind = self.afterWarmupRoutingAlgorithmKind
         if not return_network_outputs:
             return accuracy_avg.avg
         else:
@@ -1088,10 +1067,8 @@ class CigtIgHardRoutingX(nn.Module):
         return total_size
 
     def execute_forward_with_random_input(self):
-        original_hard_routing_algorithm = self.hardRoutingAlgorithmKind
-        self.hardRoutingAlgorithmKind = "EnforcedRouting"
         max_batch_size = np.prod(self.pathCounts) * self.batchSize
-
+        self.enforcedRoutingMatrices = []
         for path_count in self.pathCounts[1:]:
             self.enforcedRoutingMatrices.append(torch.ones(size=(max_batch_size, path_count),
                                                            dtype=torch.int64).to(self.device))
@@ -1106,5 +1083,4 @@ class CigtIgHardRoutingX(nn.Module):
         self.eval()
         self(fake_input, fake_target, 0.1)
 
-        self.hardRoutingAlgorithmKind = original_hard_routing_algorithm
-        self.enforcedRoutingMatrices = []
+        self.enforcedRoutingMatrices = None

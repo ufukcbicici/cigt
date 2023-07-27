@@ -1,7 +1,5 @@
 import torch
 import numpy as np
-from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-
 
 # Standard Information Gain routing.
 # Route to torch.argmax(p_n_given_x_soft, dim=1) only.
@@ -32,8 +30,8 @@ class InformationGainRoutingManager(object):
             random_routing_matrix_hard[torch.arange(random_routing_matrix_hard.shape[0]), arg_max_entries] = 1.0
             p_n_given_x_hard = random_routing_matrix_hard
         elif model.warmUpKind == "FullRouting":
-            assert isinstance(model, CigtIgGatherScatterImplementation) \
-                   or issubclass(model, CigtIgGatherScatterImplementation)
+            # assert isinstance(model, CigtIgGatherScatterImplementation) \
+            #        or issubclass(model, CigtIgGatherScatterImplementation)
             p_n_given_x_hard = torch.ones_like(p_n_given_x_soft)
         else:
             raise NotImplementedError()
@@ -65,7 +63,7 @@ class InformationGainRoutingManager(object):
 
         # If we are in the training mode and we don´t use random routing regularization, just return
         # the pure information gain based hard routing matrix.
-        if model.routing_randomization_ratio <= 0.0:
+        if model.routingRandomizationRatio <= 0.0:
             return ig_routing_matrix_hard
 
         # If we are in the training mode and use random routing regularization,
@@ -84,7 +82,7 @@ class InformationGainRoutingManager(object):
             np.random.choice(np.arange(ig_routing_matrix_hard.shape[0]),
                              replace=True,
                              size=int(ig_routing_matrix_hard.shape[0] *
-                                      model.routing_randomization_ratio)).astype(np.int64)).to(model.device)
+                                      model.routingRandomizationRatio)).astype(np.int64)).to(model.device)
         selection_vec = torch.zeros(size=(ig_routing_matrix_hard.shape[0],), dtype=torch.bool,
                                     device=model.device)
         selection_vec[random_entries] = True

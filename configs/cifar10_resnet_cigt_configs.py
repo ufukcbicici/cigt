@@ -14,10 +14,11 @@ def adjust_to_batch_size(original_value, target_batch_size):
 
 class Cifar10ResnetCigtConfigs:
     # Standart Parameters
+    backbone = "ResNet"
     input_dims = (3, 32, 32)
     class_count = 10
     batch_size = 1024
-    warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
+    warm_up_period = adjust_to_batch_size(original_value=2, target_batch_size=batch_size)
     epoch_count = adjust_to_batch_size(original_value=1400, target_batch_size=batch_size)
     temperature_optimization_epoch_count = 1000
     data_parallelism = True
@@ -26,6 +27,7 @@ class Cifar10ResnetCigtConfigs:
     enable_information_gain_during_warm_up = True
     enable_strict_routing_randomization = False
     routing_randomization_ratio = 0.5
+    warm_up_kind = "RandomRouting"
 
     softmax_decay_initial = 25.0
     softmax_decay_coefficient = 0.9999

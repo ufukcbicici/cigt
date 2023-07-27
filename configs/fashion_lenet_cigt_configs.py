@@ -27,6 +27,7 @@ class FashionLenetCigtConfigs:
     enable_information_gain_during_warm_up = True
     enable_strict_routing_randomization = False
     routing_randomization_ratio = 0.5
+    warm_up_kind = "RandomRouting"
 
     softmax_decay_initial = 25.0
     softmax_decay_coefficient = 0.9999
