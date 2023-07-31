@@ -2691,4 +2691,7 @@ RunID <= 84 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIK
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Gather Scatter LeNet Cigt - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization%";
 SELECT RunID, Max(Epoch) FROM logs_table WHERE RunID >= 75 AND RunID <= 78 GROUP BY RunID;
 
-SELECT RunID, Iteration, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 104 AND RunID <= 112 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
+SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID >= 104 AND RunID <= 113 GROUP BY RunID;
+SELECT RunID, Iteration, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 104 AND RunID <= 113 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
+
+SELECT RunID, Iteration, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 104 AND RunID <= 113 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
