@@ -70,10 +70,12 @@ def plot_mode_images_v3(dataset_, class_names, node_name,
             elif 1 <= col_idx <= sample_count_per_class:
                 img = dataset_[label_id][indices[col_idx - 1]]
                 img = np.transpose(img, axes=(1, 2, 0))
+                if img.shape[-1] == 1:
+                    img = np.concatenate([img, img, img], axis=-1)
+
                 resized_img = cv2.resize(img, (_w, _h), interpolation=cv2.INTER_AREA)
                 # Convert to BGR
-                if resized_img.shape[-1] == 1:
-                    resized_img = np.stack([resized_img, resized_img, resized_img], axis=0)
+
                 b = np.copy(resized_img[:, :, 2])
                 r = np.copy(resized_img[:, :, 0])
                 resized_img[:, :, 0] = b
@@ -94,7 +96,7 @@ def plot_mode_images_v3(dataset_, class_names, node_name,
 
 
 def plot_leaf_distribution(dataset_name, block_id, sample_distribution_matrix, class_names):
-    node_ids = ["Route " + str(i_) for i_ in range(sample_distribution_matrix.shape[1])]
+    node_ids = ["Block({0},{1})".format(block_id + 1, i_) for i_ in range(sample_distribution_matrix.shape[1])]
     label_ids = [class_names[i_] for i_ in range(sample_distribution_matrix.shape[0])]
 
     fig, ax = plt.subplots(figsize=(8, 8))
@@ -104,7 +106,7 @@ def plot_leaf_distribution(dataset_name, block_id, sample_distribution_matrix, c
     # Show all ticks and label them with the dataframe column name
     ax.set_xticks(np.arange(sample_distribution_matrix.shape[1]))
     ax.set_yticks(np.arange(sample_distribution_matrix.shape[0]))
-    ax.set_xticklabels(node_ids, rotation=65, fontsize=15)
+    ax.set_xticklabels(node_ids, rotation=35, fontsize=15)
     ax.set_yticklabels(label_ids, rotation=0, fontsize=15)
 
     # Loop over data dimensions and create text annotations
@@ -177,6 +179,55 @@ def print_node(test_loader, node_dicts, dataset_name, class_names):
                                class_names=class_names)
 
 
+def mnist():
+    # MNIST
+    mnist_names = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    transform_test = transforms.Compose([transforms.ToTensor()])
+    kwargs = {'num_workers': 0, 'pin_memory': True}
+    test_loader = torch.utils.data.DataLoader(
+        datasets.MNIST('../../data', train=False, transform=transform_test, download=True),
+        batch_size=1024, shuffle=False, **kwargs)
+
+    mnist_block_1_0 = "0: 892, 1: 1133, 2: 50,  3: 8,    4: 950, 5: 16,  6: 27,  7: 1010, 8: 21,  9: 959"
+    mnist_block_1_1 = "0: 88,  1: 2,    2: 982, 3: 1002, 4: 32,  5: 876, 6: 931, 7: 18,   8: 953, 9: 50"
+
+    mnist_block_2_0 = "0: 892, 1: 0,    2: 11,  3: 5,    4: 933, 5: 4,   6: 12,  7: 0,    8: 22,  9: 945"
+    mnist_block_2_1 = "0: 5,   1: 1,    2: 15,  3: 1000, 4: 27,  5: 871, 6: 10,  7: 22,   8: 1,   9: 54"
+    mnist_block_2_2 = "0: 114, 1: 2,    2: 971, 3: 2,    4: 9,   5: 9,   6: 930, 7: 0,    8: 949, 9: 8"
+    mnist_block_2_3 = "0: 2,   1: 1132, 2: 35,  3: 3,    4: 13,  5: 8,   6: 6,   7: 1006, 8: 2,   9: 2"
+
+    distributions = [[mnist_block_1_0, mnist_block_1_1],
+                     [mnist_block_2_0, mnist_block_2_1,
+                      mnist_block_2_2, mnist_block_2_3]]
+    print_node(test_loader=test_loader, dataset_name="MNIST",
+               class_names=mnist_names, node_dicts=distributions)
+
+
+def fashion_mnist():
+    # Fashion MNIST
+    fashion_mnist_names = ["T-Shirt", "Trouser", "Pullover", "Dress", "Coat",
+                           "Sandal", "Shirt", "Sneaker", "Bag", "Ankle Boot"]
+    transform_test = transforms.Compose([transforms.ToTensor()])
+    kwargs = {'num_workers': 0, 'pin_memory': True}
+    test_loader = torch.utils.data.DataLoader(
+        datasets.FashionMNIST('../../data', train=False, transform=transform_test),
+        batch_size=1024, shuffle=False, **kwargs)
+
+    fashion_mnist_block_1_0 = "2: 1000, 1: 1000, 4: 1000, 3: 999, 6: 995, 0: 993, 8: 13, 9: 1, 5: 1"
+    fashion_mnist_block_1_1 = "7: 1000, 9: 999, 5: 999, 8: 987, 0: 7, 6: 5, 3: 1"
+
+    fashion_mnist_block_2_0 = "1: 994, 3: 933, 0: 909, 6: 192, 2: 21, 4: 20, 8: 8"
+    fashion_mnist_block_2_1 = "8: 986, 9: 968, 7: 17, 6: 9, 0: 5, 5: 4, 4: 1, 3: 1, 1: 1, 2: 1"
+    fashion_mnist_block_2_2 = "4: 979, 2: 977, 6: 799, 0: 84, 3: 66, 1: 5, 8: 1"
+    fashion_mnist_block_2_3 = "5: 996, 7: 983, 9: 32, 8: 5, 0: 2, 2: 1"
+
+    distributions = [[fashion_mnist_block_1_0, fashion_mnist_block_1_1],
+                     [fashion_mnist_block_2_0, fashion_mnist_block_2_1,
+                      fashion_mnist_block_2_2, fashion_mnist_block_2_3]]
+    print_node(test_loader=test_loader, dataset_name="Fashion MNIST",
+               class_names=fashion_mnist_names, node_dicts=distributions)
+
+
 def cifar_10():
     # CIFAR 10
     cifar10_names = {
@@ -212,36 +263,11 @@ def cifar_10():
                node_dicts=distributions)
 
 
-def fashion_mnist():
-    # Fashion MNIST
-    fashion_mnist_names = ["T-Shirt", "Trouser", "Pullover", "Dress", "Coat",
-                           "Sandal", "Shirt", "Sneaker", "Bag", "Ankle Boot"]
-    transform_test = transforms.Compose([transforms.ToTensor()])
-    kwargs = {'num_workers': 0, 'pin_memory': True}
-    test_loader = torch.utils.data.DataLoader(
-        datasets.FashionMNIST('../../data', train=False, transform=transform_test),
-        batch_size=1024, shuffle=False, **kwargs)
-
-    fashion_mnist_block_1_0 = "2: 1000, 1: 1000, 4: 1000, 3: 999, 6: 995, 0: 993, 8: 13, 9: 1, 5: 1"
-    fashion_mnist_block_1_1 = "7: 1000, 9: 999, 5: 999, 8: 987, 0: 7, 6: 5, 3: 1"
-
-    fashion_mnist_block_2_0 = "1: 994, 3: 933, 0: 909, 6: 192, 2: 21, 4: 20, 8: 8"
-    fashion_mnist_block_2_1 = "8: 986, 9: 968, 7: 17, 6: 9, 0: 5, 5: 4, 4: 1, 3: 1, 1: 1, 2: 1"
-    fashion_mnist_block_2_2 = "4: 979, 2: 977, 6: 799, 0: 84, 3: 66, 1: 5, 8: 1"
-    fashion_mnist_block_2_3 = "5: 996, 7: 983, 9: 32, 8: 5, 0: 2, 2: 1"
-
-    distributions = [[fashion_mnist_block_1_0, fashion_mnist_block_1_1],
-                     [fashion_mnist_block_2_0, fashion_mnist_block_2_1,
-                      fashion_mnist_block_2_2, fashion_mnist_block_2_3]]
-    print_node(test_loader=test_loader, dataset_name="Fashion MNIST",
-               class_names=fashion_mnist_names, node_dicts=distributions)
-
-
 if __name__ == "__main__":
-    fashion_mnist()
-    print("X")
-
+    mnist()
     # cifar_10()
+    # fashion_mnist()
+    print("X")
 
     # 5e-4,
     # 0.0005
