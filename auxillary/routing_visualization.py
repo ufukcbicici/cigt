@@ -4,6 +4,7 @@ import cv2
 from torchvision import datasets
 from torchvision.transforms import transforms
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 def convert_string_to_dict(dict_as_str):
@@ -93,27 +94,54 @@ def plot_mode_images_v3(dataset_, class_names, node_name,
 
 
 def plot_leaf_distribution(dataset_name, block_id, sample_distribution_matrix, class_names):
-    fig, ax = plt.subplots(figsize=(7.5, 7.5))
-    node_ids = [i_ for i_ in range(sample_distribution_matrix.shape[1])]
+    node_ids = ["Route " + str(i_) for i_ in range(sample_distribution_matrix.shape[1])]
     label_ids = [class_names[i_] for i_ in range(sample_distribution_matrix.shape[0])]
 
+    fig, ax = plt.subplots(figsize=(8, 8))
+    im = ax.imshow(sample_distribution_matrix, interpolation='nearest')
+    # fig.colorbar(im, orientation='vertical', fraction=0.05)
+
+    # Show all ticks and label them with the dataframe column name
     ax.set_xticks(np.arange(sample_distribution_matrix.shape[1]))
     ax.set_yticks(np.arange(sample_distribution_matrix.shape[0]))
-    ax.set_xticklabels(node_ids)
-    ax.set_yticklabels(label_ids)
-    ax.tick_params(labelsize=15)
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+    ax.set_xticklabels(node_ids, rotation=65, fontsize=15)
+    ax.set_yticklabels(label_ids, rotation=0, fontsize=15)
 
+    # Loop over data dimensions and create text annotations
     for i in range(len(label_ids)):
         for j in range(len(node_ids)):
-            text = ax.text(j, i, int(sample_distribution_matrix[i, j]),
-                           ha="center", va="center", color="w", fontsize=15)
-
-    ax.set_title("Class distribution on block {0}".format(block_id), fontsize=18)
-    fig.tight_layout()
+            row_ratio = sample_distribution_matrix[i, j] / np.sum(sample_distribution_matrix[i])
+            if row_ratio < 0.5:
+                text = ax.text(j, i, sample_distribution_matrix[i, j],
+                               ha="center", va="center", color="white")
+            else:
+                text = ax.text(j, i, sample_distribution_matrix[i, j],
+                               ha="center", va="center", color="black")
+    ax.set_title("Class distribution on block {0}".format(block_id + 1), fontsize=18)
     plt.show()
-    # fig.savefig("Leaf_distribution_Ids_({0}-{1}).png".format(idx, idx + max_class_count))
-    fig.savefig("{0}_block_{1}_sample_distribution.png".format(dataset_name, block_id))
+    fig.savefig("{0}_block_{1}_sample_distribution.png".format(dataset_name, block_id + 1))
+
+    # fig, ax = plt.subplots(figsize=(7.5, 7.5))
+    # node_ids = [i_ for i_ in range(sample_distribution_matrix.shape[1])]
+    # label_ids = [class_names[i_] for i_ in range(sample_distribution_matrix.shape[0])]
+    #
+    # ax.set_xticks(np.arange(sample_distribution_matrix.shape[1]))
+    # ax.set_yticks(np.arange(sample_distribution_matrix.shape[0]))
+    # ax.set_xticklabels(node_ids)
+    # ax.set_yticklabels(label_ids)
+    # ax.tick_params(labelsize=15)
+    # plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+    #
+    # for i in range(len(label_ids)):
+    #     for j in range(len(node_ids)):
+    #         text = ax.text(j, i, int(sample_distribution_matrix[i, j]),
+    #                        ha="center", va="center", color="w", fontsize=15)
+    #
+    # ax.set_title("Class distribution on block {0}".format(block_id), fontsize=18)
+    # fig.tight_layout()
+    # plt.show()
+    # # fig.savefig("Leaf_distribution_Ids_({0}-{1}).png".format(idx, idx + max_class_count))
+    # fig.savefig("{0}_block_{1}_sample_distribution.png".format(dataset_name, block_id))
 
 
 def print_node(test_loader, node_dicts, dataset_name, class_names):
@@ -139,19 +167,18 @@ def print_node(test_loader, node_dicts, dataset_name, class_names):
             node_name = "{0} BLOCK ({1},{2})".format(dataset_name, block_id + 1, unit_id)
             plot_mode_images_v3(dataset_=dataset, class_names=class_names,
                                 image_width=32, image_height=32, label_distribution=lbl_distribution_dict,
-                                mode_threshold=0.85, sample_count_per_class=10, node_name=node_name)
+                                mode_threshold=0.85, sample_count_per_class=5, node_name=node_name)
 
             for label_id, freq in lbl_distribution_dict.items():
-                sample_distribution_matrix[label_id, unit_id] += int(total_sample_count * freq)
+                sample_distribution_matrix[label_id, unit_id] += freq
         plot_leaf_distribution(dataset_name=dataset_name,
                                sample_distribution_matrix=sample_distribution_matrix,
                                block_id=block_id,
                                class_names=class_names)
 
 
-if __name__ == "__main__":
-    print("X")
-
+def cifar_10():
+    # CIFAR 10
     cifar10_names = {
         0: "airplane",
         1: "automobile",
@@ -183,6 +210,38 @@ if __name__ == "__main__":
                      [cifar10_block_2_0, cifar10_block_2_1, cifar10_block_2_2, cifar10_block_2_3]]
     print_node(test_loader=test_loader, dataset_name="CIFAR 10", class_names=cifar10_names,
                node_dicts=distributions)
+
+
+def fashion_mnist():
+    # Fashion MNIST
+    fashion_mnist_names = ["T-Shirt", "Trouser", "Pullover", "Dress", "Coat",
+                           "Sandal", "Shirt", "Sneaker", "Bag", "Ankle Boot"]
+    transform_test = transforms.Compose([transforms.ToTensor()])
+    kwargs = {'num_workers': 0, 'pin_memory': True}
+    test_loader = torch.utils.data.DataLoader(
+        datasets.FashionMNIST('../../data', train=False, transform=transform_test),
+        batch_size=1024, shuffle=False, **kwargs)
+
+    fashion_mnist_block_1_0 = "2: 1000, 1: 1000, 4: 1000, 3: 999, 6: 995, 0: 993, 8: 13, 9: 1, 5: 1"
+    fashion_mnist_block_1_1 = "7: 1000, 9: 999, 5: 999, 8: 987, 0: 7, 6: 5, 3: 1"
+
+    fashion_mnist_block_2_0 = "1: 994, 3: 933, 0: 909, 6: 192, 2: 21, 4: 20, 8: 8"
+    fashion_mnist_block_2_1 = "8: 986, 9: 968, 7: 17, 6: 9, 0: 5, 5: 4, 4: 1, 3: 1, 1: 1, 2: 1"
+    fashion_mnist_block_2_2 = "4: 979, 2: 977, 6: 799, 0: 84, 3: 66, 1: 5, 8: 1"
+    fashion_mnist_block_2_3 = "5: 996, 7: 983, 9: 32, 8: 5, 0: 2, 2: 1"
+
+    distributions = [[fashion_mnist_block_1_0, fashion_mnist_block_1_1],
+                     [fashion_mnist_block_2_0, fashion_mnist_block_2_1,
+                      fashion_mnist_block_2_2, fashion_mnist_block_2_3]]
+    print_node(test_loader=test_loader, dataset_name="Fashion MNIST",
+               class_names=fashion_mnist_names, node_dicts=distributions)
+
+
+if __name__ == "__main__":
+    fashion_mnist()
+    print("X")
+
+    # cifar_10()
 
     # 5e-4,
     # 0.0005
