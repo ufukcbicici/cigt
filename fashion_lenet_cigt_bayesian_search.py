@@ -19,7 +19,8 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             "information_gain_balance_coefficient": (1.0, 10.0),
             "decision_loss_coefficient": (0.01, 1.0),
             "lr_initial_rate": (0.0, 0.05),
-            "temperature_decay_rate": (0.9998, 0.99995)
+            "temperature_decay_rate": (0.9998, 0.99995),
+            "random_routing_ratio": (0.0, 1.0)
         }
 
     def cost_function(self, **kwargs):
@@ -30,12 +31,14 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         Z = kwargs["decision_loss_coefficient"]
         W = kwargs["lr_initial_rate"]
         U = kwargs["temperature_decay_rate"]
+        V = kwargs["random_routing_ratio"]
 
         print("classification_dropout_probability={0}".format(kwargs["classification_dropout_probability"]))
         print("information_gain_balance_coefficient={0}".format(kwargs["information_gain_balance_coefficient"]))
         print("decision_loss_coefficient={0}".format(kwargs["decision_loss_coefficient"]))
         print("lr_initial_rate={0}".format(kwargs["lr_initial_rate"]))
         print("temperature_decay_rate={0}".format(kwargs["temperature_decay_rate"]))
+        print("random_routing_ratio={0}".format(kwargs["random_routing_ratio"]))
 
         FashionLenetCigtConfigs.backbone = "LeNet"
         FashionLenetCigtConfigs.input_dims = (1, 28, 28)
@@ -80,19 +83,17 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
 
         # The rest can be left like they are
         FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-        FashionLenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
-        FashionLenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
         FashionLenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 0
         FashionLenetCigtConfigs.cbam_reduction_ratio = 4
         FashionLenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
         FashionLenetCigtConfigs.apply_mask_to_batch_norm = False
-        FashionLenetCigtConfigs.advanced_augmentation = True
+        FashionLenetCigtConfigs.advanced_augmentation = False
         FashionLenetCigtConfigs.use_focal_loss = False
         FashionLenetCigtConfigs.focal_loss_gamma = 2.0
         FashionLenetCigtConfigs.batch_norm_type = "BatchNorm"
         FashionLenetCigtConfigs.data_parallelism = False
 
-        kwargs = {'num_workers': 0, 'pin_memory': True}
+        kwargs = {'num_workers': 2, 'pin_memory': True}
         heavyweight_augmentation = transforms.Compose([
             # transforms.Resize((32, 32)),
             CutoutPIL(cutout_factor=0.5),
