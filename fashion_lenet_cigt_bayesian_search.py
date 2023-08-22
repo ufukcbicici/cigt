@@ -1,10 +1,12 @@
 import torch
+import os
 from randaugment import RandAugment
 from torchvision import transforms, datasets
 
 from auxillary.bayesian_optimizer import BayesianOptimizer
 from auxillary.db_logger import DbLogger
 from auxillary.parameters import DiscreteParameter
+from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
@@ -12,8 +14,8 @@ from configs.fashion_lenet_cigt_configs import adjust_to_batch_size
 
 
 class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
-    def __init__(self, xi, init_points, n_iter):
-        super().__init__(xi, init_points, n_iter)
+    def __init__(self, init_points, n_iter):
+        super().__init__(init_points, n_iter)
         self.optimization_bounds_continuous = {
             "classification_dropout_probability": (0.0, 1.0),
             "information_gain_balance_coefficient": (1.0, 10.0),
@@ -22,6 +24,11 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             "temperature_decay_rate": (0.9998, 0.99995),
             "random_routing_ratio": (0.0, 1.0)
         }
+
+        # enable_information_gain_during_warm_up = True
+        # enable_strict_routing_randomization = False
+        # routing_randomization_ratio = 0.5
+        # warm_up_kind = "RandomRouting"
 
     def cost_function(self, **kwargs):
         # lr_initial_rate,
@@ -75,11 +82,16 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             decay_coefficient=FashionLenetCigtConfigs.softmax_decay_coefficient,
             decay_period=FashionLenetCigtConfigs.softmax_decay_period,
             decay_min_limit=FashionLenetCigtConfigs.softmax_decay_min_limit)
+        FashionLenetCigtConfigs.routing_randomization_ratio = V
 
         FashionLenetCigtConfigs.classification_wd = 0.0
         FashionLenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
         FashionLenetCigtConfigs.decision_drop_probability = 0.0
         FashionLenetCigtConfigs.decision_dimensions = [128, 128]
+
+        FashionLenetCigtConfigs.enable_information_gain_during_warm_up = False
+        FashionLenetCigtConfigs.enable_strict_routing_randomization = False
+        FashionLenetCigtConfigs.warm_up_kind = "FullRouting"
 
         # The rest can be left like they are
         FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
@@ -111,101 +123,23 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             datasets.FashionMNIST('../data', download=True, train=False, transform=lightweight_augmentation),
             batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
+        run_id = DbLogger.get_run_id()
+        model = CigtIgGatherScatterImplementation(
+            configs=FashionLenetCigtConfigs,
+            run_id=run_id,
+            model_definition="Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = False - warm_up_kind = FullRouting",
+            num_classes=10)
+        model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_tetam
+
+        explanation = model.get_explanation_string()
+        DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
+        best_performance = model.fit(train_loader=train_loader, test_loader=test_loader)
+        return best_performance
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        # FashionNetConstants.softmax_decay_initial = 25.0
-        # FashionNetConstants.softmax_decay_coefficient = U
-        # FashionNetConstants.softmax_decay_period = 1
-        # FashionNetConstants.softmax_decay_min_limit = 0.01
-        #
-        # fashion_mnist = FashionMnist(batch_size=FashionNetConstants.batch_size, validation_size=0)
-        # softmax_decay_controller = StepWiseDecayAlgorithm(
-        #     decay_name="Stepwise",
-        #     initial_value=FashionNetConstants.softmax_decay_initial,
-        #     decay_coefficient=FashionNetConstants.softmax_decay_coefficient,
-        #     decay_period=FashionNetConstants.softmax_decay_period,
-        #     decay_min_limit=FashionNetConstants.softmax_decay_min_limit)
-        #
-        # learning_rate_calculator = DiscreteParameter(name="lr_calculator",
-        #                                              value=W,
-        #                                              schedule=[(15000 + 12000, (1.0 / 2.0) * W),
-        #                                                        (30000 + 12000, (1.0 / 4.0) * W),
-        #                                                        (40000 + 12000, (1.0 / 40.0) * W)])
-        # print(learning_rate_calculator)
-        #
-        # with tf.device("GPU"):
-        #     run_id = DbLogger.get_run_id()
-        #     fashion_cigt = LenetCigt(batch_size=125,
-        #                              input_dims=(28, 28, 1),
-        #                              filter_counts=[32, 64, 128],
-        #                              kernel_sizes=[5, 5, 1],
-        #                              hidden_layers=[512, 256],
-        #                              decision_drop_probability=0.0,
-        #                              classification_drop_probability=X,
-        #                              decision_wd=0.0,
-        #                              classification_wd=0.0,
-        #                              decision_dimensions=[128, 128],
-        #                              class_count=10,
-        #                              information_gain_balance_coeff=Y,
-        #                              softmax_decay_controller=softmax_decay_controller,
-        #                              learning_rate_schedule=learning_rate_calculator,
-        #                              decision_loss_coeff=Z,
-        #                              path_counts=[2, 4],
-        #                              bn_momentum=0.9,
-        #                              warm_up_period=25,
-        #                              routing_strategy_name="Full_Training",
-        #                              run_id=run_id,
-        #                              evaluation_period=10,
-        #                              measurement_start=25,
-        #                              use_straight_through=True,
-        #                              optimizer_type="SGD",
-        #                              decision_non_linearity="Softmax",
-        #                              save_model=True,
-        #                              model_definition="Lenet CIGT - Gumbel Softmax with E[Z] based routing - "
-        #                                               "Softmax and Straight Through Bayesian Optimization - "
-        #                                               "Optimizing Lr Initial Rate and Temperature Decay Rate")
-        #
-        #     explanation = fashion_cigt.get_explanation_string()
-        #     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-        #     score = fashion_cigt.fit(x=fashion_mnist.trainDataTf, validation_data=fashion_mnist.testDataTf,
-        #                              epochs=FashionNetConstants.epoch_count)
-        #
-        # return score
+if __name__ == "__main__":
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db2
+    bayesian_optimizer = FashionMnistLenetCigtBayesianOptimizer(init_points=50, n_iter=150)
+    bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
+                           log_file_name="FFF_fashion_lenet_0")

@@ -803,6 +803,8 @@ class CigtIgHardRoutingX(nn.Module):
                            0.0,
                            "YYY")], table=DbLogger.logsTable)
 
+        return best_performance
+
     # def add_list_of_arrays(self, list_of_arrays, batch):
     #     if len(list_of_arrays) > 0:
     #         assert isinstance(list_of_arrays, list)

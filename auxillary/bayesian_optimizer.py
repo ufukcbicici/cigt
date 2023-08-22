@@ -10,9 +10,8 @@ from bayes_opt.util import load_logs
 
 
 class BayesianOptimizer:
-    def __init__(self, xi, init_points, n_iter):
+    def __init__(self, init_points, n_iter):
         self.optimization_bounds_continuous = None
-        self.xi = xi
         self.init_points = init_points
         self.n_iter = n_iter
 

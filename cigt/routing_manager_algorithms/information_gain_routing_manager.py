@@ -80,7 +80,7 @@ class InformationGainRoutingManager(object):
             torch.arange(random_routing_matrix_hard.shape[0]), random_arg_max_entries] = 1.0
         random_entries = torch.from_numpy(
             np.random.choice(np.arange(ig_routing_matrix_hard.shape[0]),
-                             replace=True,
+                             replace=False,
                              size=int(ig_routing_matrix_hard.shape[0] *
                                       model.routingRandomizationRatio)).astype(np.int64)).to(model.device)
         selection_vec = torch.zeros(size=(ig_routing_matrix_hard.shape[0],), dtype=torch.bool,

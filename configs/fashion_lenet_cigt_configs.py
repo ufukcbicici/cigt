@@ -18,7 +18,7 @@ class FashionLenetCigtConfigs:
     input_dims = (1, 28, 28)
     class_count = 10
     batch_size = 125
-    warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size)
+    warm_up_period = adjust_to_batch_size(original_value=25, target_batch_size=batch_size)
     epoch_count = adjust_to_batch_size(original_value=125, target_batch_size=batch_size)
     temperature_optimization_epoch_count = 1000
     data_parallelism = True

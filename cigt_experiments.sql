@@ -2695,3 +2695,38 @@ SELECT RunID, Max(TestAccuracy) FROM logs_table WHERE RunID >= 104 AND RunID <= 
 SELECT RunID, Iteration, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 104 AND RunID <= 113 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
 
 SELECT RunID, Iteration, MIN(Value) AS Val FROM run_kv_store WHERE RunID >= 104 AND RunID <= 113 AND Key LIKE "%routing_loss%" AND Key NOT LIKE "%Layer%" AND Key LIKE "%test%" GROUP BY RunID ORDER BY Val ASC;
+
+
+--FFR
+--Experiments: "Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = False - warm_up_kind = RandomRouting"
+--FashionLenetCigtConfigs.backbone = "LeNet"
+--Started at 8/16/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = False - warm_up_kind = RandomRouting%";
+SELECT RunID, Max(TestAccuracy) AS TestAcc FROM logs_table WHERE RunID IN (SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = False - warm_up_kind = RandomRouting%") GROUP BY RunID ORDER BY TestAcc DESC;
+
+
+--FFF
+--Experiments: "Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = False - warm_up_kind = FullRouting"
+--FashionLenetCigtConfigs.backbone = "LeNet"
+--Started at 8/16/2023
+--Started on: Tetam - "/cta/users/ucbicici/cigt/cigt/cigtlogger2.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = False - warm_up_kind = FullRouting%";
+SELECT RunID, Max(TestAccuracy) AS TestAcc FROM logs_table WHERE RunID IN (SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = False - warm_up_kind = FullRouting%") GROUP BY RunID ORDER BY TestAcc DESC;
+
+--FTR
+--Experiments: "Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = True - warm_up_kind = RandomRouting"
+--FashionLenetCigtConfigs.backbone = "LeNet"
+--Started at 8/16/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = True - warm_up_kind = RandomRouting%";
+SELECT RunID, Max(TestAccuracy) AS TestAcc FROM logs_table WHERE RunID IN (SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = True - warm_up_kind = RandomRouting%") GROUP BY RunID ORDER BY TestAcc DESC;
+
+
+--FTF
+--Experiments: "Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = True - warm_up_kind = FullRouting"
+--FashionLenetCigtConfigs.backbone = "LeNet"
+--Started at 8/16/2023
+--Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
+--SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = True - warm_up_kind = FullRouting%";
+SELECT RunID, Max(TestAccuracy) AS TestAcc FROM logs_table WHERE RunID IN (SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = True - warm_up_kind = FullRouting%") GROUP BY RunID ORDER BY TestAcc DESC;
