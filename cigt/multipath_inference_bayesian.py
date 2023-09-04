@@ -19,7 +19,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
     def __init__(self, data_root_path, model,
                  train_dataset, test_dataset, xi, init_points, n_iter, mac_counts_per_block,
                  train_dataset_repeat_count, evaluate_network_first):
-        super().__init__(xi, init_points, n_iter)
+        super().__init__(init_points, n_iter)
         self.dataRootPath = data_root_path
         self.repeatCount = train_dataset_repeat_count
         self.macCountsPerBlock = mac_counts_per_block
@@ -27,8 +27,6 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         self.testDataset = test_dataset
         self.maxEntropies = []
         self.optimization_bounds_continuous = {}
-        # Load the trained model
-        FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         self.model = model
         max_branch_count = np.prod(self.model.pathCounts)
         for path_count in self.model.pathCounts[1:]:

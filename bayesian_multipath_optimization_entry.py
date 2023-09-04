@@ -98,7 +98,7 @@ if __name__ == "__main__":
                              "checkpoints/dblogger2_94_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.home_asus
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     # total_parameter_count = model.get_total_parameter_count()
     mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model_mac)
     model_mac = None
-    accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
+    # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 
     mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
         data_root_path=data_path,

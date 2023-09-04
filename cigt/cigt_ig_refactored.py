@@ -1084,5 +1084,4 @@ class CigtIgHardRoutingX(nn.Module):
 
         self.eval()
         self(fake_input, fake_target, 0.1)
-
-        self.enforcedRoutingMatrices = None
+        self.enforcedRoutingMatrices = []
