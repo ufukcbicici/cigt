@@ -29,13 +29,13 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         self.optimization_bounds_continuous = {}
         self.model = model
         max_branch_count = np.prod(self.model.pathCounts)
-        for path_count in self.model.pathCounts[1:]:
-            self.model.enforcedRoutingMatrices.append(
-                torch.ones(size=(max_branch_count * self.model.batchSize, path_count), dtype=torch.int64))
-
         if evaluate_network_first:
             test_acc = self.model.validate(data_kind="test", epoch=0, loader=self.testDataset, temperature=0.1)
             print("Standard test accuracy:{0}".format(test_acc))
+
+        for path_count in self.model.pathCounts[1:]:
+            self.model.enforcedRoutingMatrices.append(
+                torch.ones(size=(max_branch_count * self.model.batchSize, path_count), dtype=torch.int64))
 
         # self.assert_gather_scatter_model_output_correctness(dataloader=self.testDataset, repeat_count=1)
         self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
@@ -51,7 +51,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             offset += offset_step
         return offset
 
-    def interpret_gather_scatter_model_outputs(self, outputs_dict, dataloader):
+    def interpret_gather_scatter_model_outputs(self, outputs_dict, dataloader, validate_results):
         network_output = NetworkOutput()
         data_size = outputs_dict["list_of_labels"][0].shape[0]
         for block_id in range(len(self.model.pathCounts)):
@@ -80,34 +80,38 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                     ][i_ * self.model.batchSize:i_ * self.model.batchSize + x.shape[0]] = route_activations_array
             assert np.sum(np.isnan(interpreted_results_array)) == 0
             result_container.append(interpreted_results_array)
+
+        if validate_results:
+            x_tensor = outputs_dict["list_of_original_inputs"]
+            y_tensor = outputs_dict["list_of_original_labels"]
+            assert np.array_equal(y_tensor, outputs_dict["list_of_labels"][0])
+            validation_loader = torch.utils.data.DataLoader(
+                torch.utils.data.TensorDataset(x_tensor, y_tensor),
+                shuffle=False, batch_size=self.model.batchSize)
+            res_dict = self.model.validate_v2(validation_loader,
+                                              temperature=0.1,
+                                              enforced_hard_routing_kind="EnforcedRouting")
+
         return network_output
 
-    def assert_gather_scatter_model_output_correctness(self, dataloader, repeat_count):
-        for epoch_id in range(repeat_count):
-            outputs_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
-                                               enforced_hard_routing_kind="EnforcedRouting",
-                                               return_network_outputs=True, data_kind="test")
-            network_output = self.interpret_gather_scatter_model_outputs(outputs_dict=outputs_dict,
-                                                                         dataloader=dataloader)
-            block_outputs_complete, routing_matrices_soft_complete, \
-                routing_matrices_hard_complete, \
-                routing_activations_complete, logits_complete = \
-                self.model.validate_v2(dataloader,
-                                       temperature=0.1,
-                                       enforced_hard_routing_kind="EnforcedRouting")
-            for k, v in routing_activations_complete.items():
-                if len(k) == 0:
-                    continue
-                arr_to_compare = network_output.routingActivationMatrices[len(k) - 1][k]
-                assert np.allclose(v, arr_to_compare, rtol=1e-3)
-            for k, v in logits_complete.items():
-                if len(k) == 0:
-                    continue
-                arr_to_compare = network_output.logits[0][k]
-                assert np.allclose(v, arr_to_compare, rtol=1e-3)
+    def assert_gather_scatter_model_output_correctness(self, network_output, results_dict2):
+        # class NetworkOutput(object):
+        #     def __init__(self):
+        #         self.routingActivationMatrices = []
+        #         self.logits = []
 
-    def evaluate_with_thresholds(self, network_output, probability_thresholds):
-        pass
+        for block_id in range(self.model.pathCounts):
+            if block_id < len(self.model.pathCounts) - 1:
+                arr_1 = network_output.routingActivationMatrices[block_id]
+                arr_2 = results_dict2["routing_activations_complete"]
+            else:
+                arr_1 = network_output.logits[0]
+                arr_2 = results_dict2["logits_complete"]
+            route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(block_id + 1)])
+            for route in route_combinations:
+                sub_arr1 = arr_1[route]
+                sub_arr2 = arr_2[route]
+                assert np.allclose(sub_arr1, sub_arr2, rtol=1e-3)
 
     def create_outputs(self, dataloader, repeat_count):
         network_outputs = []
@@ -126,7 +130,8 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
 
                 if isinstance(self.model, CigtIgGatherScatterImplementation):
                     interpreted_output = self.interpret_gather_scatter_model_outputs(outputs_dict=raw_outputs_dict,
-                                                                                     dataloader=dataloader)
+                                                                                     dataloader=dataloader,
+                                                                                     validate_results=True)
                 else:
                     raise NotImplementedError()
 
@@ -134,8 +139,6 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                     "raw_outputs_dict": raw_outputs_dict, "interpreted_output": interpreted_output})
 
             # Assert that the interpretation is correct.
-
-
 
             network_outputs.append(interpreted_output)
 

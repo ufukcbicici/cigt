@@ -98,7 +98,7 @@ if __name__ == "__main__":
                              "checkpoints/dblogger2_94_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
@@ -133,7 +133,7 @@ if __name__ == "__main__":
         n_iter=1000,
         init_points=500,
         train_dataset_repeat_count=10,
-        evaluate_network_first=False,
+        evaluate_network_first=True,
         model=model,
         mac_counts_per_block=mac_counts_per_block)
 

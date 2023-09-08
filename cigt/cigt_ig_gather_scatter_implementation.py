@@ -418,6 +418,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         losses_t_layer_wise = [AverageMeter() for _ in range(len(self.pathCounts) - 1)]
         accuracy_avg = AverageMeter()
         list_of_original_inputs = []
+        list_of_original_labels = []
         list_of_labels = []
         list_of_routing_probability_matrices = []
         list_of_routing_activations = []
@@ -486,6 +487,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                     list_of_logits_complete[idx_].append(matr_.detach().cpu().numpy())
                 list_of_logits_unified.append(layer_outputs[-1]["logits_unified"].detach().cpu().numpy())
                 list_of_original_inputs.append(input_.cpu().numpy())
+                list_of_original_labels.append(target.cpu().numpy())
 
                 # measure accuracy and record loss
                 losses.update(total_loss.detach().cpu().numpy().item(), 1)
@@ -508,6 +510,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
             list_of_logits_complete[idx_] = np.concatenate(list_of_logits_complete[idx_], axis=0)
         list_of_logits_unified = np.concatenate(list_of_logits_unified, axis=0)
         list_of_original_inputs = np.concatenate(list_of_original_inputs, axis=0)
+        list_of_original_labels = np.concatenate(list_of_original_labels, axis=0)
 
         self.calculate_branch_statistics(
             run_id=self.runId,
@@ -565,7 +568,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 "list_of_routing_activations": list_of_routing_activations,
                 "list_of_logits_complete": list_of_logits_complete,
                 "list_of_logits_unified": list_of_logits_unified,
-                "list_of_original_inputs": list_of_original_inputs
+                "list_of_original_inputs": list_of_original_inputs,
+                "list_of_original_labels": list_of_original_labels
             }
             return res_dict
 
@@ -612,5 +616,12 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         logits_complete = Utilities.concat_all_arrays_in_dictionary(
             source_dictionary=logits_complete)
 
-        return block_outputs_complete, routing_matrices_soft_complete, \
-            routing_matrices_hard_complete, routing_activations_complete, logits_complete
+        res_dict = {
+            "block_outputs_complete": block_outputs_complete,
+            "routing_matrices_soft_complete": routing_matrices_soft_complete,
+            "routing_matrices_hard_complete": routing_matrices_hard_complete,
+            "routing_activations_complete": routing_activations_complete,
+            "logits_complete": logits_complete
+        }
+
+        return res_dict
