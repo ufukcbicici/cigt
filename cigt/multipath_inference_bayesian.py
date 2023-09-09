@@ -52,7 +52,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             offset += offset_step
         return offset
 
-    def interpret_gather_scatter_model_outputs(self, outputs_dict, dataloader, validate_results):
+    def interpret_gather_scatter_model_outputs(self, outputs_dict, dataloader):
         network_output = NetworkOutput()
         data_size = outputs_dict["list_of_labels"][0].shape[0]
         for block_id in range(len(self.model.pathCounts)):
@@ -81,18 +81,6 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                     ][i_ * self.model.batchSize:i_ * self.model.batchSize + x.shape[0]] = route_activations_array
             assert np.sum(np.isnan(interpreted_results_array)) == 0
             result_container.append(interpreted_results_array)
-
-        if validate_results:
-            x_tensor = outputs_dict["list_of_original_inputs"]
-            y_tensor = outputs_dict["list_of_original_labels"]
-            assert np.array_equal(y_tensor, outputs_dict["list_of_labels"][0])
-            validation_loader = torch.utils.data.DataLoader(
-                torch.utils.data.TensorDataset(x_tensor, y_tensor),
-                shuffle=False, batch_size=self.model.batchSize)
-            res_dict = self.model.validate_v2(validation_loader,
-                                              temperature=0.1,
-                                              enforced_hard_routing_kind="EnforcedRouting")
-
         return network_output
 
     def assert_gather_scatter_model_output_correctness(self, network_output, results_dict2):
@@ -113,6 +101,18 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 sub_arr1 = arr_1[route]
                 sub_arr2 = arr_2[route]
                 assert np.allclose(sub_arr1, sub_arr2, rtol=1e-3)
+
+    def merge_multiple_outputs(self, network_outputs):
+        complete_output = NetworkOutput()
+        for block_id in range(len(self.model.pathCounts) - 1):
+            assert len(set([n_o.routingActivationMatrices[block_id].shape[block_id + 1]
+                            for n_o in network_outputs])) == 1
+            total_arr = np.concatenate([n_o.routingActivationMatrices[block_id] for n_o in network_outputs],
+                                       axis=block_id + 1)
+            complete_output.routingActivationMatrices.append(total_arr)
+        assert len(set([n_o.logits[0].shape[len(self.model.pathCounts)] for n_o in network_outputs])) == 1
+        total_arr = np.concatenate([n_o.logits[0] for n_o in network_outputs], axis=len(self.model.pathCounts))
+        complete_output.logits.append(total_arr)
 
     def create_outputs(self, dataloader, repeat_count):
         network_outputs = []
@@ -138,7 +138,21 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 Utilities.pickle_save_to_file(path=raw_outputs_file_path,
                                               file_content={"raw_outputs_type1_dict": raw_outputs_type1_dict,
                                                             "raw_outputs_type2_dict": raw_outputs_type2_dict})
-                print("X")
+            else:
+                outputs_loaded = Utilities.pickle_load_from_file(raw_outputs_file_path)
+                raw_outputs_type1_dict = outputs_loaded["raw_outputs_type1_dict"]
+                raw_outputs_type2_dict = outputs_loaded["raw_outputs_type2_dict"]
+
+            interpreted_network_outputs = self.interpret_gather_scatter_model_outputs(
+                outputs_dict=raw_outputs_type1_dict, dataloader=dataloader)
+            self.assert_gather_scatter_model_output_correctness(
+                network_output=interpreted_network_outputs,
+                results_dict2=raw_outputs_type2_dict)
+
+
+
+
+
 
         #     if os.path.isfile(raw_output_file_path):
         #         epoch_results = Utilities.pickle_load_from_file(path=output_file_path)
@@ -163,16 +177,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         #
         #     network_outputs.append(interpreted_output)
         #
-        # complete_output = NetworkOutput()
-        # for block_id in range(len(self.model.pathCounts) - 1):
-        #     assert len(set([n_o.routingActivationMatrices[block_id].shape[block_id + 1]
-        #                     for n_o in network_outputs])) == 1
-        #     total_arr = np.concatenate([n_o.routingActivationMatrices[block_id] for n_o in network_outputs],
-        #                                axis=block_id + 1)
-        #     complete_output.routingActivationMatrices.append(total_arr)
-        # assert len(set([n_o.logits[0].shape[len(self.model.pathCounts)] for n_o in network_outputs])) == 1
-        # total_arr = np.concatenate([n_o.logits[0] for n_o in network_outputs], axis=len(self.model.pathCounts))
-        # complete_output.logits.append(total_arr)
+
 
         #     outputs_dict_v2 = self.model.validate_v2(loader=dataloader, epoch=0, temperature=0.1,
         #                                              enforced_hard_routing_kind="EnforcedRouting",
