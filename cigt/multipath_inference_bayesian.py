@@ -55,6 +55,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
     def interpret_gather_scatter_model_outputs(self, outputs_dict, dataloader):
         network_output = NetworkOutput()
         data_size = outputs_dict["list_of_labels"][0].shape[0]
+        assert outputs_dict["list_of_original_labels"].shape[0] == data_size
         for block_id in range(len(self.model.pathCounts)):
             # Routing blocks
             if block_id < len(self.model.pathCounts) - 1:
@@ -71,14 +72,17 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             interpreted_results_array = np.zeros(shape=results_array_shape, dtype=np.float)
             interpreted_results_array[:] = np.nan
             route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(block_id + 1)])
+            batch_sizes = [len(outputs_dict["list_of_labels"][0][idx:idx + self.model.batchSize])
+                           for idx in range(0, data_size, self.model.batchSize)]
+
             for route_combination in route_combinations:
-                for i_, (x, y) in tqdm(enumerate(dataloader)):
+                for i_, curr_batch_size in tqdm(enumerate(batch_sizes)):
                     route_offset = self.get_start_offset_for_gather_scatter_model(route_=route_combination,
                                                                                   batch_id_=i_,
-                                                                                  curr_batch_size=x.shape[0])
-                    route_activations_array = output_array[route_offset:route_offset + x.shape[0], :]
+                                                                                  curr_batch_size=curr_batch_size)
+                    route_activations_array = output_array[route_offset:route_offset + curr_batch_size, :]
                     interpreted_results_array[route_combination
-                    ][i_ * self.model.batchSize:i_ * self.model.batchSize + x.shape[0]] = route_activations_array
+                    ][i_ * self.model.batchSize:i_ * self.model.batchSize + curr_batch_size] = route_activations_array
             assert np.sum(np.isnan(interpreted_results_array)) == 0
             result_container.append(interpreted_results_array)
         return network_output
