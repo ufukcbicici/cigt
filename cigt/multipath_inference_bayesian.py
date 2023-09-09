@@ -129,7 +129,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 y_tensor = raw_outputs_type1_dict["list_of_original_labels"]
                 assert np.array_equal(y_tensor, raw_outputs_type1_dict["list_of_labels"][0])
                 validation_loader = torch.utils.data.DataLoader(
-                    torch.utils.data.TensorDataset(x_tensor, y_tensor),
+                    torch.utils.data.TensorDataset(torch.from_numpy(x_tensor), torch.from_numpy(y_tensor)),
                     shuffle=False, batch_size=self.model.batchSize)
                 raw_outputs_type2_dict = self.model.validate_v2(validation_loader,
                                                                 temperature=0.1,
