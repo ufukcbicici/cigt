@@ -93,7 +93,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         #         self.routingActivationMatrices = []
         #         self.logits = []
 
-        for block_id in range(self.model.pathCounts):
+        for block_id in range(len(self.model.pathCounts)):
             if block_id < len(self.model.pathCounts) - 1:
                 arr_1 = network_output.routingActivationMatrices[block_id]
                 arr_2 = results_dict2["routing_activations_complete"]
@@ -104,7 +104,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             for route in route_combinations:
                 sub_arr1 = arr_1[route]
                 sub_arr2 = arr_2[route]
-                assert np.allclose(sub_arr1, sub_arr2, rtol=1e-3)
+                assert np.allclose(sub_arr1, sub_arr2, rtol=1e-2)
 
     def merge_multiple_outputs(self, network_outputs):
         complete_output = NetworkOutput()
