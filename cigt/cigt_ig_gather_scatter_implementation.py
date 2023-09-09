@@ -1,6 +1,6 @@
 from collections import OrderedDict, Counter
 import time
-
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -409,7 +409,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
             DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
 
     def validate(self, loader, epoch, data_kind, temperature=None,
-                 enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
+                 enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False,
+                 verbose=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()
         losses = AverageMeter()
@@ -438,8 +439,11 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
 
         # switch to evaluate mode
         self.eval()
-
-        for i, (input_, target) in enumerate(loader):
+        if verbose is False:
+            verbose_loader = enumerate(loader)
+        else:
+            verbose_loader = tqdm(enumerate(loader))
+        for i, (input_, target) in verbose_loader:
             time_begin = time.time()
             with torch.no_grad():
                 input_var = torch.autograd.Variable(input_).to(self.device)
@@ -573,7 +577,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
             }
             return res_dict
 
-    def validate_v2(self, loader, temperature=None, enforced_hard_routing_kind=None):
+    def validate_v2(self, loader, temperature=None, enforced_hard_routing_kind=None, verbose=False):
         if temperature is None:
             temperature = self.temperatureController.get_value()
 
@@ -586,7 +590,11 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         routing_activations_complete = {}
         logits_complete = {}
 
-        for i, (input_, target) in enumerate(loader):
+        if verbose is False:
+            verbose_loader = enumerate(loader)
+        else:
+            verbose_loader = tqdm(enumerate(loader))
+        for i, (input_, target) in verbose_loader:
             with torch.no_grad():
                 input_var = torch.autograd.Variable(input_).to(self.device)
                 target_var = torch.autograd.Variable(target).to(self.device)

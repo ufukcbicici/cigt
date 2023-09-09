@@ -30,7 +30,8 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         self.model = model
         max_branch_count = np.prod(self.model.pathCounts)
         if evaluate_network_first:
-            test_acc = self.model.validate(data_kind="test", epoch=0, loader=self.testDataset, temperature=0.1)
+            test_acc = self.model.validate(data_kind="test", epoch=0, loader=self.testDataset, temperature=0.1,
+                                           verbose=True)
             print("Standard test accuracy:{0}".format(test_acc))
 
         for path_count in self.model.pathCounts[1:]:
@@ -118,40 +119,60 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         data_kind = "test" if not dataloader.dataset.train else "train"
         for epoch_id in range(repeat_count):
             print("Processing Data:{0} Epoch:{1}".format(data_kind, epoch_id))
-            output_file_path = "{0}_{1}_outputs_dict.sav".format(data_kind, epoch_id)
-            if os.path.isfile(output_file_path):
-                epoch_results = Utilities.pickle_load_from_file(path=output_file_path)
-                raw_outputs_dict = epoch_results["raw_outputs_dict"]
-                interpreted_output = epoch_results["interpreted_output"]
-            else:
-                raw_outputs_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
-                                                       enforced_hard_routing_kind="EnforcedRouting",
-                                                       return_network_outputs=True, data_kind=data_kind)
+            raw_outputs_file_path = "{0}_{1}_raw_outputs_dict.sav".format(data_kind, epoch_id)
+            if not os.path.isfile(raw_outputs_file_path):
+                raw_outputs_type1_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
+                                                             enforced_hard_routing_kind="EnforcedRouting",
+                                                             return_network_outputs=True, data_kind=data_kind,
+                                                             verbose=True)
+                x_tensor = raw_outputs_type1_dict["list_of_original_inputs"]
+                y_tensor = raw_outputs_type1_dict["list_of_original_labels"]
+                assert np.array_equal(y_tensor, raw_outputs_type1_dict["list_of_labels"][0])
+                validation_loader = torch.utils.data.DataLoader(
+                    torch.utils.data.TensorDataset(x_tensor, y_tensor),
+                    shuffle=False, batch_size=self.model.batchSize)
+                raw_outputs_type2_dict = self.model.validate_v2(validation_loader,
+                                                                temperature=0.1,
+                                                                enforced_hard_routing_kind="EnforcedRouting",
+                                                                verbose=True)
+                Utilities.pickle_save_to_file(path=raw_outputs_file_path,
+                                              file_content={"raw_outputs_type1_dict": raw_outputs_type1_dict,
+                                                            "raw_outputs_type2_dict": raw_outputs_type2_dict})
+                print("X")
 
-                if isinstance(self.model, CigtIgGatherScatterImplementation):
-                    interpreted_output = self.interpret_gather_scatter_model_outputs(outputs_dict=raw_outputs_dict,
-                                                                                     dataloader=dataloader,
-                                                                                     validate_results=True)
-                else:
-                    raise NotImplementedError()
-
-                Utilities.pickle_save_to_file(path=output_file_path, file_content={
-                    "raw_outputs_dict": raw_outputs_dict, "interpreted_output": interpreted_output})
-
-            # Assert that the interpretation is correct.
-
-            network_outputs.append(interpreted_output)
-
-        complete_output = NetworkOutput()
-        for block_id in range(len(self.model.pathCounts) - 1):
-            assert len(set([n_o.routingActivationMatrices[block_id].shape[block_id + 1]
-                            for n_o in network_outputs])) == 1
-            total_arr = np.concatenate([n_o.routingActivationMatrices[block_id] for n_o in network_outputs],
-                                       axis=block_id + 1)
-            complete_output.routingActivationMatrices.append(total_arr)
-        assert len(set([n_o.logits[0].shape[len(self.model.pathCounts)] for n_o in network_outputs])) == 1
-        total_arr = np.concatenate([n_o.logits[0] for n_o in network_outputs], axis=len(self.model.pathCounts))
-        complete_output.logits.append(total_arr)
+        #     if os.path.isfile(raw_output_file_path):
+        #         epoch_results = Utilities.pickle_load_from_file(path=output_file_path)
+        #         raw_outputs_dict = epoch_results["raw_outputs_dict"]
+        #     else:
+        #         raw_outputs_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
+        #                                                enforced_hard_routing_kind="EnforcedRouting",
+        #                                                return_network_outputs=True, data_kind=data_kind)
+        #         Utilities.pickle_save_to_file(path=raw_output_file_path,
+        #                                       file_content={"raw_outputs_dict": raw_outputs_dict})
+        #         if isinstance(self.model, CigtIgGatherScatterImplementation):
+        #             interpreted_output = self.interpret_gather_scatter_model_outputs(outputs_dict=raw_outputs_dict,
+        #                                                                              dataloader=dataloader,
+        #                                                                              validate_results=True)
+        #         else:
+        #             raise NotImplementedError()
+        #
+        #         Utilities.pickle_save_to_file(path=output_file_path, file_content={
+        #             "raw_outputs_dict": raw_outputs_dict, "interpreted_output": interpreted_output})
+        #
+        #     # Assert that the interpretation is correct.
+        #
+        #     network_outputs.append(interpreted_output)
+        #
+        # complete_output = NetworkOutput()
+        # for block_id in range(len(self.model.pathCounts) - 1):
+        #     assert len(set([n_o.routingActivationMatrices[block_id].shape[block_id + 1]
+        #                     for n_o in network_outputs])) == 1
+        #     total_arr = np.concatenate([n_o.routingActivationMatrices[block_id] for n_o in network_outputs],
+        #                                axis=block_id + 1)
+        #     complete_output.routingActivationMatrices.append(total_arr)
+        # assert len(set([n_o.logits[0].shape[len(self.model.pathCounts)] for n_o in network_outputs])) == 1
+        # total_arr = np.concatenate([n_o.logits[0] for n_o in network_outputs], axis=len(self.model.pathCounts))
+        # complete_output.logits.append(total_arr)
 
         #     outputs_dict_v2 = self.model.validate_v2(loader=dataloader, epoch=0, temperature=0.1,
         #                                              enforced_hard_routing_kind="EnforcedRouting",
