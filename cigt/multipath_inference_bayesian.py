@@ -105,14 +105,16 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
     def merge_multiple_outputs(self, network_outputs):
         complete_output = NetworkOutput()
         for block_id in range(len(self.model.pathCounts) - 1):
-            assert len(set([n_o.routingActivationMatrices[block_id].shape[block_id + 1]
-                            for n_o in network_outputs])) == 1
+            batch_sizes = [n_o.routingActivationMatrices[block_id].shape[block_id + 1] for n_o in network_outputs]
+            assert len(set(batch_sizes)) == 1
             total_arr = np.concatenate([n_o.routingActivationMatrices[block_id] for n_o in network_outputs],
                                        axis=block_id + 1)
             complete_output.routingActivationMatrices.append(total_arr)
-        assert len(set([n_o.logits[0].shape[len(self.model.pathCounts)] for n_o in network_outputs])) == 1
+        batch_sizes = [n_o.logits[0].shape[len(self.model.pathCounts)] for n_o in network_outputs]
+        assert len(set(batch_sizes)) == 1
         total_arr = np.concatenate([n_o.logits[0] for n_o in network_outputs], axis=len(self.model.pathCounts))
         complete_output.logits.append(total_arr)
+        return complete_output
 
     def create_outputs(self, dataloader, repeat_count):
         network_outputs = []
@@ -148,101 +150,9 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             self.assert_gather_scatter_model_output_correctness(
                 network_output=interpreted_network_outputs,
                 results_dict2=raw_outputs_type2_dict)
-
-
-
-
-
-
-        #     if os.path.isfile(raw_output_file_path):
-        #         epoch_results = Utilities.pickle_load_from_file(path=output_file_path)
-        #         raw_outputs_dict = epoch_results["raw_outputs_dict"]
-        #     else:
-        #         raw_outputs_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
-        #                                                enforced_hard_routing_kind="EnforcedRouting",
-        #                                                return_network_outputs=True, data_kind=data_kind)
-        #         Utilities.pickle_save_to_file(path=raw_output_file_path,
-        #                                       file_content={"raw_outputs_dict": raw_outputs_dict})
-        #         if isinstance(self.model, CigtIgGatherScatterImplementation):
-        #             interpreted_output = self.interpret_gather_scatter_model_outputs(outputs_dict=raw_outputs_dict,
-        #                                                                              dataloader=dataloader,
-        #                                                                              validate_results=True)
-        #         else:
-        #             raise NotImplementedError()
-        #
-        #         Utilities.pickle_save_to_file(path=output_file_path, file_content={
-        #             "raw_outputs_dict": raw_outputs_dict, "interpreted_output": interpreted_output})
-        #
-        #     # Assert that the interpretation is correct.
-        #
-        #     network_outputs.append(interpreted_output)
-        #
-
-
-        #     outputs_dict_v2 = self.model.validate_v2(loader=dataloader, epoch=0, temperature=0.1,
-        #                                              enforced_hard_routing_kind="EnforcedRouting",
-        #                                              return_network_outputs=True, data_kind="test")
-        #
-        #     if isinstance(self.model, CigtIgGatherScatterImplementation):
-        #         network_output = self.interpret_gather_scatter_model_outputs(outputs_dict=outputs_dict)
-        #         network_outputs.append(network_output)
-        #     else:
-        #         raise NotImplementedError()
-        # complete_output = NetworkOutput()
-        # for block_id in range(len(self.model.pathCounts) - 1):
-        #     total_arr = np.concatenate([n_o.routingActivationMatrices[block_id] for n_o in network_outputs],
-        #                                axis=block_id + 1)
-        #     complete_output.routingActivationMatrices.append(total_arr)
-        # total_arr = np.concatenate([n_o.logits[0] for n_o in network_outputs], axis=len(self.model.pathCounts))
-        # complete_output.logits.append(total_arr)
-
-    # def create_outputs(self, dataloader, repeat_count):
-    #     max_branch_count = np.prod(self.model.pathCounts)
-    # for path_count in self.model.pathCounts[1:]:
-    #     self.model.enforcedRoutingMatrices.append(
-    #         torch.ones(size=(max_branch_count * self.model.batchSize, path_count), dtype=torch.int64))
-    #
-    # # def validate(self, loader, epoch, data_kind, temperature=None,
-    # #              enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
-    # #
-    # for epoch_id in range(repeat_count):
-    #     outputs_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
-    #                                        enforced_hard_routing_kind="EnforcedRouting",
-    #                                        return_network_outputs=True, data_kind="test")
-    #     print("X")
-
-    # def create_entropy_bounds(self):
-    #     self.optimization_bounds_continuous = {}
-    #     for layer_id, block_count in enumerate(self.model.pathCounts):
-    #         if layer_id == len(self.model.pathCounts) - 1:
-    #             break
-    #         max_entropy = (-np.log(1.0 / self.model.pathCounts[layer_id + 1])).item()
-    #         self.maxEntropies.append(max_entropy)
-    #         # Route combinations for that layer
-    #         routes_for_this_layer = set([tpl[:layer_id] for tpl in self.routeCombinations])
-    #         for route in routes_for_this_layer:
-    #             self.optimization_bounds_continuous[str(route)[1:-1]] = (0.0, self.maxEntropies[layer_id])
-
-    # DbLogger.write_into_table(rows=[(self.runId, explanation)], table=DbLogger.runMetaData)
-    # if not os.path.isdir(self.dataRootPath):
-    #     os.mkdir(self.dataRootPath)
-    # checkpoint = torch.load(self.checkpointPath, map_location="cpu")
-    # self.model.load_state_dict(state_dict=checkpoint["model_state_dict"])
-    # self.routeCombinations = None
-    # self.igResultsDict = None
-    # self.dataset0 = None
-    # self.dataset1 = None
-    # self.routingResultsDict = None
-    # self.allLabels = None
-    # self.routingActivationsListUnified = []
-    # self.logitsListUnified = None
-    # self.igRouteSelections = None
-    # self.labelCounters = []
-    # self.idealLabelRouteAssignments = {}
-    # self.correctlyRoutedSampleIndices = None
-    # self.incorrectlyRoutedSampleIndices = None
-    # self.maxEntropies = []
-    # self.entropyBoundsDict = {}
-    # self.optimalTemperatures = {}
-    # self.create_route_combinations()
-    # self.create_entropy_bounds()
+            network_outputs.append(interpreted_network_outputs)
+        if repeat_count > 1:
+            complete_output = self.merge_multiple_outputs(network_outputs=network_outputs)
+        else:
+            assert len(network_outputs) == 1
+            complete_output = network_outputs[0]
