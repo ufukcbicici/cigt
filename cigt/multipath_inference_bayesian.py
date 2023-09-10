@@ -69,7 +69,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 result_container = network_output.logits
                 results_array_shape = (*self.model.pathCounts[:(block_id + 1)], data_size, self.model.numClasses)
 
-            interpreted_results_array = np.zeros(shape=results_array_shape, dtype=np.float)
+            interpreted_results_array = np.zeros(shape=results_array_shape, dtype=np.float32)
             interpreted_results_array[:] = np.nan
             route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(block_id + 1)])
             batch_sizes = [len(outputs_dict["list_of_labels"][0][idx:idx + self.model.batchSize])
@@ -104,6 +104,10 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             for route in route_combinations:
                 sub_arr1 = arr_1[route]
                 sub_arr2 = arr_2[route]
+                assert sub_arr1.dtype == sub_arr2.dtype
+                num_distant_entries = np.sum(np.isclose(sub_arr1, sub_arr1, rtol=1e-3) == False)
+                ratio_of_distant_entries = num_distant_entries / np.prod(sub_arr1.shape)
+                print("ratio_of_distant_entries={0}".format(ratio_of_distant_entries))
                 assert np.allclose(sub_arr1, sub_arr2, rtol=1e-2)
 
     def merge_multiple_outputs(self, network_outputs):
