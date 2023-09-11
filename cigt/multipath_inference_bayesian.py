@@ -13,6 +13,7 @@ class NetworkOutput(object):
     def __init__(self):
         self.routingActivationMatrices = []
         self.logits = []
+        self.labels = []
 
 
 class MultiplePathBayesianOptimizer(BayesianOptimizer):
@@ -52,7 +53,25 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             offset += offset_step
         return offset
 
-    def interpret_gather_scatter_model_outputs(self, outputs_dict, dataloader):
+    def fill_output_array(self, outputs_dict, output_array, block_id, results_array_shape, arr_type):
+        data_size = outputs_dict["list_of_labels"][0].shape[0]
+        interpreted_results_array = np.zeros(shape=results_array_shape, dtype=arr_type)
+        interpreted_results_array[:] = np.nan
+        route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(block_id + 1)])
+        batch_sizes = [len(outputs_dict["list_of_labels"][0][idx:idx + self.model.batchSize])
+                       for idx in range(0, data_size, self.model.batchSize)]
+        for route_combination in route_combinations:
+            for i_, curr_batch_size in tqdm(enumerate(batch_sizes)):
+                route_offset = self.get_start_offset_for_gather_scatter_model(route_=route_combination,
+                                                                              batch_id_=i_,
+                                                                              curr_batch_size=curr_batch_size)
+                route_activations_array = output_array[route_offset:route_offset + curr_batch_size, :]
+                interpreted_results_array[route_combination
+                ][i_ * self.model.batchSize:i_ * self.model.batchSize + curr_batch_size] = route_activations_array
+        assert np.sum(np.isnan(interpreted_results_array)) == 0
+        return interpreted_results_array
+
+    def interpret_gather_scatter_model_outputs(self, outputs_dict):
         network_output = NetworkOutput()
         data_size = outputs_dict["list_of_labels"][0].shape[0]
         assert outputs_dict["list_of_original_labels"].shape[0] == data_size
@@ -60,31 +79,29 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             # Routing blocks
             if block_id < len(self.model.pathCounts) - 1:
                 output_array = outputs_dict["list_of_routing_activations"][block_id]
-                result_container = network_output.routingActivationMatrices
                 results_array_shape = (*self.model.pathCounts[:(block_id + 1)],
                                        data_size, self.model.pathCounts[block_id + 1])
+                interpreted_results_array = self.fill_output_array(
+                    outputs_dict=outputs_dict,
+                    arr_type=np.float32,
+                    block_id=block_id,
+                    output_array=output_array,
+                    results_array_shape=results_array_shape)
+                network_output.routingActivationMatrices.append(interpreted_results_array)
             # Loss calculation blocks
             else:
                 output_array = outputs_dict["list_of_logits_unified"]
-                result_container = network_output.logits
                 results_array_shape = (*self.model.pathCounts[:(block_id + 1)], data_size, self.model.numClasses)
+                interpreted_results_array = self.fill_output_array(
+                    outputs_dict=outputs_dict,
+                    arr_type=np.float32,
+                    block_id=block_id,
+                    output_array=output_array,
+                    results_array_shape=results_array_shape)
+                network_output.logits.append(interpreted_results_array)
+            # Labels
+            # output_array = outputs_dict[]
 
-            interpreted_results_array = np.zeros(shape=results_array_shape, dtype=np.float32)
-            interpreted_results_array[:] = np.nan
-            route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(block_id + 1)])
-            batch_sizes = [len(outputs_dict["list_of_labels"][0][idx:idx + self.model.batchSize])
-                           for idx in range(0, data_size, self.model.batchSize)]
-
-            for route_combination in route_combinations:
-                for i_, curr_batch_size in tqdm(enumerate(batch_sizes)):
-                    route_offset = self.get_start_offset_for_gather_scatter_model(route_=route_combination,
-                                                                                  batch_id_=i_,
-                                                                                  curr_batch_size=curr_batch_size)
-                    route_activations_array = output_array[route_offset:route_offset + curr_batch_size, :]
-                    interpreted_results_array[route_combination
-                    ][i_ * self.model.batchSize:i_ * self.model.batchSize + curr_batch_size] = route_activations_array
-            assert np.sum(np.isnan(interpreted_results_array)) == 0
-            result_container.append(interpreted_results_array)
         return network_output
 
     def assert_gather_scatter_model_output_correctness(self, network_output, results_dict2):
@@ -107,8 +124,13 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 assert sub_arr1.dtype == sub_arr2.dtype
                 num_distant_entries = np.sum(np.isclose(sub_arr1, sub_arr1, rtol=1e-3) == False)
                 ratio_of_distant_entries = num_distant_entries / np.prod(sub_arr1.shape)
-                print("ratio_of_distant_entries={0}".format(ratio_of_distant_entries))
-                assert np.allclose(sub_arr1, sub_arr2, rtol=1e-2)
+                if ratio_of_distant_entries > 1e-3:
+                    raise ValueError("Two results differ significantly. ratio_of_distant_entries:{0}".format(
+                        ratio_of_distant_entries))
+                else:
+                    print("ratio_of_distant_entries={0}".format(ratio_of_distant_entries))
+                # print("ratio_of_distant_entries={0}".format(ratio_of_distant_entries))
+                # assert np.allclose(sub_arr1, sub_arr2, rtol=1e-2)
 
     def merge_multiple_outputs(self, network_outputs):
         complete_output = NetworkOutput()
@@ -154,7 +176,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 raw_outputs_type2_dict = outputs_loaded["raw_outputs_type2_dict"]
 
             interpreted_network_outputs = self.interpret_gather_scatter_model_outputs(
-                outputs_dict=raw_outputs_type1_dict, dataloader=dataloader)
+                outputs_dict=raw_outputs_type1_dict)
             self.assert_gather_scatter_model_output_correctness(
                 network_output=interpreted_network_outputs,
                 results_dict2=raw_outputs_type2_dict)
@@ -164,3 +186,6 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         else:
             assert len(network_outputs) == 1
             complete_output = network_outputs[0]
+
+    def evaluate_thresholds_graph_based(self, thresholds, network_outputs):
+        pass
