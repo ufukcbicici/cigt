@@ -167,6 +167,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         routing_matrices_hard_dict = {(): routing_matrices_hard}
         routing_activations_dict = {(): routing_activations}
         logits_dict = {}
+        labels_dict = {(): labels}
 
         for layer_id, cigt_layer_blocks in enumerate(self.cigtLayers):
             past_route_combinations = Utilities.create_route_combinations(shape_=self.pathCounts[:layer_id])
@@ -176,6 +177,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                     block_output = block_obj(block_input)
                     output_id = tuple([*route_combination, block_id])
                     block_outputs_dict[output_id] = block_output
+                    labels_dict[output_id] = labels
+
                     if layer_id < len(self.cigtLayers) - 1:
                         p_n_given_x_soft, routing_activations = self.blockEndLayers[layer_id](block_output,
                                                                                               labels,
@@ -197,7 +200,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                         logits_dict[output_id] = logits
 
         return block_outputs_dict, routing_matrices_soft_dict, \
-            routing_matrices_hard_dict, routing_activations_dict, logits_dict
+            routing_matrices_hard_dict, routing_activations_dict, logits_dict, labels_dict
 
     def calculate_classification_loss_and_accuracy(self, list_of_logits, routing_matrices, target_var):
         assert isinstance(list_of_logits, list) and routing_matrices is None and isinstance(target_var, list)
@@ -425,6 +428,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         list_of_routing_activations = []
         list_of_logits_complete = []
         list_of_logits_unified = []
+        list_of_final_block_labels = []
         for _ in range(len(self.pathCounts) - 1):
             list_of_labels.append([])
             list_of_routing_probability_matrices.append([])
@@ -492,6 +496,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 list_of_logits_unified.append(layer_outputs[-1]["logits_unified"].detach().cpu().numpy())
                 list_of_original_inputs.append(input_.cpu().numpy())
                 list_of_original_labels.append(target.cpu().numpy())
+                list_of_final_block_labels.append(layer_outputs[-1]["labels"].detach().cpu().numpy())
 
                 # measure accuracy and record loss
                 losses.update(total_loss.detach().cpu().numpy().item(), 1)
@@ -515,6 +520,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         list_of_logits_unified = np.concatenate(list_of_logits_unified, axis=0)
         list_of_original_inputs = np.concatenate(list_of_original_inputs, axis=0)
         list_of_original_labels = np.concatenate(list_of_original_labels, axis=0)
+        list_of_final_block_labels = np.concatenate(list_of_final_block_labels, axis=0)
 
         self.calculate_branch_statistics(
             run_id=self.runId,
@@ -573,7 +579,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 "list_of_logits_complete": list_of_logits_complete,
                 "list_of_logits_unified": list_of_logits_unified,
                 "list_of_original_inputs": list_of_original_inputs,
-                "list_of_original_labels": list_of_original_labels
+                "list_of_original_labels": list_of_original_labels,
+                "list_of_final_block_labels": list_of_final_block_labels
             }
             return res_dict
 
@@ -589,6 +596,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         routing_matrices_hard_complete = {}
         routing_activations_complete = {}
         logits_complete = {}
+        labels_complete = {}
 
         if verbose is False:
             verbose_loader = enumerate(loader)
@@ -601,7 +609,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 batch_size = input_var.size(0)
                 # Cigt Classification Loss and Accuracy Calculation
                 block_outputs_dict, routing_matrices_soft_dict, \
-                    routing_matrices_hard_dict, routing_activations_dict, logits_dict = \
+                    routing_matrices_hard_dict, routing_activations_dict, logits_dict, labels_dict = \
                     self.forward_v2(input_var, target_var, temperature)
                 Utilities.append_to_dictionary(destination_dictionary=block_outputs_complete,
                                                source_dictionary=block_outputs_dict)
@@ -613,6 +621,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                                                source_dictionary=routing_activations_dict)
                 Utilities.append_to_dictionary(destination_dictionary=logits_complete,
                                                source_dictionary=logits_dict)
+                Utilities.append_to_dictionary(destination_dictionary=labels_complete,
+                                               source_dictionary=labels_dict)
 
         block_outputs_complete = Utilities.concat_all_arrays_in_dictionary(source_dictionary=block_outputs_complete)
         routing_matrices_soft_complete = Utilities.concat_all_arrays_in_dictionary(
@@ -623,13 +633,16 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
             source_dictionary=routing_activations_complete)
         logits_complete = Utilities.concat_all_arrays_in_dictionary(
             source_dictionary=logits_complete)
+        labels_complete = Utilities.concat_all_arrays_in_dictionary(
+            source_dictionary=labels_complete)
 
         res_dict = {
             "block_outputs_complete": block_outputs_complete,
             "routing_matrices_soft_complete": routing_matrices_soft_complete,
             "routing_matrices_hard_complete": routing_matrices_hard_complete,
             "routing_activations_complete": routing_activations_complete,
-            "logits_complete": logits_complete
+            "logits_complete": logits_complete,
+            "labels_complete": labels_complete
         }
 
         return res_dict
