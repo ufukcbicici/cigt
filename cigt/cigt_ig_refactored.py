@@ -181,6 +181,16 @@ class CigtIgHardRoutingX(nn.Module):
         kv_rows.append((self.runId, name_of_param, "{0}".format(value)))
         return explanation
 
+    def toggle_all_paths_routing(self, enable):
+        if enable:
+            self.enforcedRoutingMatrices = []
+            max_branch_count = np.prod(self.pathCounts)
+            for path_count in self.pathCounts[1:]:
+                self.enforcedRoutingMatrices.append(
+                    torch.ones(size=(max_branch_count * self.batchSize, path_count), dtype=torch.int64))
+        else:
+            self.enforcedRoutingMatrices = []
+
     # OK
     def get_explanation_string(self):
         kv_rows = []

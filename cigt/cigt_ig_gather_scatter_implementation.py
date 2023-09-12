@@ -411,8 +411,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         if write_to_db:
             DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
 
-    def validate(self, loader, epoch, data_kind, temperature=None,
-                 enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False,
+    def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False, return_network_outputs=False,
                  verbose=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()
@@ -584,7 +583,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
             }
             return res_dict
 
-    def validate_v2(self, loader, temperature=None, enforced_hard_routing_kind=None, verbose=False):
+    def validate_v2(self, loader, temperature=None, verbose=False):
         if temperature is None:
             temperature = self.temperatureController.get_value()
 

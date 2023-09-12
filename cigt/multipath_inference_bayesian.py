@@ -34,11 +34,6 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             test_acc = self.model.validate(data_kind="test", epoch=0, loader=self.testDataset, temperature=0.1,
                                            verbose=True)
             print("Standard test accuracy:{0}".format(test_acc))
-
-        for path_count in self.model.pathCounts[1:]:
-            self.model.enforcedRoutingMatrices.append(
-                torch.ones(size=(max_branch_count * self.model.batchSize, path_count), dtype=torch.int64))
-
         # self.assert_gather_scatter_model_output_correctness(dataloader=self.testDataset, repeat_count=1)
         self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
         self.create_outputs(dataloader=self.testDataset, repeat_count=1)
@@ -65,7 +60,10 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 route_offset = self.get_start_offset_for_gather_scatter_model(route_=route_combination,
                                                                               batch_id_=i_,
                                                                               curr_batch_size=curr_batch_size)
-                route_activations_array = output_array[route_offset:route_offset + curr_batch_size, :]
+                if len(output_array.shape) > 1:
+                    route_activations_array = output_array[route_offset:route_offset + curr_batch_size, :]
+                else:
+                    route_activations_array = output_array[route_offset:route_offset + curr_batch_size]
                 interpreted_results_array[route_combination
                 ][i_ * self.model.batchSize:i_ * self.model.batchSize + curr_batch_size] = route_activations_array
         assert np.sum(np.isnan(interpreted_results_array)) == 0
@@ -101,7 +99,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 network_output.logits.append(interpreted_results_array)
                 # Labels
                 output_array = outputs_dict["list_of_final_block_labels"]
-                results_array_shape = (*self.model.pathCounts[:(block_id + 1)], data_size, )
+                results_array_shape = (*self.model.pathCounts[:(block_id + 1)], data_size,)
                 interpreted_results_array = self.fill_output_array(
                     outputs_dict=outputs_dict,
                     arr_type=np.float32,
@@ -171,8 +169,9 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             print("Processing Data:{0} Epoch:{1}".format(data_kind, epoch_id))
             raw_outputs_file_path = "{0}_{1}_raw_outputs_dict.sav".format(data_kind, epoch_id)
             if not os.path.isfile(raw_outputs_file_path):
+                # Get outputs from multiple path execution (Type 1)
+                self.model.toggle_all_paths_routing(enable=True)
                 raw_outputs_type1_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
-                                                             enforced_hard_routing_kind="EnforcedRouting",
                                                              return_network_outputs=True, data_kind=data_kind,
                                                              verbose=True)
                 x_tensor = raw_outputs_type1_dict["list_of_original_inputs"]
@@ -181,13 +180,25 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 validation_loader = torch.utils.data.DataLoader(
                     torch.utils.data.TensorDataset(torch.from_numpy(x_tensor), torch.from_numpy(y_tensor)),
                     shuffle=False, batch_size=self.model.batchSize)
+
+                # Get outputs from IG execution
+                self.model.toggle_all_paths_routing(enable=False)
+                ig_outputs_dict = self.model.validate(loader=dataloader, epoch=0, temperature=0.1,
+                                                      return_network_outputs=True, data_kind=data_kind,
+                                                      verbose=True)
+                ig_accuracy = ig_outputs_dict["accuracy"]
+
+                # Get outputs from graph based execution (Type 2)
+                self.model.toggle_all_paths_routing(enable=True)
                 raw_outputs_type2_dict = self.model.validate_v2(validation_loader,
                                                                 temperature=0.1,
-                                                                enforced_hard_routing_kind="EnforcedRouting",
                                                                 verbose=True)
+
+                # Save the outputs
                 Utilities.pickle_save_to_file(path=raw_outputs_file_path,
                                               file_content={"raw_outputs_type1_dict": raw_outputs_type1_dict,
-                                                            "raw_outputs_type2_dict": raw_outputs_type2_dict})
+                                                            "raw_outputs_type2_dict": raw_outputs_type2_dict,
+                                                            "ig_accuracy": ig_accuracy})
             else:
                 outputs_loaded = Utilities.pickle_load_from_file(raw_outputs_file_path)
                 raw_outputs_type1_dict = outputs_loaded["raw_outputs_type1_dict"]
@@ -199,11 +210,11 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 network_output=interpreted_network_outputs,
                 results_dict2=raw_outputs_type2_dict)
             network_outputs.append(interpreted_network_outputs)
-        if repeat_count > 1:
-            complete_output = self.merge_multiple_outputs(network_outputs=network_outputs)
-        else:
-            assert len(network_outputs) == 1
-            complete_output = network_outputs[0]
+        # if repeat_count > 1:
+        #     complete_output = self.merge_multiple_outputs(network_outputs=network_outputs)
+        # else:
+        #     assert len(network_outputs) == 1
+        #     complete_output = network_outputs[0]
 
     def evaluate_thresholds_graph_based(self, thresholds, network_outputs):
         pass

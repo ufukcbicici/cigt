@@ -252,7 +252,7 @@ class CigtIgWithKnowledgeDistillation(CigtIgHardRoutingX):
         return batch_time.avg
 
     def validate(self, loader, epoch, data_kind, temperature=None,
-                 enforced_hard_routing_kind=None, print_avg_measurements=False, return_network_outputs=False):
+                 print_avg_measurements=False, return_network_outputs=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()
         losses = AverageMeter()
