@@ -98,7 +98,7 @@ if __name__ == "__main__":
                              "checkpoints/dblogger2_94_epoch1390.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
@@ -106,17 +106,20 @@ if __name__ == "__main__":
         model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
         num_classes=10,
         configs=Cifar10ResnetCigtConfigs)
+    model.to(model.device)
     model.execute_forward_with_random_input()
+
     model_mac = CigtIgGatherScatterImplementation(
         run_id=run_id,
         model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
         num_classes=10,
         configs=Cifar10ResnetCigtConfigs)
+    model_mac.to(model_mac.device)
     model_mac.execute_forward_with_random_input()
 
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    checkpoint = torch.load(chck_path, map_location="cpu")
+    checkpoint = torch.load(chck_path)
     model.load_state_dict(state_dict=checkpoint["model_state_dict"])
     model_mac.load_state_dict(state_dict=checkpoint["model_state_dict"])
 

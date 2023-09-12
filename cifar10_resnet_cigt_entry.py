@@ -1,4 +1,5 @@
 import torch
+import os
 from randaugment import RandAugment
 from torchvision import transforms, datasets
 
@@ -15,9 +16,9 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
-    weight_decay = 10 * [0.0005]
+    weight_decay = 10 * [0.0004]
     weight_decay = sorted(weight_decay)
 
     param_grid = Utilities.get_cartesian_product(list_of_lists=[weight_decay])
@@ -34,14 +35,14 @@ if __name__ == "__main__":
         Cifar10ResnetCigtConfigs.classification_wd = param_tpl[0]
         Cifar10ResnetCigtConfigs.information_gain_balance_coeff_list = [5.0, 5.0]
         Cifar10ResnetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-        Cifar10ResnetCigtConfigs.enable_information_gain_during_warm_up = False
-        Cifar10ResnetCigtConfigs.enable_strict_routing_randomization = True
+        Cifar10ResnetCigtConfigs.enable_information_gain_during_warm_up = True
+        Cifar10ResnetCigtConfigs.enable_strict_routing_randomization = False
         Cifar10ResnetCigtConfigs.routing_randomization_ratio = 0.5
-        Cifar10ResnetCigtConfigs.warm_up_kind = "FullRouting"
+        Cifar10ResnetCigtConfigs.warm_up_kind = "RandomRouting"
         Cifar10ResnetCigtConfigs.decision_drop_probability = 0.5
-        Cifar10ResnetCigtConfigs.number_of_cbam_layers_in_routing_layers = 6
+        Cifar10ResnetCigtConfigs.number_of_cbam_layers_in_routing_layers = 3
         Cifar10ResnetCigtConfigs.cbam_reduction_ratio = 4
-        Cifar10ResnetCigtConfigs.cbam_layer_input_reduction_ratio = 0
+        Cifar10ResnetCigtConfigs.cbam_layer_input_reduction_ratio = 4
         Cifar10ResnetCigtConfigs.apply_relu_dropout_to_decision_layer = False
         Cifar10ResnetCigtConfigs.decision_dimensions = [128, 128]
         Cifar10ResnetCigtConfigs.apply_mask_to_batch_norm = False
@@ -89,7 +90,7 @@ if __name__ == "__main__":
             ])
 
         # Cifar 10 Dataset
-        kwargs = {'num_workers': 0, 'pin_memory': True}
+        kwargs = {'num_workers': 2, 'pin_memory': True}
         train_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10('../data', train=True, download=True, transform=transform_train),
             batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
@@ -149,11 +150,19 @@ if __name__ == "__main__":
             model_definition="Vanilla With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
             num_classes=10,
             configs=Cifar10ResnetCigtConfigs)
+        model.to(model.device)
+        model.execute_forward_with_random_input()
+        chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
+                                 "checkpoints/cigtlogger2_75_epoch1575.pth")
+        checkpoint = torch.load(chck_path)
+        model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
         # model = CigtIdealRouting()
 
-        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_jr
+        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_tetam
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        model.fit(train_loader=train_loader, test_loader=test_loader)
+        model.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
+        model.validate(loader=test_loader, data_kind="test", epoch=0, temperature=0.1)
+        # model.fit(train_loader=train_loader, test_loader=test_loader)

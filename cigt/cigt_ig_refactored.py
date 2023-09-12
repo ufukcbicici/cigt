@@ -187,7 +187,7 @@ class CigtIgHardRoutingX(nn.Module):
             max_branch_count = np.prod(self.pathCounts)
             for path_count in self.pathCounts[1:]:
                 self.enforcedRoutingMatrices.append(
-                    torch.ones(size=(max_branch_count * self.batchSize, path_count), dtype=torch.int64))
+                    torch.ones(size=(max_branch_count * self.batchSize, path_count), dtype=torch.int64).to(self.device))
         else:
             self.enforcedRoutingMatrices = []
 
