@@ -16,7 +16,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db
+    DbLogger.log_db_path = DbLogger.home_asus
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 10 * [0.0004]
     weight_decay = sorted(weight_decay)
@@ -154,12 +154,12 @@ if __name__ == "__main__":
         model.execute_forward_with_random_input()
         chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
                                  "checkpoints/cigtlogger2_75_epoch1575.pth")
-        checkpoint = torch.load(chck_path)
+        checkpoint = torch.load(chck_path, map_location=model.device)
         model.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
         # model = CigtIdealRouting()
 
-        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_tetam
+        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_asus
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 

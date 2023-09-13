@@ -94,11 +94,10 @@ if __name__ == "__main__":
         datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
         batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
-    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                             "checkpoints/dblogger2_94_epoch1390.pth")
-    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
+    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
+    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
 
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db
+    DbLogger.log_db_path = DbLogger.home_asus
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
@@ -119,7 +118,7 @@ if __name__ == "__main__":
 
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    checkpoint = torch.load(chck_path)
+    checkpoint = torch.load(chck_path, map_location=model.device)
     model.load_state_dict(state_dict=checkpoint["model_state_dict"])
     model_mac.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
