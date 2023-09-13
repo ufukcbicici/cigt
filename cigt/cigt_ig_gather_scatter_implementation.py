@@ -636,7 +636,7 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
             source_dictionary=labels_complete)
 
         res_dict = {
-            "block_outputs_complete": block_outputs_complete,
+            # "block_outputs_complete": block_outputs_complete,
             "routing_matrices_soft_complete": routing_matrices_soft_complete,
             "routing_matrices_hard_complete": routing_matrices_hard_complete,
             "routing_activations_complete": routing_activations_complete,

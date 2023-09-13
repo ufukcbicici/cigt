@@ -271,3 +271,12 @@ class Utilities:
             assert isinstance(v, list)
             res_dict[k] = np.concatenate(v, axis=0)
         return res_dict
+
+    @staticmethod
+    def calculate_entropy_from_activations(activations, temperature):
+        eps = 1e-30
+        routing_probs = torch.softmax(torch.from_numpy(activations / temperature), dim=1).numpy()
+        log_routing_probs = np.log(routing_probs + eps)
+        prob_log_prob = routing_probs * log_routing_probs
+        entropies = -1.0 * np.sum(prob_log_prob, axis=1)
+        return entropies

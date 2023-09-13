@@ -2,7 +2,9 @@ import os.path
 
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 from auxillary.bayesian_optimizer import BayesianOptimizer
+from auxillary.softmax_temperature_optimizer import SoftmaxTemperatureOptimizer
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
@@ -14,6 +16,7 @@ class NetworkOutput(object):
         self.routingActivationMatrices = []
         self.logits = []
         self.labels = []
+        self.optimalTemperatures = []
 
 
 class MultiplePathBayesianOptimizer(BayesianOptimizer):
@@ -30,6 +33,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         self.optimization_bounds_continuous = {}
         self.model = model
         max_branch_count = np.prod(self.model.pathCounts)
+        self.create_entropy_bounds()
         if evaluate_network_first:
             test_acc = self.model.validate(data_kind="test", epoch=0, loader=self.testDataset, temperature=0.1,
                                            verbose=True)
@@ -37,6 +41,18 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         # self.assert_gather_scatter_model_output_correctness(dataloader=self.testDataset, repeat_count=1)
         self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
         self.create_outputs(dataloader=self.testDataset, repeat_count=1)
+
+    def create_entropy_bounds(self):
+        self.optimization_bounds_continuous = {}
+        for layer_id, block_count in enumerate(self.model.pathCounts):
+            if layer_id == len(self.model.pathCounts) - 1:
+                break
+            max_entropy = (-np.log(1.0 / self.model.pathCounts[layer_id + 1])).item()
+            self.maxEntropies.append(max_entropy)
+            # Route combinations for that layer
+            routes_for_this_layer = set([tpl[:layer_id] for tpl in self.routeCombinations])
+            for route in routes_for_this_layer:
+                self.optimization_bounds_continuous[str(route)[1:-1]] = (0.0, self.maxEntropies[layer_id])
 
     def get_start_offset_for_gather_scatter_model(self, route_, batch_id_, curr_batch_size):
         path_list = list(zip(list(range(len(route_))), route_))
@@ -215,6 +231,33 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         # else:
         #     assert len(network_outputs) == 1
         #     complete_output = network_outputs[0]
+
+    def optimize_routing_temperatures(self, complete_output):
+        for layer_id in range(len(self.model.pathCounts) - 1):
+            route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(layer_id + 1)])
+            for route_combination in route_combinations:
+                routing_activations = complete_output.routingActivationMatrices[layer_id][route_combination]
+                temperature_optimizer = SoftmaxTemperatureOptimizer()
+                entropies_before \
+                    = Utilities.calculate_entropy_from_activations(activations=routing_activations,
+                                                                   temperature=1.0)
+                temperature = temperature_optimizer.run(routing_activations=routing_activations)
+                entropies_after \
+                    = Utilities.calculate_entropy_from_activations(activations=routing_activations,
+                                                                   temperature=temperature)
+                # fig, ax = plt.subplots(2, 1)
+                # ax[0].set_title("Entropies [{0},{1}] with temperature 1.0".format(layer_id, route_combination))
+                # ax[0].hist(entropies_before, density=False, histtype='stepfilled',
+                #            alpha=1.0, bins=100, range=(0, self.maxEntropies[p_id]))
+                # ax[0].legend(loc='best', frameon=False)
+                # ax[1].set_title("Entropies [{0},{1}] with temperature {1}".format(layer_id, route_combination))
+                # ax[1].hist(entropies_after, density=False, histtype='stepfilled',
+                #            alpha=1.0, bins=100, range=(0, self.maxEntropies[p_id]))
+                # ax[1].legend(loc='best', frameon=False)
+                #
+                # plt.tight_layout()
+                # plt.show()
+                # plt.close()
 
     def evaluate_thresholds_graph_based(self, thresholds, network_outputs):
         pass

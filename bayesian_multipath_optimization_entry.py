@@ -97,7 +97,7 @@ if __name__ == "__main__":
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
 
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
@@ -119,8 +119,8 @@ if __name__ == "__main__":
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
     checkpoint = torch.load(chck_path, map_location=model.device)
-    model.load_state_dict(state_dict=checkpoint["model_state_dict"])
-    model_mac.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    model_load_results = model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    model_load_results_mac = model_mac.load_state_dict(state_dict=checkpoint["model_state_dict"])
 
     # total_parameter_count = model.get_total_parameter_count()
     mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model_mac)
