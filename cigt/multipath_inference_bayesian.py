@@ -33,7 +33,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         self.optimization_bounds_continuous = {}
         self.model = model
         max_branch_count = np.prod(self.model.pathCounts)
-        self.create_entropy_bounds()
+        self.calculate_max_entropies()
         if evaluate_network_first:
             test_acc = self.model.validate(data_kind="test", epoch=0, loader=self.testDataset, temperature=0.1,
                                            verbose=True)
@@ -42,17 +42,13 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
         self.create_outputs(dataloader=self.testDataset, repeat_count=1)
 
-    def create_entropy_bounds(self):
+    def calculate_max_entropies(self):
         self.optimization_bounds_continuous = {}
         for layer_id, block_count in enumerate(self.model.pathCounts):
             if layer_id == len(self.model.pathCounts) - 1:
                 break
             max_entropy = (-np.log(1.0 / self.model.pathCounts[layer_id + 1])).item()
             self.maxEntropies.append(max_entropy)
-            # Route combinations for that layer
-            routes_for_this_layer = set([tpl[:layer_id] for tpl in self.routeCombinations])
-            for route in routes_for_this_layer:
-                self.optimization_bounds_continuous[str(route)[1:-1]] = (0.0, self.maxEntropies[layer_id])
 
     def get_start_offset_for_gather_scatter_model(self, route_, batch_id_, curr_batch_size):
         path_list = list(zip(list(range(len(route_))), route_))
@@ -226,38 +222,64 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 network_output=interpreted_network_outputs,
                 results_dict2=raw_outputs_type2_dict)
             network_outputs.append(interpreted_network_outputs)
-        # if repeat_count > 1:
-        #     complete_output = self.merge_multiple_outputs(network_outputs=network_outputs)
-        # else:
-        #     assert len(network_outputs) == 1
-        #     complete_output = network_outputs[0]
+
+        # Merge all outputs into a single object
+        if repeat_count > 1:
+            complete_output = self.merge_multiple_outputs(network_outputs=network_outputs)
+        else:
+            assert len(network_outputs) == 1
+            complete_output = network_outputs[0]
+
+        # Calculate optimal temperatures for routing probabilities
+        self.optimize_routing_temperatures(complete_output=complete_output)
+        print("X")
 
     def optimize_routing_temperatures(self, complete_output):
         for layer_id in range(len(self.model.pathCounts) - 1):
             route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(layer_id + 1)])
+            results_array_shape = (*self.model.pathCounts[:(layer_id + 1)],)
+            temperature_array = np.zeros(shape=results_array_shape)
+            temperature_array[:] = np.nan
             for route_combination in route_combinations:
                 routing_activations = complete_output.routingActivationMatrices[layer_id][route_combination]
                 temperature_optimizer = SoftmaxTemperatureOptimizer()
-                entropies_before \
+                entropies_before_low \
                     = Utilities.calculate_entropy_from_activations(activations=routing_activations,
                                                                    temperature=1.0)
                 temperature = temperature_optimizer.run(routing_activations=routing_activations)
                 entropies_after \
                     = Utilities.calculate_entropy_from_activations(activations=routing_activations,
                                                                    temperature=temperature)
-                # fig, ax = plt.subplots(2, 1)
-                # ax[0].set_title("Entropies [{0},{1}] with temperature 1.0".format(layer_id, route_combination))
-                # ax[0].hist(entropies_before, density=False, histtype='stepfilled',
-                #            alpha=1.0, bins=100, range=(0, self.maxEntropies[p_id]))
-                # ax[0].legend(loc='best', frameon=False)
-                # ax[1].set_title("Entropies [{0},{1}] with temperature {1}".format(layer_id, route_combination))
-                # ax[1].hist(entropies_after, density=False, histtype='stepfilled',
-                #            alpha=1.0, bins=100, range=(0, self.maxEntropies[p_id]))
-                # ax[1].legend(loc='best', frameon=False)
-                #
-                # plt.tight_layout()
-                # plt.show()
-                # plt.close()
+                entropies_before_high \
+                    = Utilities.calculate_entropy_from_activations(activations=routing_activations,
+                                                                   temperature=temperature * 3.0)
+                fig, ax = plt.subplots(3, 1)
+                ax[0].set_title("Entropies [{0},{1}] with temperature 1.0".format(layer_id, route_combination))
+                ax[0].hist(entropies_before_low, density=False, histtype='stepfilled',
+                           alpha=1.0, bins=100, range=(0, self.maxEntropies[layer_id]))
+                ax[0].legend(loc='best', frameon=False)
+
+                ax[1].set_title("Entropies [{0},{1}] with temperature {2}".format(layer_id, route_combination,
+                                                                                  temperature))
+                ax[1].hist(entropies_after, density=False, histtype='stepfilled',
+                           alpha=1.0, bins=100, range=(0, self.maxEntropies[layer_id]))
+                ax[1].legend(loc='best', frameon=False)
+
+                ax[2].set_title("Entropies [{0},{1}] with temperature {2}".format(layer_id, route_combination,
+                                                                                  temperature * 3.0))
+                ax[2].hist(entropies_before_high, density=False, histtype='stepfilled',
+                           alpha=1.0, bins=100, range=(0, self.maxEntropies[layer_id]))
+                ax[2].legend(loc='best', frameon=False)
+
+                plt.tight_layout()
+                plt.show()
+                plt.close()
+
+                temperature_array[route_combination] = temperature
+
+            assert np.sum(np.isnan(temperature_array)) == 0
+
+            complete_output.optimalTemperatures.append(temperature_array)
 
     def evaluate_thresholds_graph_based(self, thresholds, network_outputs):
         pass
