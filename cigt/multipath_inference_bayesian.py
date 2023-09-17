@@ -1,4 +1,6 @@
 import os.path
+from collections import deque
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -17,6 +19,7 @@ class NetworkOutput(object):
         self.logits = []
         self.labels = []
         self.optimalTemperatures = []
+        self.igAccuracy = None
 
 
 class MultiplePathBayesianOptimizer(BayesianOptimizer):
@@ -81,7 +84,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         assert np.sum(np.isnan(interpreted_results_array)) == 0
         return interpreted_results_array
 
-    def interpret_gather_scatter_model_outputs(self, outputs_dict):
+    def interpret_gather_scatter_model_outputs(self, outputs_dict, ig_accuracy):
         network_output = NetworkOutput()
         data_size = outputs_dict["list_of_labels"][0].shape[0]
         assert outputs_dict["list_of_original_labels"].shape[0] == data_size
@@ -120,6 +123,8 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                     results_array_shape=results_array_shape)
                 interpreted_results_array = interpreted_results_array.astype(np.int64)
                 network_output.labels.append(interpreted_results_array)
+
+        network_output.igAccuracy = ig_accuracy
         return network_output
 
     def assert_gather_scatter_model_output_correctness(self, network_output, results_dict2):
@@ -170,8 +175,18 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             complete_output.routingActivationMatrices.append(total_arr)
         batch_sizes = [n_o.logits[0].shape[len(self.model.pathCounts)] for n_o in network_outputs]
         assert len(set(batch_sizes)) == 1
-        total_arr = np.concatenate([n_o.logits[0] for n_o in network_outputs], axis=len(self.model.pathCounts))
-        complete_output.logits.append(total_arr)
+        total_logits = np.concatenate([n_o.logits[0] for n_o in network_outputs], axis=len(self.model.pathCounts))
+        complete_output.logits.append(total_logits)
+        total_labels = np.concatenate([n_o.labels[0] for n_o in network_outputs], axis=len(self.model.pathCounts))
+        complete_output.labels.append(total_labels)
+
+        total_accuracy = 0.0
+        for n_idx in range(len(network_outputs)):
+            batch_size = network_outputs[n_idx].logits[0].shape[len(self.model.pathCounts)]
+            weight = batch_size / sum(batch_sizes)
+            total_accuracy += weight * network_outputs[n_idx].igAccuracy
+
+        complete_output.igAccuracy = total_accuracy
         return complete_output
 
     def create_outputs(self, dataloader, repeat_count):
@@ -215,9 +230,10 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 outputs_loaded = Utilities.pickle_load_from_file(raw_outputs_file_path)
                 raw_outputs_type1_dict = outputs_loaded["raw_outputs_type1_dict"]
                 raw_outputs_type2_dict = outputs_loaded["raw_outputs_type2_dict"]
+                ig_accuracy = outputs_loaded["ig_accuracy"]
 
             interpreted_network_outputs = self.interpret_gather_scatter_model_outputs(
-                outputs_dict=raw_outputs_type1_dict)
+                outputs_dict=raw_outputs_type1_dict, ig_accuracy=ig_accuracy)
             self.assert_gather_scatter_model_output_correctness(
                 network_output=interpreted_network_outputs,
                 results_dict2=raw_outputs_type2_dict)
@@ -232,6 +248,8 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
 
         # Calculate optimal temperatures for routing probabilities
         self.optimize_routing_temperatures(complete_output=complete_output)
+        self.evaluate_thresholds_graph_based(thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
+                                             outputs=complete_output)
         print("X")
 
     def optimize_routing_temperatures(self, complete_output):
@@ -281,5 +299,77 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
 
             complete_output.optimalTemperatures.append(temperature_array)
 
-    def evaluate_thresholds_graph_based(self, thresholds, network_outputs):
-        pass
+    def evaluate_thresholds_graph_based(self, thresholds, outputs):
+        data_size = outputs.logits[0].shape[len(self.model.pathCounts)]
+        validness_vector = []
+        mac_cost_vector = []
+        # Single path mac cost
+        single_path_mac_cost = sum([sum(d_.values()) for d_ in self.macCountsPerBlock])
+        for sample_idx in tqdm(range(data_size)):
+            sample_history = []
+            ig_path = []
+            # Always execute the ig path.
+            ig_block = (0,)
+            blocks_to_execute_in_this_layer = {(0,)}
+            for layer_id in range(len(self.model.pathCounts)):
+                # We will use sample history to count the number of executions through the network
+                sample_history.append(deepcopy(blocks_to_execute_in_this_layer))
+                ig_path.append(ig_block)
+                block_to_execute_next_layer = set()
+                # Routing layers
+                if layer_id < len(self.model.pathCounts) - 1:
+                    for block_id in blocks_to_execute_in_this_layer:
+                        tpl = (*block_id, sample_idx)
+                        routing_activations = outputs.routingActivationMatrices[layer_id][tpl]
+                        temperature = outputs.optimalTemperatures[layer_id][block_id]
+                        routing_activations_tempered = routing_activations / temperature
+                        routing_probabilities = torch.softmax(
+                            torch.from_numpy(np.expand_dims(routing_activations_tempered, axis=0)), dim=1).numpy()
+                        routing_probabilities = np.squeeze(routing_probabilities)
+                        layer_thresholds = thresholds[layer_id]
+                        assert len(routing_probabilities) == len(layer_thresholds)
+                        for i__ in range(len(routing_probabilities)):
+                            prob = routing_probabilities[i__]
+                            thresh = layer_thresholds[i__]
+                            if prob >= thresh:
+                                block_to_execute_next_layer.add((*block_id, i__))
+                        # Add block of maximum probability if this block is on the ig path.
+                        if block_id == ig_block:
+                            ig_index = np.argmax(routing_probabilities)
+                            # Change the ig block
+                            ig_block = (*block_id, ig_index.item())
+                            block_to_execute_next_layer.add(ig_block)
+                    blocks_to_execute_in_this_layer = block_to_execute_next_layer
+                    assert len(ig_block) == layer_id + 2
+                # Loss layers
+                else:
+                    logits_arr = []
+                    labels_arr = []
+                    for block_id in blocks_to_execute_in_this_layer:
+                        tpl = (*block_id, sample_idx)
+                        logits = outputs.logits[0][tpl]
+                        label = outputs.labels[0][tpl]
+                        logits_arr.append(logits)
+                        labels_arr.append(label)
+                    assert len(set(labels_arr)) == 1
+                    gt_label = list(set(labels_arr))[0]
+                    # Combine the logits, calculate the accuracy
+                    logits_arr = np.stack(logits_arr, axis=0)
+                    posteriors_arr = torch.softmax(torch.from_numpy(logits_arr), dim=1).numpy()
+                    posteriors_ensemble = np.mean(posteriors_arr, axis=0)
+                    print("At this stage we can evaluate the sample.")
+                    predicted_label = np.argmax(posteriors_ensemble)
+                    validness_vector.append(predicted_label.item() == gt_label.item())
+                    # Count the executed blocks and their mac costs
+                    mac_count_for_thresholds = [
+                        len(blocks_executed_per_layer) * sum(self.macCountsPerBlock[bi].values())
+                        for bi, blocks_executed_per_layer in enumerate(sample_history)]
+                    total_mac = sum(mac_count_for_thresholds)
+                    mac_ratio = total_mac / single_path_mac_cost
+                    mac_cost_vector.append(mac_ratio)
+
+                # route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(layer_id + 1)])
+                # block_id_to_execute = block_list.popleft()
+
+                # routing_activations = outputs.routingActivationMatrices[layer_id][sample_idx]
+                # temperature = outputs
