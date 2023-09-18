@@ -42,8 +42,9 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                                            verbose=True)
             print("Standard test accuracy:{0}".format(test_acc))
         # self.assert_gather_scatter_model_output_correctness(dataloader=self.testDataset, repeat_count=1)
-        self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
-        self.create_outputs(dataloader=self.testDataset, repeat_count=1)
+        train_outputs = self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
+        test_outputs = self.create_outputs(dataloader=self.testDataset, repeat_count=1,
+                                           optimal_temperatures=train_outputs.optimalTemperatures)
 
     def calculate_max_entropies(self):
         self.optimization_bounds_continuous = {}
@@ -189,7 +190,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         complete_output.igAccuracy = total_accuracy
         return complete_output
 
-    def create_outputs(self, dataloader, repeat_count):
+    def create_outputs(self, dataloader, repeat_count, optimal_temperatures=None):
         network_outputs = []
         data_kind = "test" if not dataloader.dataset.train else "train"
         for epoch_id in range(repeat_count):
@@ -247,13 +248,28 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             complete_output = network_outputs[0]
 
         # Calculate optimal temperatures for routing probabilities
-        self.optimize_routing_temperatures(complete_output=complete_output)
-        # accuracy, mac_cost = \
-        #     self.evaluate_thresholds_graph_based(thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
-        #                                          outputs=complete_output)
-        self.evaluate_thresholds_array_based(thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
-                                             outputs=complete_output)
+        if optimal_temperatures is None:
+            self.optimize_routing_temperatures(complete_output=complete_output)
+        else:
+            complete_output.optimalTemperatures = optimal_temperatures
+
+        accuracy_graph, mac_cost_graph = \
+            self.evaluate_thresholds_graph_based(
+                thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
+                outputs=complete_output)
+        accuracy_vector, mac_cost_vector = self.evaluate_thresholds_array_based(
+            thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
+            outputs=complete_output)
         print("X")
+
+        accuracy_graph_ig, mac_cost_graph_ig = \
+            self.evaluate_thresholds_graph_based(
+                thresholds=[[10.0, 10.0], [10.0, 10.0, 10.0, 10.0]],
+                outputs=complete_output)
+        accuracy_vector_ig, mac_cost_vector_ig = self.evaluate_thresholds_array_based(
+            thresholds=[[10.0, 10.0], [10.0, 10.0, 10.0, 10.0]],
+            outputs=complete_output)
+        return complete_output
 
     def optimize_routing_temperatures(self, complete_output):
         for layer_id in range(len(self.model.pathCounts) - 1):
@@ -377,6 +393,9 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
     def evaluate_thresholds_array_based(self, thresholds, outputs):
         data_size = outputs.logits[0].shape[len(self.model.pathCounts)]
         routing_matrices_dict = {(): np.ones(shape=(data_size, 1), dtype=np.bool)}
+        path_history_dict = {}
+        # Single path mac cost
+        single_path_mac_cost = sum([sum(d_.values()) for d_ in self.macCountsPerBlock])
         for layer_id in range(len(self.model.pathCounts)):
             route_combinations = Utilities.create_route_combinations(shape_=
                                                                      self.model.pathCounts[:(layer_id + 1)])
@@ -393,7 +412,8 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                     ig_routing_matrix = np.zeros_like(routing_activations)
                     ig_routing_matrix[np.arange(ig_routing_matrix.shape[0]), ig_indices] = 1.0
                     # Calculate the routing matrix based on probability thresholds
-                    threshold_routing_matrix = routing_probabilities >= np.expand_dims(layer_thresholds, axis=0)
+                    threshold_routing_matrix = routing_probabilities >= np.expand_dims(np.array(layer_thresholds),
+                                                                                       axis=0)
                     # Apply logical or to both ig_routing_matrix and threshold_routing_matrix,
                     # so that routing is always done through the ig path plus the routes where threshold values are
                     # below the routing probabilities.
@@ -403,14 +423,60 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                     # Get the parent routing result
                     parent_route = route_combination[:-1]
                     parent_routing_matrix = routing_matrices_dict[parent_route]
-                    parent_routing_vector = parent_routing_matrix[:, route_combination[-1]]
-                    final_routing_matrix = final_routing_matrix * parent_routing_vector
+                    child_index_in_parent = route_combination[-1]
+                    parent_routing_vector = parent_routing_matrix[:, child_index_in_parent]
+                    path_history_dict[route_combination] = np.copy(parent_routing_vector)
+                    final_routing_matrix = final_routing_matrix * np.expand_dims(
+                        parent_routing_vector.astype(np.float), axis=-1)
                     routing_matrices_dict[route_combination] = final_routing_matrix
             # Loss layers
             else:
-                print("X")
+                selections_arr = []
+                weighted_posteriors_arr = []
+                labels_arr = []
+                for route_combination in route_combinations:
+                    logits = outputs.logits[0][route_combination]
+                    labels = outputs.labels[0][route_combination]
+                    # Get the parent routing result
+                    parent_route = route_combination[:-1]
+                    parent_routing_matrix = routing_matrices_dict[parent_route]
+                    child_index_in_parent = route_combination[-1]
+                    parent_routing_vector = parent_routing_matrix[:, child_index_in_parent]
+                    path_history_dict[route_combination] = np.copy(parent_routing_vector)
+                    posteriors = torch.softmax(torch.from_numpy(logits), dim=1).numpy()
+                    weighted_posteriors = posteriors * np.expand_dims(parent_routing_vector.astype(np.float), axis=-1)
+                    selections_arr.append(parent_routing_vector)
+                    weighted_posteriors_arr.append(weighted_posteriors)
+                    labels_arr.append(labels)
 
+                selections_arr = np.stack(selections_arr, axis=-1)
+                weighted_posteriors_arr = np.stack(weighted_posteriors_arr, axis=-1)
+                labels_arr = np.stack(labels_arr, axis=-1)
 
+                number_of_experts = np.sum(selections_arr, axis=-1)
+                assert np.sum(number_of_experts < 1) == 0
+                ensemble_posteriors = np.sum(weighted_posteriors_arr, axis=-1)
+                ensemble_posteriors = ensemble_posteriors * np.expand_dims(np.reciprocal(number_of_experts), axis=-1)
+                assert np.allclose(np.sum(ensemble_posteriors, axis=-1),
+                                   np.ones_like(np.sum(ensemble_posteriors, axis=-1)))
+                for idx in range(labels_arr.shape[-1] - 1):
+                    A_ = labels_arr[:, idx]
+                    B_ = labels_arr[:, idx + 1]
+                    assert np.array_equal(A_, B_)
 
-
-
+                predicted_labels = np.argmax(ensemble_posteriors, axis=-1)
+                gt_labels = labels_arr[:, 0]
+                accuracy = np.mean(predicted_labels == gt_labels)
+                # Calculate the MAC by tracing the execution history
+                mac_costs_list = []
+                for lid in range(len(self.model.pathCounts)):
+                    layer_history = [v for k, v in path_history_dict.items() if len(k) == lid + 1]
+                    layer_history = np.stack(layer_history, axis=-1)
+                    layer_execution_times = np.sum(layer_history, axis=-1)
+                    unit_mac_cost_layer = sum(self.macCountsPerBlock[lid].values())
+                    mac_costs_list.append(unit_mac_cost_layer * layer_execution_times)
+                mac_costs_list = np.stack(mac_costs_list, axis=-1)
+                mac_costs_list = np.sum(mac_costs_list, axis=-1)
+                mac_costs_list = mac_costs_list / single_path_mac_cost
+                mac_cost_final = np.mean(mac_costs_list)
+                return accuracy, mac_cost_final
