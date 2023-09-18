@@ -45,7 +45,7 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             print("Standard test accuracy:{0}".format(test_acc))
 
         for lid in range(len(self.model.pathCounts) - 1):
-            for pid in range(self.model.pathCounts[lid]):
+            for pid in range(self.model.pathCounts[lid + 1]):
                 self.optimization_bounds_continuous["threshold_{0},{1}".format(lid, pid)] = (0.0,
                                                                                              self.maxProbabilities[lid])
 
@@ -53,6 +53,8 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         self.trainOutputs = self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
         self.testOutputs = self.create_outputs(dataloader=self.testDataset, repeat_count=1,
                                                optimal_temperatures=self.trainOutputs.optimalTemperatures)
+        self.bestTrainScores = {}
+        self.bestTestScores = {}
 
     def calculate_max_entropies(self):
         for layer_id, block_count in enumerate(self.model.pathCounts):
@@ -494,8 +496,8 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         thresholds = []
         for lid in range(len(self.model.pathCounts) - 1):
             thresholds.append([])
-            for pid in range(self.model.pathCounts[lid]):
-                thresholds[lid].append(self.optimization_bounds_continuous["threshold_{0},{1}".format(lid, pid)])
+            for pid in range(self.model.pathCounts[lid + 1]):
+                thresholds[lid].append(kwargs["threshold_{0},{1}".format(lid, pid)])
 
         accuracy_train, mac_cost_train = self.evaluate_thresholds_array_based(
             thresholds=thresholds, outputs=self.trainOutputs)
@@ -506,6 +508,24 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         print("Mac Train:{0}".format(mac_cost_train))
         print("Accuracy Test:{0}".format(accuracy_test))
         print("Mac Test:{0}".format(mac_cost_test))
+
+        if len(self.bestTrainScores) == 0 or self.bestTrainScores["accuracy_train"] < accuracy_train:
+            self.bestTrainScores["accuracy_train"] = accuracy_train
+            self.bestTrainScores["mac_cost_train"] = mac_cost_train
+            self.bestTrainScores["accuracy_test"] = accuracy_test
+            self.bestTrainScores["mac_cost_test"] = mac_cost_test
+
+        if len(self.bestTestScores) == 0 or self.bestTestScores["accuracy_test"] < accuracy_test:
+            self.bestTestScores["accuracy_train"] = accuracy_train
+            self.bestTestScores["mac_cost_train"] = mac_cost_train
+            self.bestTestScores["accuracy_test"] = accuracy_test
+            self.bestTestScores["mac_cost_test"] = mac_cost_test
+
+        print("Best Train Stats:")
+        print(self.bestTrainScores)
+
+        print("Best Test Stats:")
+        print(self.bestTestScores)
         print("********************")
 
         score = self.macLambda * accuracy_train - (1.0 - self.macLambda) * (mac_cost_train - 1.0)
