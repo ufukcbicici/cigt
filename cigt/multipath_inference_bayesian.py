@@ -25,9 +25,11 @@ class NetworkOutput(object):
 class MultiplePathBayesianOptimizer(BayesianOptimizer):
     def __init__(self, data_root_path, model,
                  train_dataset, test_dataset, xi, init_points, n_iter, mac_counts_per_block,
-                 train_dataset_repeat_count, evaluate_network_first):
+                 train_dataset_repeat_count, mac_lambda, max_probabilities, evaluate_network_first):
         super().__init__(init_points, n_iter)
         self.dataRootPath = data_root_path
+        self.maxProbabilities = max_probabilities
+        self.macLambda = mac_lambda
         self.repeatCount = train_dataset_repeat_count
         self.macCountsPerBlock = mac_counts_per_block
         self.trainDataset = train_dataset
@@ -41,13 +43,18 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             test_acc = self.model.validate(data_kind="test", epoch=0, loader=self.testDataset, temperature=0.1,
                                            verbose=True)
             print("Standard test accuracy:{0}".format(test_acc))
+
+        for lid in range(len(self.model.pathCounts) - 1):
+            for pid in range(self.model.pathCounts[lid]):
+                self.optimization_bounds_continuous["threshold_{0},{1}".format(lid, pid)] = (0.0,
+                                                                                             self.maxProbabilities[lid])
+
         # self.assert_gather_scatter_model_output_correctness(dataloader=self.testDataset, repeat_count=1)
-        train_outputs = self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
-        test_outputs = self.create_outputs(dataloader=self.testDataset, repeat_count=1,
-                                           optimal_temperatures=train_outputs.optimalTemperatures)
+        self.trainOutputs = self.create_outputs(dataloader=self.trainDataset, repeat_count=self.repeatCount)
+        self.testOutputs = self.create_outputs(dataloader=self.testDataset, repeat_count=1,
+                                               optimal_temperatures=self.trainOutputs.optimalTemperatures)
 
     def calculate_max_entropies(self):
-        self.optimization_bounds_continuous = {}
         for layer_id, block_count in enumerate(self.model.pathCounts):
             if layer_id == len(self.model.pathCounts) - 1:
                 break
@@ -253,22 +260,22 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
         else:
             complete_output.optimalTemperatures = optimal_temperatures
 
-        accuracy_graph, mac_cost_graph = \
-            self.evaluate_thresholds_graph_based(
-                thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
-                outputs=complete_output)
-        accuracy_vector, mac_cost_vector = self.evaluate_thresholds_array_based(
-            thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
-            outputs=complete_output)
-        print("X")
-
-        accuracy_graph_ig, mac_cost_graph_ig = \
-            self.evaluate_thresholds_graph_based(
-                thresholds=[[10.0, 10.0], [10.0, 10.0, 10.0, 10.0]],
-                outputs=complete_output)
-        accuracy_vector_ig, mac_cost_vector_ig = self.evaluate_thresholds_array_based(
-            thresholds=[[10.0, 10.0], [10.0, 10.0, 10.0, 10.0]],
-            outputs=complete_output)
+        # accuracy_graph, mac_cost_graph = \
+        #     self.evaluate_thresholds_graph_based(
+        #         thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
+        #         outputs=complete_output)
+        # accuracy_vector, mac_cost_vector = self.evaluate_thresholds_array_based(
+        #     thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
+        #     outputs=complete_output)
+        # print("X")
+        #
+        # accuracy_graph_ig, mac_cost_graph_ig = \
+        #     self.evaluate_thresholds_graph_based(
+        #         thresholds=[[10.0, 10.0], [10.0, 10.0, 10.0, 10.0]],
+        #         outputs=complete_output)
+        # accuracy_vector_ig, mac_cost_vector_ig = self.evaluate_thresholds_array_based(
+        #     thresholds=[[10.0, 10.0], [10.0, 10.0, 10.0, 10.0]],
+        #     outputs=complete_output)
         return complete_output
 
     def optimize_routing_temperatures(self, complete_output):
@@ -480,3 +487,26 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                 mac_costs_list = mac_costs_list / single_path_mac_cost
                 mac_cost_final = np.mean(mac_costs_list)
                 return accuracy, mac_cost_final
+
+    def cost_function(self, **kwargs):
+        # lr_initial_rate,
+        # hyperbolic_exponent):
+        thresholds = []
+        for lid in range(len(self.model.pathCounts) - 1):
+            thresholds.append([])
+            for pid in range(self.model.pathCounts[lid]):
+                thresholds[lid].append(self.optimization_bounds_continuous["threshold_{0},{1}".format(lid, pid)])
+
+        accuracy_train, mac_cost_train = self.evaluate_thresholds_array_based(
+            thresholds=thresholds, outputs=self.trainOutputs)
+        accuracy_test, mac_cost_test = self.evaluate_thresholds_array_based(
+            thresholds=thresholds, outputs=self.testOutputs)
+        print("********************")
+        print("Accuracy Train:{0}".format(accuracy_train))
+        print("Mac Train:{0}".format(mac_cost_train))
+        print("Accuracy Test:{0}".format(accuracy_test))
+        print("Mac Test:{0}".format(mac_cost_test))
+        print("********************")
+
+        score = self.macLambda * accuracy_train - (1.0 - self.macLambda) * (mac_cost_train - 1.0)
+        return score
