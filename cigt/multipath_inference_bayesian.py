@@ -248,7 +248,10 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
 
         # Calculate optimal temperatures for routing probabilities
         self.optimize_routing_temperatures(complete_output=complete_output)
-        self.evaluate_thresholds_graph_based(thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
+        # accuracy, mac_cost = \
+        #     self.evaluate_thresholds_graph_based(thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
+        #                                          outputs=complete_output)
+        self.evaluate_thresholds_array_based(thresholds=[[0.2, 0.25], [0.1, 0.12, 0.15, .2]],
                                              outputs=complete_output)
         print("X")
 
@@ -357,7 +360,6 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                     logits_arr = np.stack(logits_arr, axis=0)
                     posteriors_arr = torch.softmax(torch.from_numpy(logits_arr), dim=1).numpy()
                     posteriors_ensemble = np.mean(posteriors_arr, axis=0)
-                    print("At this stage we can evaluate the sample.")
                     predicted_label = np.argmax(posteriors_ensemble)
                     validness_vector.append(predicted_label.item() == gt_label.item())
                     # Count the executed blocks and their mac costs
@@ -368,8 +370,47 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                     mac_ratio = total_mac / single_path_mac_cost
                     mac_cost_vector.append(mac_ratio)
 
-                # route_combinations = Utilities.create_route_combinations(shape_=self.model.pathCounts[:(layer_id + 1)])
-                # block_id_to_execute = block_list.popleft()
+        accuracy = np.mean(validness_vector)
+        mac_cost = np.mean(mac_cost_vector)
+        return accuracy, mac_cost
 
-                # routing_activations = outputs.routingActivationMatrices[layer_id][sample_idx]
-                # temperature = outputs
+    def evaluate_thresholds_array_based(self, thresholds, outputs):
+        data_size = outputs.logits[0].shape[len(self.model.pathCounts)]
+        routing_matrices_dict = {(): np.ones(shape=(data_size, 1), dtype=np.bool)}
+        for layer_id in range(len(self.model.pathCounts)):
+            route_combinations = Utilities.create_route_combinations(shape_=
+                                                                     self.model.pathCounts[:(layer_id + 1)])
+            # Routing layers
+            if layer_id < len(self.model.pathCounts) - 1:
+                layer_thresholds = thresholds[layer_id]
+                for route_combination in route_combinations:
+                    routing_activations = outputs.routingActivationMatrices[layer_id][route_combination]
+                    temperature = outputs.optimalTemperatures[layer_id][route_combination]
+                    routing_activations_tempered = routing_activations / temperature
+                    routing_probabilities = torch.softmax(torch.from_numpy(routing_activations_tempered), dim=1).numpy()
+                    # Calculate the IG routing matrix
+                    ig_indices = np.argmax(routing_probabilities, axis=1)
+                    ig_routing_matrix = np.zeros_like(routing_activations)
+                    ig_routing_matrix[np.arange(ig_routing_matrix.shape[0]), ig_indices] = 1.0
+                    # Calculate the routing matrix based on probability thresholds
+                    threshold_routing_matrix = routing_probabilities >= np.expand_dims(layer_thresholds, axis=0)
+                    # Apply logical or to both ig_routing_matrix and threshold_routing_matrix,
+                    # so that routing is always done through the ig path plus the routes where threshold values are
+                    # below the routing probabilities.
+                    final_routing_matrix = np.logical_or(ig_routing_matrix.astype(np.bool),
+                                                         threshold_routing_matrix.astype(np.bool))
+                    final_routing_matrix = final_routing_matrix.astype(np.float)
+                    # Get the parent routing result
+                    parent_route = route_combination[:-1]
+                    parent_routing_matrix = routing_matrices_dict[parent_route]
+                    parent_routing_vector = parent_routing_matrix[:, route_combination[-1]]
+                    final_routing_matrix = final_routing_matrix * parent_routing_vector
+                    routing_matrices_dict[route_combination] = final_routing_matrix
+            # Loss layers
+            else:
+                print("X")
+
+
+
+
+
