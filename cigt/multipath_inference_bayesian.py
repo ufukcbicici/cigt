@@ -55,6 +55,8 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
                                                optimal_temperatures=self.trainOutputs.optimalTemperatures)
         self.bestTrainScores = {}
         self.bestTestScores = {}
+        self.bestObjectiveScores = {}
+        self.iterationCount = 0
 
     def calculate_max_entropies(self):
         for layer_id, block_count in enumerate(self.model.pathCounts):
@@ -503,30 +505,45 @@ class MultiplePathBayesianOptimizer(BayesianOptimizer):
             thresholds=thresholds, outputs=self.trainOutputs)
         accuracy_test, mac_cost_test = self.evaluate_thresholds_array_based(
             thresholds=thresholds, outputs=self.testOutputs)
-        print("********************")
+        score = self.macLambda * accuracy_train - (1.0 - self.macLambda) * (mac_cost_train - 1.0)
+        print("**********Iteration {0}**********".format(self.iterationCount))
         print("Accuracy Train:{0}".format(accuracy_train))
         print("Mac Train:{0}".format(mac_cost_train))
         print("Accuracy Test:{0}".format(accuracy_test))
         print("Mac Test:{0}".format(mac_cost_test))
+        print("Score:{0}".format(score))
 
         if len(self.bestTrainScores) == 0 or self.bestTrainScores["accuracy_train"] < accuracy_train:
             self.bestTrainScores["accuracy_train"] = accuracy_train
             self.bestTrainScores["mac_cost_train"] = mac_cost_train
             self.bestTrainScores["accuracy_test"] = accuracy_test
             self.bestTrainScores["mac_cost_test"] = mac_cost_test
+            self.bestTrainScores["score"] = score
 
         if len(self.bestTestScores) == 0 or self.bestTestScores["accuracy_test"] < accuracy_test:
             self.bestTestScores["accuracy_train"] = accuracy_train
             self.bestTestScores["mac_cost_train"] = mac_cost_train
             self.bestTestScores["accuracy_test"] = accuracy_test
             self.bestTestScores["mac_cost_test"] = mac_cost_test
+            self.bestTestScores["score"] = score
+
+        if len(self.bestObjectiveScores) == 0 or self.bestObjectiveScores["score"] < score:
+            self.bestObjectiveScores["accuracy_train"] = accuracy_train
+            self.bestObjectiveScores["mac_cost_train"] = mac_cost_train
+            self.bestObjectiveScores["accuracy_test"] = accuracy_test
+            self.bestObjectiveScores["mac_cost_test"] = mac_cost_test
+            self.bestObjectiveScores["score"] = score
 
         print("Best Train Stats:")
         print(self.bestTrainScores)
 
         print("Best Test Stats:")
         print(self.bestTestScores)
-        print("********************")
 
-        score = self.macLambda * accuracy_train - (1.0 - self.macLambda) * (mac_cost_train - 1.0)
+        print("Best Objective Score Stats:")
+        print(self.bestObjectiveScores)
+        print("**********Iteration {0}**********".format(self.iterationCount))
+
+        self.iterationCount += 1
+
         return score
