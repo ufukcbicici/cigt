@@ -135,8 +135,8 @@ if __name__ == "__main__":
         n_iter=750,
         init_points=250,
         train_dataset_repeat_count=10,
-        mac_lambda=0.995,
-        max_probabilities=[0.5, 0.5],
+        mac_lambda=0.9975,
+        max_probabilities=[0.5, 0.25],
         evaluate_network_first=True,
         model=model,
         mac_counts_per_block=mac_counts_per_block)
