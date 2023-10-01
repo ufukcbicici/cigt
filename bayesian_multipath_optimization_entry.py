@@ -8,10 +8,12 @@ from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cutout_augmentation import CutoutPIL
+from cigt.multipath_evaluator import MultipathEvaluator
 from cigt.multipath_inference_bayesian import MultiplePathBayesianOptimizer
 # from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 import torch
 
+from cigt.multipath_inference_cross_entropy import MultipathInferenceCrossEntropy
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 from configs.cifar10_resnet_cigt_configs import Cifar10ResnetCigtConfigs
 
@@ -127,18 +129,37 @@ if __name__ == "__main__":
     model_mac = None
     # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
 
-    mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
+    multipath_evaluator = MultipathEvaluator(
         data_root_path=data_path,
+        model=model,
         train_dataset=train_loader_hard,
         test_dataset=test_loader_light,
-        xi=0.01,
-        n_iter=750,
-        init_points=250,
-        train_dataset_repeat_count=10,
+        mac_counts_per_block=mac_counts_per_block,
+        evaluate_network_first=True,
+        train_dataset_repeat_count=10
+    )
+
+    # mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
+    #     data_root_path=data_path,
+    #     init_points=250,
+    #     mac_lambda=0.9975,
+    #     max_probabilities=[0.5, 0.25],
+    #     model=model,
+    #     multipath_evaluator=multipath_evaluator,
+    #     n_iter=750
+    # )
+    #
+    # mp_bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
+    #                           log_file_name="Multipath_CIFAR10")
+
+    mp_cross_entropy_optimizer = MultipathInferenceCrossEntropy(
+        data_root_path=data_path,
+        distribution_type="Beta",
         mac_lambda=0.9975,
         max_probabilities=[0.5, 0.25],
-        evaluate_network_first=True,
         model=model,
-        mac_counts_per_block=mac_counts_per_block)
-    mp_bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-                              log_file_name="Multipath_CIFAR10")
+        multipath_evaluator=multipath_evaluator,
+        n_iter=100,
+        num_of_components=3)
+
+    mp_cross_entropy_optimizer.fit()
