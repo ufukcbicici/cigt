@@ -27,7 +27,10 @@ class BetaMixture(nn.Module):
 
         return mixture_dist
 
-    # def eval_pdf_manually(self):
+    def sample(self, num_of_samples):
+        mixture_dist = self()
+        samples = mixture_dist.sample(sample_shape=(num_of_samples,))
+        return samples
 
     def draw_pdf(self):
         beta_params_norm = torch.nn.functional.softplus(self.componentParameters)
@@ -35,8 +38,8 @@ class BetaMixture(nn.Module):
 
         min_x_list = []
         max_x_list = []
-        min_x = 0.001
-        max_x = 0.999
+        min_x = 0.0001
+        max_x = 0.9999
         x = np.linspace(min_x, max_x, 1000)
         pdf_x = []
         for k in range(self.componentCount):
@@ -56,23 +59,49 @@ class BetaMixture(nn.Module):
         mixture_pdf = np.sum(mixture_pdf, axis=0)
         ax.set_title("Mixture")
         ax.plot(x, mixture_pdf, 'r-', lw=1, alpha=1.0, label='beta mixture pdf')
+
+        # Sample from the current distribution
+        samples = self.sample(num_of_samples=100000).numpy()
+        ax.hist(samples, density=True, histtype="stepfilled", alpha=0.2, bins=1000)
+        ax.legend(loc="best", frameon=False)
         fig.tight_layout()
         plt.show()
 
-        # for k in range(self.componentCount):
-        #     a = beta_params_norm.numpy()[k, 0]
-        #     b = beta_params_norm.numpy()[k, 1]
-        #     min_x = beta.ppf(0.001, a, b)
-        #     max_x = beta.ppf(0.999, a, b)
-        #     min_x_list.append(min_x)
-        #     max_x_list.append(max_x)
-        #
-        # min_x_whole = max(min_x_list)
-        # max_x_whole = min(max_x_list)
+    # MLE Fit
+    def fit(self, data, iteration_count):
+        optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=self.learningRate)
+
+        for idx in range(iteration_count):
+            optimizer.zero_grad()
+            with torch.set_grad_enabled(True):
+                mixture_dist = self.forward()
+                negloglik = -mixture_dist.log_prob(data)
+                loss = torch.mean(negloglik)
+                loss.backward()
+                optimizer.step()
+                self.trainLogError.append(loss.detach().numpy())
+                if idx % 100 == 0:
+                    print("Iteration:{0} Loss:{1}".format(idx,
+                                                          np.mean(self.trainLogError[-25:])))
+
+        print("X")
 
 
 if __name__ == "__main__":
     beta_mixture = BetaMixture(component_count=3, learning_rate=1e-3)
     beta_mixture.draw_pdf()
-    beta_mixture()
+
+    beta_mixture_trained = BetaMixture(component_count=3, learning_rate=1e-3)
+    beta_mixture_trained.mixtureParameters = torch.nn.Parameter(torch.from_numpy(np.array([1.0, 2.0, 2.5])))
+    beta_mixture_trained.componentParameters = torch.nn.Parameter(
+        torch.from_numpy(
+            np.array([[2.0, 3.0], [0.5, 1.5], [4.5, 0.75]])))
+
+    beta_mixture_trained.draw_pdf()
+    samples = beta_mixture_trained.sample(num_of_samples=10000)
+
+    beta_mixture.fit(data=samples, iteration_count=100000)
+
     print("X")
