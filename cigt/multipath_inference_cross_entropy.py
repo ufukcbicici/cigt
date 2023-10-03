@@ -11,7 +11,7 @@ from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 from tqdm import tqdm
-from pomegranate.distributions import BetaDistribution
+
 
 class MultipathInferenceCrossEntropy(object):
     def __init__(self, data_root_path,
@@ -34,7 +34,7 @@ class MultipathInferenceCrossEntropy(object):
             for pid in range(self.model.pathCounts[lid + 1]):
                 self.optimization_bounds_continuous["threshold_{0},{1}".format(lid, pid)] = (0.0,
                                                                                              self.maxProbabilities[lid])
-        assert self.distributionType in {"Gaussian", "Beta"}
+        assert self.distributionType in {"Gaussian"}
 
     def create_sampling_functions(self):
         pass
