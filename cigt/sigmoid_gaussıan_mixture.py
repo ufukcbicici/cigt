@@ -128,17 +128,17 @@ class SigmoidGaussianMixture(object):
 
         # Sample from the current distribution
         samples = self.sample(num_of_samples=100000)
-        ax.hist(samples, density=True, histtype="stepfilled", alpha=0.2, bins=1000)
+        ax.hist(samples, density=True, histtype="stepfilled", alpha=0.2, bins=100)
         ax.legend(loc="best", frameon=False)
         fig.tight_layout()
         plt.show()
 
 
 if __name__ == "__main__":
-    sigmoid_gaussian_mixture = SigmoidGaussianMixture(num_of_components=1, low_end=0.2, high_end=0.5)
-    sigmoid_gaussian_mixture.init_gmm(means=[-1.0],
-                                      variances=[0.01],
-                                      weights=[1.0])
+    sigmoid_gaussian_mixture = SigmoidGaussianMixture(num_of_components=3, low_end=0.2, high_end=0.5)
+    sigmoid_gaussian_mixture.init_gmm(means=[-1.0, 1.0, 4.0],
+                                      variances=[0.01, 0.2, 1.25],
+                                      weights=[1.0, 2.0, 1.5])
     sigmoid_gaussian_mixture.draw_pdf()
     print("X")
 

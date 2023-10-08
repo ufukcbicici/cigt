@@ -135,8 +135,8 @@ if __name__ == "__main__":
         train_dataset=train_loader_hard,
         test_dataset=test_loader_light,
         mac_counts_per_block=mac_counts_per_block,
-        evaluate_network_first=True,
-        train_dataset_repeat_count=10
+        evaluate_network_first=False,
+        train_dataset_repeat_count=1
     )
 
     # mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
@@ -154,12 +154,15 @@ if __name__ == "__main__":
 
     mp_cross_entropy_optimizer = MultipathInferenceCrossEntropy(
         data_root_path=data_path,
-        distribution_type="Beta",
+        distribution_type="Gaussian",
         mac_lambda=0.9975,
         max_probabilities=[0.5, 0.25],
         model=model,
         multipath_evaluator=multipath_evaluator,
         n_iter=100,
-        num_of_components=3)
+        quantile=0.05,
+        num_of_components=3,
+        num_samples_each_iteration=1000,
+        num_jobs=4)
 
     mp_cross_entropy_optimizer.fit()
