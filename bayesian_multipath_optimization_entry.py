@@ -161,8 +161,8 @@ if __name__ == "__main__":
         multipath_evaluator=multipath_evaluator,
         n_iter=100,
         quantile=0.05,
-        num_of_components=3,
-        num_samples_each_iteration=1000,
+        num_of_components=1,
+        num_samples_each_iteration=10000,
         num_jobs=4)
 
     mp_cross_entropy_optimizer.fit()
