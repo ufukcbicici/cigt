@@ -37,7 +37,7 @@ class Cifar10ResnetCigtConfigs:
     information_gain_balance_coeff_list = [1.0, 1.0]
     decision_drop_probability = 0.5
     classification_drop_probability = 0.0
-    batch_norm_type = "InstanceNorm"
+    batch_norm_type = "BatchNorm"
     apply_relu_dropout_to_decision_layer = False
     apply_mask_to_batch_norm = False
     number_of_cbam_layers_in_routing_layers = 3
@@ -124,3 +124,12 @@ class Cifar10ResnetCigtConfigs:
     use_kd_for_routing = False
     kd_teacher_temperature = 6.0
     kd_loss_alpha = 0.5
+
+    # Policy Gradients Multipath Routing Parameters
+    policy_networks_cbam_layer_count = 3
+    policy_networks_cbam_feature_map_count = 32
+    policy_networks_cbam_reduction_ratio = 4
+    policy_networks_cbam_layer_input_reduction_ratio = 4
+    policy_networks_cbam_end_avg_pool_strode = 2
+    policy_networks_lstm_dimension = 128
+
