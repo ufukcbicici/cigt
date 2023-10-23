@@ -5,7 +5,9 @@ import time
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import optim
 
+from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.custom_layers.basic_block_with_cbam import BasicBlockWithCbam
 
@@ -13,14 +15,20 @@ from cigt.custom_layers.basic_block_with_cbam import BasicBlockWithCbam
 class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
     def __init__(self, configs, run_id, model_definition, num_classes):
         super().__init__(configs, run_id, model_definition, num_classes)
+        # Parameters for the Policy Network Architecture
         self.policyNetworksCbamLayerCount = configs.policy_networks_cbam_layer_count
         self.policyNetworksCbamFeatureMapCount = configs.policy_networks_cbam_feature_map_count
-        self.policyNetworksCbamReductionRatio = configs.policy_networks_cbam_reduction_ratio
         self.policyNetworksCbamLayerInputReductionRatio = configs.policy_networks_cbam_layer_input_reduction_ratio
+        self.policyNetworksCbamReductionRatio = configs.policy_networks_cbam_reduction_ratio
         self.policyNetworksLstmDimension = configs.policy_networks_lstm_dimension
-        self.policyNetworksAvgPoolStride = configs.policy_networks_cbam_end_avg_pool_strode
+
+        # Parameters for the Policy Network Solver
+        self.policyNetworkInitialLr = configs.policy_networks_initial_lr
+        self.policyNetworkWd = configs.policy_networks_wd
+
         self.policyNetworks = nn.ModuleList()
         self.create_policy_networks()
+        self.policyGradientsModelOptimizer = None
         print("X")
 
     def create_policy_networks(self):
@@ -52,7 +60,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                 in_channels=input_feature_count,
                 out_channels=self.policyNetworksCbamFeatureMapCount
             )
-            layers["policy_gradients_input_layer_{0}".format(layer_id)] = input_layer
+            layers["policy_gradients_input_block_{0}".format(layer_id)] = input_layer
 
             for cid in range(self.policyNetworksCbamLayerCount):
                 block = BasicBlockWithCbam(in_planes=self.policyNetworksCbamFeatureMapCount,
@@ -72,6 +80,73 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
             policy_gradient_network_backbone = nn.Sequential(layers)
             self.policyNetworks.append(policy_gradient_network_backbone)
+
+    def create_optimizer(self):
+        paths = []
+        for pc in self.pathCounts:
+            paths.append([i_ for i_ in range(pc)])
+        path_variaties = Utilities.get_cartesian_product(list_of_lists=paths)
+
+        for idx in range(len(self.pathCounts)):
+            cnt = len([tpl for tpl in path_variaties if tpl[idx] == 0])
+            self.layerCoefficients.append(len(path_variaties) / cnt)
+
+        # Create parameter groups per CIGT layer and shared parameters
+        shared_parameters = []
+        parameters_per_cigt_layers = []
+        for idx in range(len(self.pathCounts)):
+            parameters_per_cigt_layers.append([])
+        # Policy Network parameters.
+        policy_networks_parameters = []
+
+        for name, param in self.named_parameters():
+            if "cigtLayers" not in name:
+                shared_parameters.append(param)
+            elif "policyNetworks" in name:
+                policy_networks_parameters.append(param)
+            else:
+                param_name_splitted = name.split(".")
+                layer_id = int(param_name_splitted[1])
+                assert 0 <= layer_id <= len(self.pathCounts) - 1
+                parameters_per_cigt_layers[layer_id].append(param)
+        num_shared_parameters = len(shared_parameters)
+        num_policy_network_parameters = len(policy_networks_parameters)
+        num_cigt_layer_parameters = sum([len(arr) for arr in parameters_per_cigt_layers])
+        num_all_parameters = len([tpl for tpl in self.named_parameters()])
+        assert num_shared_parameters + num_policy_network_parameters + num_cigt_layer_parameters == num_all_parameters
+
+        parameter_groups = []
+        # Add parameter groups with respect to their cigt layers
+        for layer_id in range(len(self.pathCounts)):
+            parameter_groups.append(
+                {'params': parameters_per_cigt_layers[layer_id],
+                 # 'lr': self.initialLr * self.layerCoefficients[layer_id],
+                 'lr': self.initialLr,
+                 'weight_decay': self.classificationWd})
+
+        # Shared parameters, always the group
+        parameter_groups.append(
+            {'params': shared_parameters,
+             'lr': self.initialLr,
+             'weight_decay': self.classificationWd})
+
+        if self.optimizerType == "SGD":
+            model_optimizer = optim.SGD(parameter_groups, momentum=0.9)
+        elif self.optimizerType == "Adam":
+            model_optimizer = optim.Adam(parameter_groups)
+        else:
+            raise ValueError("{0} is not supported as optimizer.".format(self.optimizerType))
+
+        # Create a separate optimizer that only optimizes the policy networks.
+        policy_networks_optimizer = optim.AdamW(
+            [{'params': policy_networks_parameters,
+              'lr': self.policyNetworkInitialLr,
+              'weight_decay': self.policyNetworkWd}])
+
+        return "X"
+
+    def adjust_learning_rate_polynomial(self, iteration):
+        pass
 
     def forward(self, x, labels, temperature):
         sample_indices = torch.arange(0, labels.shape[0], device=self.device)
@@ -169,8 +244,69 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
         return layer_outputs
 
+    def fit_policy_network(self, train_loader, test_loader):
+        self.to(self.device)
+        torch.manual_seed(1)
+        best_performance = 0.0
+
+        # Run a forward pass first to initialize each LazyXXX layer.
+        self.execute_forward_with_random_input()
+        test_accuracy = self.validate(loader=test_loader, epoch=-1, data_kind="test")
+
+        # Create the model optimizer, we should have every parameter initialized right now.
+        self.policyGradientsModelOptimizer = self.create_optimizer()
+        self.adjust_learning_rate_stepwise(0)
+
+        #
+        # print("Type of optimizer:{0}".format(self.modelOptimizer))
+        # # self.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
+        # # self.validate(loader=test_loader, data_kind="test", epoch=0)
+        #
+        # print(self.singleClassificationLoss)
+        # print(self.classificationLosses)
+        #
+        # total_epoch_count = self.epochCount + self.warmUpPeriod
+        # for epoch in range(0, total_epoch_count):
+        #     self.adjust_learning_rate(epoch)
+        #     self.adjust_warmup(epoch)
+        #
+        #     # train for one epoch
+        #     train_mean_batch_time = self.train_single_epoch(epoch_id=epoch, train_loader=train_loader)
+        #
+        #     if epoch % self.evaluationPeriod == 0 or epoch >= (total_epoch_count - 10):
+        #         print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
+        #             DbLogger.log_db_path, self.runId, epoch))
+        #         train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
+        #         print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
+        #             DbLogger.log_db_path, self.runId, epoch))
+        #         test_accuracy = self.validate(loader=test_loader, epoch=epoch, data_kind="test")
+        #
+        #         if test_accuracy > best_performance:
+        #             self.save_cigt_model(epoch=epoch)
+        #             best_performance = test_accuracy
+        #
+        #         DbLogger.write_into_table(
+        #             rows=[(self.runId,
+        #                    self.numOfTrainingIterations,
+        #                    epoch,
+        #                    train_accuracy,
+        #                    0.0,
+        #                    test_accuracy,
+        #                    train_mean_batch_time,
+        #                    0.0,
+        #                    0.0,
+        #                    "YYY")], table=DbLogger.logsTable)
+        #
+        # return best_performance
+
     def train_single_epoch(self, epoch_id, train_loader):
         self.eval()
         for i, (input_, target) in enumerate(train_loader):
             outputs_1 = self.forward(x=input_, labels=target, temperature=0.1)
-            outputs_2 = self.forward_v2(x=input_, labels=target, temperature=0.1)
+            block_outputs_dict, \
+                routing_matrices_soft_dict, \
+                routing_matrices_hard_dict, \
+                routing_activations_dict, \
+                logits_dict, \
+                labels_dict = self.forward_v2(x=input_, labels=target, temperature=0.1)
+            print("X")

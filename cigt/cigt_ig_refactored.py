@@ -603,7 +603,7 @@ class CigtIgHardRoutingX(nn.Module):
         if write_to_db:
             DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
 
-    def adjust_learning_rate(self, epoch):
+    def adjust_learning_rate_stepwise(self, epoch):
         """Sets the learning rate to the initial LR decayed by 10 after 150 and 250 epochs"""
         lr = self.initialLr
         # if epoch >= 150:
@@ -783,7 +783,7 @@ class CigtIgHardRoutingX(nn.Module):
 
         total_epoch_count = self.epochCount + self.warmUpPeriod
         for epoch in range(0, total_epoch_count):
-            self.adjust_learning_rate(epoch)
+            self.adjust_learning_rate_stepwise(epoch)
             self.adjust_warmup(epoch)
 
             # train for one epoch
@@ -1095,3 +1095,4 @@ class CigtIgHardRoutingX(nn.Module):
         self.eval()
         self(fake_input, fake_target, 0.1)
         self.enforcedRoutingMatrices = []
+

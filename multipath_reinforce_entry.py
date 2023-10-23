@@ -109,6 +109,24 @@ if __name__ == "__main__":
         num_classes=10,
         run_id=run_id
     )
+    model.to(model.device)
+    model.execute_forward_with_random_input()
+    checkpoint = torch.load(chck_path, map_location=model.device)
+    load_result = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
+    for param_name in load_result.missing_keys:
+        block_check1 = [param_name.startswith("policyNetworks.{0}".format(block_id))
+                        for block_id in range(len(model.pathCounts[1:]))]
+        assert any(block_check1)
+        block_check2 = ["block_{0}".format(block_id) in param_name for block_id in range(len(model.pathCounts[1:]))]
+        assert any(block_check2)
+
+    model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_jr
+    explanation = model.get_explanation_string()
+    DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
+    # model.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
+    # model.validate(loader=test_loader, data_kind="test", epoch=0, temperature=0.1)
+    model.fit_policy_network(train_loader=train_loader_hard, test_loader=test_loader_light)
 
 
 
