@@ -26,6 +26,9 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.policyNetworkInitialLr = configs.policy_networks_initial_lr
         self.policyNetworkWd = configs.policy_networks_wd
 
+        # General Parameters for Training
+        self.policyNetworkTotalNumOfEpochs = configs.policy_networks_total_num_of_epochs
+
         self.policyNetworks = nn.ModuleList()
         self.create_policy_networks()
         self.policyGradientsModelOptimizer = None
@@ -100,15 +103,19 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         policy_networks_parameters = []
 
         for name, param in self.named_parameters():
-            if "cigtLayers" not in name:
-                shared_parameters.append(param)
-            elif "policyNetworks" in name:
-                policy_networks_parameters.append(param)
-            else:
+            assert not ("cigtLayers" in name and "policyNetworks" in name)
+            if "cigtLayers" in name:
+                assert "policyNetworks" not in name
                 param_name_splitted = name.split(".")
                 layer_id = int(param_name_splitted[1])
                 assert 0 <= layer_id <= len(self.pathCounts) - 1
                 parameters_per_cigt_layers[layer_id].append(param)
+            elif "policyNetworks" in name:
+                assert "cigtLayers" not in name
+                policy_networks_parameters.append(param)
+            else:
+                shared_parameters.append(param)
+
         num_shared_parameters = len(shared_parameters)
         num_policy_network_parameters = len(policy_networks_parameters)
         num_cigt_layer_parameters = sum([len(arr) for arr in parameters_per_cigt_layers])
@@ -143,9 +150,9 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
               'lr': self.policyNetworkInitialLr,
               'weight_decay': self.policyNetworkWd}])
 
-        return "X"
+        return model_optimizer, policy_networks_optimizer
 
-    def adjust_learning_rate_polynomial(self, iteration):
+    def adjust_learning_rate_polynomial(self, iteration, num_of_total_iterations):
         pass
 
     def forward(self, x, labels, temperature):
@@ -248,14 +255,16 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.to(self.device)
         torch.manual_seed(1)
         best_performance = 0.0
+        num_of_total_iterations = self.policyNetworkTotalNumOfEpochs * len(train_loader)
 
         # Run a forward pass first to initialize each LazyXXX layer.
         self.execute_forward_with_random_input()
-        test_accuracy = self.validate(loader=test_loader, epoch=-1, data_kind="test")
+        # test_accuracy = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=0.1)
 
         # Create the model optimizer, we should have every parameter initialized right now.
-        self.policyGradientsModelOptimizer = self.create_optimizer()
-        self.adjust_learning_rate_stepwise(0)
+        self.modelOptimizer, self.policyGradientsModelOptimizer = self.create_optimizer()
+        self.adjust_learning_rate_polynomial(iteration=150,
+                                             num_of_total_iterations=num_of_total_iterations)
 
         #
         # print("Type of optimizer:{0}".format(self.modelOptimizer))

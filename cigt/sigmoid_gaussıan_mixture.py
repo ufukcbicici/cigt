@@ -133,6 +133,34 @@ class SigmoidGaussianMixture(object):
         fig.tight_layout()
         plt.show()
 
+    def check_mle():
+        low_end = 0.2
+        high_end = 0.21
+        sigmoid_gmm = SigmoidGaussianMixture(num_of_components=3,
+                                             name="First Distribution",
+                                             low_end=low_end,
+                                             high_end=high_end)
+        sigmoid_gmm.init_gmm(means=[-1.0, 1.0, 3.0], variances=[0.01, 0.02, 0.1],
+                             weights=[1.0, 1.0, 1.0])
+        sigmoid_gmm.draw_pdf()
+        sigmoid_gmm_2 = SigmoidGaussianMixture(num_of_components=3,
+                                               name="Second Distribution",
+                                               low_end=low_end,
+                                               high_end=high_end)
+
+        # Sample data from the first distribution for the ML estimation in the other.
+        samples = sigmoid_gmm.sample(num_of_samples=100000)
+        sigmoid_gmm_2.fit(data=samples)
+
+        for component_id in range(sigmoid_gmm_2.numOfComponents):
+            print("mu_{0}={1} sigma_{0}={2} weight_{0}={3}".format(
+                component_id,
+                sigmoid_gmm_2.gaussianMixture.means_[component_id, 0],
+                sigmoid_gmm_2.gaussianMixture.covariances_[component_id, 0, 0],
+                sigmoid_gmm_2.gaussianMixture.weights_[component_id]))
+
+        sigmoid_gmm_2.draw_pdf()
+
 
 if __name__ == "__main__":
     sigmoid_gaussian_mixture = SigmoidGaussianMixture(num_of_components=3, low_end=0.2, high_end=0.5)
