@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 from focal_loss.focal_loss import FocalLoss
-
+from collections import Counter
 from auxillary.average_meter import AverageMeter
 from auxillary.db_logger import DbLogger
 from auxillary.lenet_config_interpreter import LenetConfigInterpreter
@@ -190,6 +190,26 @@ class CigtIgHardRoutingX(nn.Module):
                     torch.ones(size=(max_branch_count * self.batchSize, path_count), dtype=torch.int64).to(self.device))
         else:
             self.enforcedRoutingMatrices = []
+
+    def create_random_multipath_routing_matrices(self):
+        self.enforcedRoutingMatrices = []
+        max_branch_count = np.prod(self.pathCounts)
+        for path_count in self.pathCounts[1:]:
+            # To simulate a realistic matrix, just create two random ig-like hard routing matrices and logical-or
+            # them.
+            rand_ig_matrices = []
+            for _ in range(path_count):
+                rand_matrix = torch.rand(size=(max_branch_count * self.batchSize, path_count)).to(self.device)
+                ig_routing_matrix_hard = torch.zeros_like(rand_matrix, dtype=torch.int64)
+                arg_max_entries = torch.argmax(rand_matrix, dim=1)
+                ig_routing_matrix_hard[torch.arange(ig_routing_matrix_hard.shape[0]), arg_max_entries] = 1
+                rand_ig_matrices.append(ig_routing_matrix_hard)
+            rand_routing_matrix_hard = torch.stack(rand_ig_matrices, dim=-1)
+            rand_routing_matrix_hard = torch.any(rand_routing_matrix_hard, dim=-1).to(torch.float32)
+            counter = Counter(np.sum(rand_routing_matrix_hard.numpy().astype(np.int64), axis=1))
+            assert counter[0] == 0
+
+            self.enforcedRoutingMatrices.append(rand_routing_matrix_hard)
 
     # OK
     def get_explanation_string(self):
@@ -1095,4 +1115,3 @@ class CigtIgHardRoutingX(nn.Module):
         self.eval()
         self(fake_input, fake_target, 0.1)
         self.enforcedRoutingMatrices = []
-

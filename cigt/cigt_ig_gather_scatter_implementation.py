@@ -199,8 +199,12 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                         logits = self.lossLayers[block_id](block_output)
                         logits_dict[output_id] = logits
 
-        return block_outputs_dict, routing_matrices_soft_dict, \
-            routing_matrices_hard_dict, routing_activations_dict, logits_dict, labels_dict
+        return {"block_outputs_dict": block_outputs_dict,
+                "routing_matrices_soft_dict": routing_matrices_soft_dict,
+                "routing_matrices_hard_dict": routing_matrices_hard_dict,
+                "routing_activations_dict": routing_activations_dict,
+                "logits_dict": logits_dict,
+                "labels_dict": labels_dict}
 
     def calculate_classification_loss_and_accuracy(self, list_of_logits, routing_matrices, target_var):
         assert isinstance(list_of_logits, list) and routing_matrices is None and isinstance(target_var, list)
@@ -411,7 +415,8 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         if write_to_db:
             DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
 
-    def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False, return_network_outputs=False,
+    def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False,
+                 return_network_outputs=False,
                  verbose=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()

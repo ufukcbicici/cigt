@@ -100,15 +100,26 @@ if __name__ == "__main__":
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
 
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
+
+    model_mac = CigtIgGatherScatterImplementation(
+        run_id=-1,
+        model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+        num_classes=10,
+        configs=Cifar10ResnetCigtConfigs)
+    model_mac.to(model_mac.device)
+    model_mac.execute_forward_with_random_input()
+    mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model_mac)
+    model_mac = None
 
     run_id = DbLogger.get_run_id()
     model = CigtReinforceMultipath(
         configs=Cifar10ResnetCigtConfigs,
         model_definition="Reinforce Multipath CIGT",
         num_classes=10,
-        run_id=run_id
-    )
+        run_id=run_id,
+        model_mac_info=mac_counts_per_block,
+        is_debug_mode=True)
     model.to(model.device)
     model.execute_forward_with_random_input()
     checkpoint = torch.load(chck_path, map_location=model.device)
@@ -120,7 +131,7 @@ if __name__ == "__main__":
         block_check2 = ["block_{0}".format(block_id) in param_name for block_id in range(len(model.pathCounts[1:]))]
         assert any(block_check2)
 
-    model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_asus
+    model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_jr
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 

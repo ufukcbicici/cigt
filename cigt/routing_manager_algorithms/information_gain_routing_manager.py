@@ -38,7 +38,7 @@ class InformationGainRoutingManager(object):
         return p_n_given_x_hard
 
     # OK x2
-    def get_hard_routing_matrix(self, model, layer_id, p_n_given_x_soft):
+    def get_hard_routing_matrix(self, model, layer_id, p_n_given_x_soft, p_n_given_x_hard=None):
         # Enforced routing has always the first priority, if there are enforced routing matrices,
         # return them before anything else.
         enforced_routing_matrix = InformationGainRoutingManager.get_enforced_routing_matrix(
@@ -46,10 +46,15 @@ class InformationGainRoutingManager(object):
         if enforced_routing_matrix is not None:
             return enforced_routing_matrix
 
-        # Calculate the pure information gain based hard routing matrix.
-        ig_routing_matrix_hard = torch.zeros_like(p_n_given_x_soft)
-        ig_arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
-        ig_routing_matrix_hard[torch.arange(ig_routing_matrix_hard.shape[0]), ig_arg_max_entries] = 1.0
+        # Calculate the pure information gain based hard routing matrix. If the hard routing matrix has already
+        # been provided, then use it.
+        if p_n_given_x_hard is None:
+            ig_routing_matrix_hard = torch.zeros_like(p_n_given_x_soft)
+            ig_arg_max_entries = torch.argmax(p_n_given_x_soft, dim=1)
+            ig_routing_matrix_hard[torch.arange(ig_routing_matrix_hard.shape[0]), ig_arg_max_entries] = 1.0
+        else:
+            ig_arg_max_entries = None
+            ig_routing_matrix_hard = p_n_given_x_hard
 
         # If we are in the evaluation mode, always use the pure information gain based hard routing matrix.
         if not model.training:
@@ -71,7 +76,7 @@ class InformationGainRoutingManager(object):
         # random matrix such that no ig route is included, apply this as well.
         random_routing_matrix = torch.rand(size=p_n_given_x_soft.shape)
         # If we strictly want to send our samples to non-ig paths, set ig entries to -inf.
-        if model.enableStrictRandomRouting:
+        if model.enableStrictRandomRouting and ig_arg_max_entries is not None:
             random_routing_matrix[
                 torch.arange(random_routing_matrix.shape[0]), ig_arg_max_entries] = -float('inf')
         random_arg_max_entries = torch.argmax(random_routing_matrix, dim=1)
@@ -91,7 +96,6 @@ class InformationGainRoutingManager(object):
                                        ig_routing_matrix_hard)
         return p_n_given_x_hard
 
-    # OK x2
     def adjust_temperature(self, model):
         # If "enableInformationGainDuringWarmUp" is True, this means we are always optimizing the information
         # gain even during the warm up. Start the temperature decaying from 0.
