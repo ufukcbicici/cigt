@@ -16,6 +16,7 @@ from cigt.custom_layers.basic_block_with_cbam import BasicBlockWithCbam
 class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
     def __init__(self, configs, run_id, model_definition, num_classes, model_mac_info, is_debug_mode):
         super().__init__(configs, run_id, model_definition, num_classes)
+        self.iteration_id = 0
         # Parameters for the Policy Network Architecture
         self.policyNetworksCbamLayerCount = configs.policy_networks_cbam_layer_count
         self.policyNetworksCbamFeatureMapCount = configs.policy_networks_cbam_feature_map_count
@@ -23,6 +24,8 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.policyNetworksCbamReductionRatio = configs.policy_networks_cbam_reduction_ratio
         self.policyNetworksLstmDimension = configs.policy_networks_lstm_dimension
         self.policyNetworksMacLambda = configs.policy_networks_mac_lambda
+        self.policyNetworksLogitTemperature = configs.policy_networks_logit_temperature
+        self.policyNetworksNllConstant = 1e-10
 
         # Inputs to the policy networks, per layer.
         self.policyGradientNetworksStates = []
@@ -39,6 +42,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.policyNetworkTotalNumOfEpochs = configs.policy_networks_total_num_of_epochs
 
         self.policyGradientsCrossEntropy = nn.CrossEntropyLoss(reduction="none")
+        self.policyGradientsNegativeLogLikelihood = nn.NLLLoss(reduction="none")
 
         self.macCountsPerBlock = model_mac_info
         self.singlePathMacCost = sum([sum(d_.values()) for d_ in self.macCountsPerBlock])
@@ -109,9 +113,10 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                                             list_of_logits_unified,
                                             layer_sample_indices_unified,
                                             moe_probabilities_calculated,
-                                            cross_entropy_loss_calculated,
+                                            nll_calculated,
                                             accuracy_calculated):
-        softmax_probs_np = torch.softmax(list_of_logits_unified, dim=1).detach().cpu().numpy()
+        softmax_probs_np = torch.softmax(list_of_logits_unified / self.policyNetworksLogitTemperature,
+                                         dim=1).detach().cpu().numpy()
         layer_sample_indices_unified_np = layer_sample_indices_unified.detach().cpu().numpy()
         assert softmax_probs_np.shape[0] == layer_sample_indices_unified_np.shape[0]
         probs_dict = {}
@@ -134,9 +139,10 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         # Assert that the calculated posteriors are the same for each sample.
         assert np.allclose(moe_probabilities, moe_probabilities_calculated_np)
         moe_probabilities_torch = torch.from_numpy(moe_probabilities).to(self.device)
-        ce_loss = nn.CrossEntropyLoss()
-        loss_1 = ce_loss(moe_probabilities_torch, labels_original).detach().cpu().numpy()
-        loss_2 = np.mean(cross_entropy_loss_calculated.detach().cpu().numpy())
+        nll_loss = nn.NLLLoss()
+        loss_1 = nll_loss(moe_probabilities_torch + self.policyNetworksNllConstant,
+                          labels_original).detach().cpu().numpy()
+        loss_2 = np.mean(nll_calculated.detach().cpu().numpy())
         assert np.allclose(loss_1, loss_2)
         # Accuracy control
         predicted_labels = np.argmax(moe_probabilities, axis=1)
@@ -158,7 +164,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             mac_list.append(macs_per_sample)
 
         for layer_id in range(len(self.pathCounts)):
-            assert np.array_equal(mac_list_calculated[layer_id].detach().cpu().numpy(),
+            assert np.array_equal(mac_list_calculated.detach().cpu().numpy()[:, layer_id],
                                   mac_list[layer_id])
 
     def create_policy_networks(self):
@@ -390,7 +396,8 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         layer_sample_indices_unified = list_of_sample_indices_per_layer[-1]
         layer_route_indices_unified = list_of_route_indices_per_layer[-1]
         # PART 1: CALCULATE THE MULTIPATH ACCURACY
-        class_probabilities_unified = torch.softmax(list_of_logits_unified, dim=1)
+        list_of_logits_unified_tempered = list_of_logits_unified / self.policyNetworksLogitTemperature
+        class_probabilities_unified = torch.softmax(list_of_logits_unified_tempered, dim=1)
         class_probabilities_structured = self.merge_cigt_outputs_into_structured_array(
             layer_id=len(self.pathCounts) - 1,
             batch_size=batch_size,
@@ -429,7 +436,9 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         layer_labels_final = torch.round(layer_labels_sum * expert_coefficients)
         layer_labels_final = layer_labels_final.to(torch.int64)
 
-        cross_entropy_loss_per_sample = self.policyGradientsCrossEntropy(expert_probabilities, layer_labels_final)
+        # cross_entropy_loss_per_sample = self.policyGradientsCrossEntropy(expert_probabilities, layer_labels_final)
+        nll_per_sample = self.policyGradientsNegativeLogLikelihood(
+            expert_probabilities + self.policyNetworksNllConstant, layer_labels_final)
         predicted_labels = torch.argmax(expert_probabilities, dim=1)
         accuracy_vector = predicted_labels == layer_labels_final
         accuracy = torch.mean(accuracy_vector.to(expert_probabilities.dtype))
@@ -455,7 +464,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         mac_per_sample = torch.sum(mac_list_op_count, dim=1)
         # PART 2: CALCULATE THE MAC LOSS
 
-        cross_entropy_rewards = -1.0 * cross_entropy_loss_per_sample
+        cross_entropy_rewards = -1.0 * nll_per_sample
         mac_rewards = -1.0*(mac_per_sample / self.singlePathMacCost - 1.0)
         final_rewards = (1.0 - self.policyNetworksMacLambda) * cross_entropy_rewards + \
                         self.policyNetworksMacLambda * mac_rewards
@@ -464,7 +473,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             assert np.array_equal(layer_labels_final.numpy(), labels_original.numpy())
             self.test_cross_entropy_loss_calculation(
                 batch_size=batch_size,
-                cross_entropy_loss_calculated=cross_entropy_loss_per_sample,
+                nll_calculated=nll_per_sample,
                 labels_original=labels_original,
                 layer_sample_indices_unified=layer_sample_indices_unified,
                 list_of_logits_unified=list_of_logits_unified,
@@ -631,8 +640,12 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         # Create the model optimizer, we should have every parameter initialized right now.
         self.modelOptimizer, self.policyGradientsModelOptimizer = self.create_optimizer()
 
-        self.test_route_indices(test_loader=test_loader)
+        # self.test_route_indices(test_loader=test_loader)
 
+        temp_warm_up_state = self.isInWarmUp
+        temp_random_routing_ratio = self.routingRandomizationRatio
+        self.isInWarmUp = False
+        self.routingRandomizationRatio = -1.0
         # Train the policy network for one epoch
         iteration_id = 0
         for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
@@ -640,6 +653,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             for i, (input_, target) in enumerate(train_loader):
                 print("*************Policy Network Training Epoch:{0} Iteration:{1}*************".format(
                     epoch_id, self.iteration_id))
+
                 # Print learning rates
                 print("Policy Network Lr:{0}".format(self.policyGradientsModelOptimizer.param_groups[0]["lr"]))
                 self.policyGradientsModelOptimizer.zero_grad()
@@ -647,73 +661,9 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     input_var = torch.autograd.Variable(input_).to(self.device)
                     target_var = torch.autograd.Variable(target).to(self.device)
                     batch_size = input_var.size(0)
+                    outputs = self(x=input_var, labels=target_var, temperature=1.0)
+                    print("X")
+                self.iteration_id += 1
 
-        #
-        # print("Type of optimizer:{0}".format(self.modelOptimizer))
-        # # self.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
-        # # self.validate(loader=test_loader, data_kind="test", epoch=0)
-        #
-        # print(self.singleClassificationLoss)
-        # print(self.classificationLosses)
-        #
-        # total_epoch_count = self.epochCount + self.warmUpPeriod
-        # for epoch in range(0, total_epoch_count):
-        #     self.adjust_learning_rate(epoch)
-        #     self.adjust_warmup(epoch)
-        #
-        #     # train for one epoch
-        #     train_mean_batch_time = self.train_single_epoch(epoch_id=epoch, train_loader=train_loader)
-        #
-        #     if epoch % self.evaluationPeriod == 0 or epoch >= (total_epoch_count - 10):
-        #         print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
-        #             DbLogger.log_db_path, self.runId, epoch))
-        #         train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
-        #         print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
-        #             DbLogger.log_db_path, self.runId, epoch))
-        #         test_accuracy = self.validate(loader=test_loader, epoch=epoch, data_kind="test")
-        #
-        #         if test_accuracy > best_performance:
-        #             self.save_cigt_model(epoch=epoch)
-        #             best_performance = test_accuracy
-        #
-        #         DbLogger.write_into_table(
-        #             rows=[(self.runId,
-        #                    self.numOfTrainingIterations,
-        #                    epoch,
-        #                    train_accuracy,
-        #                    0.0,
-        #                    test_accuracy,
-        #                    train_mean_batch_time,
-        #                    0.0,
-        #                    0.0,
-        #                    "YYY")], table=DbLogger.logsTable)
-        #
-        # return best_performance
-
-    # def train_single_epoch(self, epoch_id, train_loader):
-    #     self.eval()
-    #     for i, (input_, target) in enumerate(train_loader):
-    #         outputs_1 = self.forward(x=input_, labels=target, temperature=0.1)
-    #         block_outputs_dict, \
-    #             routing_matrices_soft_dict, \
-    #             routing_matrices_hard_dict, \
-    #             routing_activations_dict, \
-    #             logits_dict, \
-    #             labels_dict = self.forward_v2(x=input_, labels=target, temperature=0.1)
-    #         print("X")
-    #
-    # def test_route_indices(self, test_loader):
-    #     self.execute_forward_with_random_input()
-    #     self.eval()
-    #     for i, (input_, target) in enumerate(test_loader):
-    #         # Create random enforced routing matrices
-    #         self.create_random_multipath_routing_matrices()
-    #         layer_outputs = self.forward(x=input_, labels=target, temperature=0.1)
-    #         print("X")
-    #
-    #
-    #
-    #         #     self.enforcedRoutingMatrices.append(
-    #         #         torch.ones(size=(max_branch_count * self.batchSize, path_count), dtype=torch.int64).to(self.device))
-    #         #
-    #         # layer_outputs = self.forward(x=input_, labels=target, temperature=0.1)
+        self.isInWarmUp = temp_warm_up_state
+        self.routingRandomizationRatio = temp_random_routing_ratio

@@ -138,4 +138,5 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_wd = 0.0001
     policy_networks_mac_lambda = 0.0
     policy_networks_discount_factor = 0.99
+    policy_networks_logit_temperature = 5.0
 
