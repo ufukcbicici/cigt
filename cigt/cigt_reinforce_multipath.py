@@ -26,12 +26,10 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.policyNetworksMacLambda = configs.policy_networks_mac_lambda
         self.policyNetworksLogitTemperature = configs.policy_networks_logit_temperature
         self.policyNetworksNllConstant = 1e-10
+        self.policyNetworksDiscountFactor = configs.policy_networks_discount_factor
+        self.policyNetworksApplyRewardWhitening = configs.policy_networks_apply_reward_whitening
 
         # Inputs to the policy networks, per layer.
-        self.policyGradientNetworksStates = []
-        self.policyGradientNetworksActions = []
-        self.policyGradientNetworksLogProbs = []
-        self.policyGradientNetworksRewards = []
 
         # Parameters for the Policy Network Solver
         self.policyNetworkInitialLr = configs.policy_networks_initial_lr
@@ -47,12 +45,23 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.macCountsPerBlock = model_mac_info
         self.singlePathMacCost = sum([sum(d_.values()) for d_ in self.macCountsPerBlock])
         self.macCostPerLayer = torch.from_numpy(
-            np.array([sum(d_.values()) for d_ in self.macCountsPerBlock])).to(self.device)
+            np.array([sum(d_.values()) for d_ in self.macCountsPerBlock])).to(self.device).to(torch.float32)
         self.isDebugMode = is_debug_mode
 
         self.policyNetworks = nn.ModuleList()
+        self.valueNetworks = nn.ModuleList()
+
         self.create_policy_networks()
         self.policyGradientsModelOptimizer = None
+
+        self.create_value_networks()
+        self.valueModelOptimizer = None
+
+        self.discountCoefficientArray = []
+        for step_id in range(len(self.pathCounts) - 1):
+            self.discountCoefficientArray.append(torch.pow(torch.tensor(self.policyNetworksDiscountFactor), step_id))
+        self.discountCoefficientArray = torch.tensor(self.discountCoefficientArray)
+
         print("X")
 
     def test_convert_actions_to_routing_matrix(self,
@@ -140,8 +149,8 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         assert np.allclose(moe_probabilities, moe_probabilities_calculated_np)
         moe_probabilities_torch = torch.from_numpy(moe_probabilities).to(self.device)
         nll_loss = nn.NLLLoss()
-        loss_1 = nll_loss(moe_probabilities_torch + self.policyNetworksNllConstant,
-                          labels_original).detach().cpu().numpy()
+        log_moe_probabilities_torch = torch.log(moe_probabilities_torch + self.policyNetworksNllConstant)
+        loss_1 = nll_loss(log_moe_probabilities_torch, labels_original).detach().cpu().numpy()
         loss_2 = np.mean(nll_calculated.detach().cpu().numpy())
         assert np.allclose(loss_1, loss_2)
         # Accuracy control
@@ -224,6 +233,62 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             policy_gradient_network_backbone = nn.Sequential(layers)
             self.policyNetworks.append(policy_gradient_network_backbone)
 
+    def create_value_networks(self):
+        for layer_id, path_count in enumerate(self.pathCounts[1:]):
+            layers = OrderedDict()
+            if self.policyNetworksCbamLayerInputReductionRatio > 1:
+                conv_block_reduction_layer = nn.MaxPool2d(
+                    kernel_size=self.policyNetworksCbamLayerInputReductionRatio,
+                    stride=self.policyNetworksCbamLayerInputReductionRatio)
+                layers["value_networks_block_{0}_max_pool_dimension_reduction_layer".format(layer_id)] \
+                    = conv_block_reduction_layer
+
+            # Network entry
+            # input_layer = nn.LazyConv2d(
+            #     kernel_size=1,
+            #     out_channels=self.policyNetworksCbamFeatureMapCount
+            # )
+            # Cifar10ResnetCigtConfigs.layer_config_list = [
+            #     {"path_count": 1,
+            #      "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
+            #     {"path_count": 2,
+            #      "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
+            #                          {"layer_count": 18, "feature_map_count": 16}]},
+            #     {"path_count": 4,
+            #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
+
+            single_path_feature_count = self.layerConfigList[layer_id]["layer_structure"][-1]["feature_map_count"]
+            current_route_combinations = self.pathCounts[:(layer_id + 1)]
+            input_feature_count = np.prod(current_route_combinations) * single_path_feature_count
+            input_layer = nn.Conv2d(
+                kernel_size=1,
+                in_channels=input_feature_count,
+                out_channels=self.policyNetworksCbamFeatureMapCount
+            )
+            layers["value_networks_input_block_{0}".format(layer_id)] = input_layer
+
+            for cid in range(self.policyNetworksCbamLayerCount):
+                block = BasicBlockWithCbam(in_planes=self.policyNetworksCbamFeatureMapCount,
+                                           planes=self.policyNetworksCbamFeatureMapCount,
+                                           stride=1,
+                                           cbam_reduction_ratio=self.policyNetworksCbamReductionRatio,
+                                           norm_type=self.batchNormType)
+                layers["value_networks_block_{0}_cbam_layer_{1}".format(layer_id, cid)] = block
+
+            layers["value_networks_block_{0}_avg_pool".format(layer_id)] = nn.AvgPool2d(
+                self.decisionAveragePoolingStrides[layer_id],
+                stride=self.decisionAveragePoolingStrides[layer_id])
+            layers["value_networks_block_{0}_flatten".format(layer_id)] = nn.Flatten()
+            # layers["policy_gradients_block_{0}_relu".format(layer_id)] = nn.ReLU()
+            layers["value_networks_block_{0}_feature_fc".format(layer_id)] = nn.LazyLinear(
+                out_features=self.decisionDimensions[layer_id])
+            layers["value_networks_block_{0}_value_fc".format(layer_id)] = nn.Linear(
+                in_features=self.decisionDimensions[layer_id], out_features=1)
+            # layers["value_networks_block_{0}_softmax".format(layer_id)] = nn.Softmax(dim=1)
+
+            value_network_backbone = nn.Sequential(layers)
+            self.valueNetworks.append(value_network_backbone)
+
     def create_optimizer(self):
         paths = []
         for pc in self.pathCounts:
@@ -241,26 +306,35 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             parameters_per_cigt_layers.append([])
         # Policy Network parameters.
         policy_networks_parameters = []
+        # Value Networks parameters.
+        value_networks_parameters = []
 
         for name, param in self.named_parameters():
-            assert not ("cigtLayers" in name and "policyNetworks" in name)
+            assert not (("cigtLayers" in name and "policyNetworks" in name) or
+                        ("cigtLayers" in name and "valueNetworks" in name) or
+                        ("policyNetworks" in name and "valueNetworks" in name))
             if "cigtLayers" in name:
-                assert "policyNetworks" not in name
+                assert "policyNetworks" not in name and "valueNetworks" not in name
                 param_name_splitted = name.split(".")
                 layer_id = int(param_name_splitted[1])
                 assert 0 <= layer_id <= len(self.pathCounts) - 1
                 parameters_per_cigt_layers[layer_id].append(param)
             elif "policyNetworks" in name:
-                assert "cigtLayers" not in name
+                assert "cigtLayers" not in name and "valueNetworks" not in name
                 policy_networks_parameters.append(param)
+            elif "valueNetworks" in name:
+                assert "cigtLayers" not in name and "policyNetworks" not in name
+                value_networks_parameters.append(param)
             else:
                 shared_parameters.append(param)
 
         num_shared_parameters = len(shared_parameters)
         num_policy_network_parameters = len(policy_networks_parameters)
+        num_value_networks_parameters = len(value_networks_parameters)
         num_cigt_layer_parameters = sum([len(arr) for arr in parameters_per_cigt_layers])
         num_all_parameters = len([tpl for tpl in self.named_parameters()])
-        assert num_shared_parameters + num_policy_network_parameters + num_cigt_layer_parameters == num_all_parameters
+        assert num_shared_parameters + num_policy_network_parameters + \
+               num_value_networks_parameters + num_cigt_layer_parameters == num_all_parameters
 
         parameter_groups = []
         # Add parameter groups with respect to their cigt layers
@@ -290,7 +364,14 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
               'lr': self.policyNetworkInitialLr,
               'weight_decay': self.policyNetworkWd}])
 
-        return model_optimizer, policy_networks_optimizer
+        # Create a separate optimizer that only optimizers the value networks. Use the same parameters with the policy
+        # network.
+        value_networks_optimizer = optim.AdamW(
+            [{'params': value_networks_parameters,
+              'lr': self.policyNetworkInitialLr,
+              'weight_decay': self.policyNetworkWd}])
+
+        return model_optimizer, policy_networks_optimizer, value_networks_optimizer
 
     def adjust_learning_rate_polynomial(self, iteration, num_of_total_iterations):
         lr = self.policyNetworkInitialLr
@@ -437,8 +518,8 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         layer_labels_final = layer_labels_final.to(torch.int64)
 
         # cross_entropy_loss_per_sample = self.policyGradientsCrossEntropy(expert_probabilities, layer_labels_final)
-        nll_per_sample = self.policyGradientsNegativeLogLikelihood(
-            expert_probabilities + self.policyNetworksNllConstant, layer_labels_final)
+        log_expert_probabilities = torch.log(expert_probabilities + self.policyNetworksNllConstant)
+        nll_per_sample = self.policyGradientsNegativeLogLikelihood(log_expert_probabilities, layer_labels_final)
         predicted_labels = torch.argmax(expert_probabilities, dim=1)
         accuracy_vector = predicted_labels == layer_labels_final
         accuracy = torch.mean(accuracy_vector.to(expert_probabilities.dtype))
@@ -465,7 +546,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         # PART 2: CALCULATE THE MAC LOSS
 
         cross_entropy_rewards = -1.0 * nll_per_sample
-        mac_rewards = -1.0*(mac_per_sample / self.singlePathMacCost - 1.0)
+        mac_rewards = -1.0 * (mac_per_sample / self.singlePathMacCost - 1.0)
         final_rewards = (1.0 - self.policyNetworksMacLambda) * cross_entropy_rewards + \
                         self.policyNetworksMacLambda * mac_rewards
 
@@ -488,10 +569,10 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
     def forward(self, x, labels, temperature):
         sample_indices = torch.arange(0, labels.shape[0], device=self.device)
         balance_coefficient_list = self.informationGainBalanceCoeffList
-        self.policyGradientNetworksStates = []
-        self.policyGradientNetworksActions = []
-        self.policyGradientNetworksLogProbs = []
-        self.policyGradientNetworksRewards = []
+        policy_gradient_network_states = []
+        policy_gradient_network_actions = []
+        policy_gradient_network_log_probs = []
+        policy_gradient_network_rewards = []
         # Initial layer
         net = self.preprocess_input(x=x)
         layer_outputs = [{"net": net,
@@ -558,15 +639,15 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     layer_sample_indices_unified=layer_sample_indices_unified,
                     layer_route_indices_unified=layer_route_indices_unified
                 )
-                self.policyGradientNetworksStates.append(pg_input_linearized)
+                policy_gradient_network_states.append(pg_input_linearized)
 
                 # Sample action from the policy network
                 actions, log_probs = \
                     self.select_action(layer_id=layer_id, pg_input=pg_input_linearized, sample_action=self.training)
-                self.policyGradientNetworksActions.append(actions)
-                self.policyGradientNetworksLogProbs.append(log_probs)
+                policy_gradient_network_actions.append(actions)
+                policy_gradient_network_log_probs.append(log_probs)
                 if layer_id < len(self.pathCounts) - 2:
-                    self.policyGradientNetworksRewards.append(torch.zeros_like(log_probs))
+                    policy_gradient_network_rewards.append(torch.zeros_like(log_probs))
 
                 # Create appropriate hard routing matrices with respect to chosen actions
                 rl_hard_routing_matrix = self.convert_actions_to_routing_matrix(
@@ -610,7 +691,9 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                         list_of_sample_indices_per_layer=list_of_sample_indices_per_layer,
                         layer_labels_unified=layer_labels_unified,
                         labels_original=labels)
-                    self.policyGradientNetworksRewards.append(final_rewards)
+                    # No gradients should flow from the rewards.
+                    final_rewards = final_rewards.detach()
+                    policy_gradient_network_rewards.append(final_rewards)
 
                     layer_outputs.append({"net": layer_outputs_unified,
                                           "labels": layer_labels_unified,
@@ -620,12 +703,89 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                                           "list_of_logits": list_of_logits,
                                           "logits_unified": logits_unified,
                                           "expert_probabilities": expert_probabilities,
-                                          "final_rewards": final_rewards})
+                                          "final_rewards": final_rewards,
+                                          "policy_gradient_network_states": policy_gradient_network_states,
+                                          "policy_gradient_network_actions": policy_gradient_network_actions,
+                                          "policy_gradient_network_log_probs": policy_gradient_network_log_probs,
+                                          "policy_gradient_network_rewards": policy_gradient_network_rewards
+                                          })
 
                 else:
                     raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
 
         return layer_outputs
+
+    def process_rewards(self, batch_size, network_rewards):
+        ''' Converts our rewards history into cumulative discounted rewards
+        Args:
+        - rewards (Array): array of rewards
+
+        Returns:
+        - G (Array): array of cumulative discounted rewards
+        '''
+
+        rewards_matrix = torch.stack(network_rewards, dim=1)
+        cumulative_rewards = []
+
+        for t_ in range(rewards_matrix.shape[1]):
+            discounts_arr = self.discountCoefficientArray[0:rewards_matrix.shape[1] - t_]
+            discounts_arr = torch.unsqueeze(discounts_arr, dim=0)
+            rewards_partial = rewards_matrix[:, t_:]
+            rewards_partial_discounted = rewards_partial * discounts_arr
+            cumulative_reward = torch.sum(rewards_partial_discounted, dim=1)
+            cumulative_rewards.append(cumulative_reward)
+
+        if self.isDebugMode:
+            sample_reward_arrays = []
+            for sample_id in range(batch_size):
+                rewards = []
+                for layer_id, rarr in enumerate(network_rewards):
+                    rewards.append(rarr[sample_id])
+
+                # Calculate Gt (cumulative discounted rewards)
+                G = []
+
+                # track cumulative reward
+                total_r = 0
+
+                # iterate rewards from Gt to G0
+                for r in reversed(rewards):
+                    # Base case: G(T) = r(T)
+                    # Recursive: G(t) = r(t) + G(t+1)^DISCOUNT
+                    total_r = r + total_r * self.policyNetworksDiscountFactor
+
+                    # add to front of G
+                    G.insert(0, total_r)
+
+                # whitening rewards
+                G = torch.tensor(G).to(self.device)
+                if self.policyNetworksApplyRewardWhitening:
+                    G = (G - G.mean()) / G.std()
+                sample_reward_arrays.append(G)
+
+            sample_reward_arrays = torch.stack(sample_reward_arrays, dim=0)
+
+            for t_ in range(rewards_matrix.shape[1]):
+                assert np.allclose(cumulative_rewards[t_].cpu().numpy(), sample_reward_arrays[:, t_].cpu().numpy())
+
+        return cumulative_rewards
+
+    def train_value_network(self, cumulative_rewards, network_states):
+        # Calculate state values and train state value network
+        # total_loss = torch.zeros_like(cumulative_rewards[0])
+        total_loss_list = []
+        for layer_id in range(len(self.pathCounts) - 1):
+            layer_states = network_states[layer_id]
+            value_predictions = self.valueNetworks[layer_id](layer_states)
+            value_predictions = torch.squeeze(value_predictions)
+            val_loss = F.mse_loss(cumulative_rewards[layer_id], value_predictions, reduction="none")
+            total_loss_list.append(val_loss)
+        # Backpropagate
+        total_loss_matrix = torch.stack(total_loss_list, dim=1)
+        total_loss = torch.mean(total_loss_matrix, dim=(0, 1))
+        total_loss.backward()
+        self.valueModelOptimizer.step()
+        print("X")
 
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
@@ -638,7 +798,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         # test_accuracy = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=0.1)
 
         # Create the model optimizer, we should have every parameter initialized right now.
-        self.modelOptimizer, self.policyGradientsModelOptimizer = self.create_optimizer()
+        self.modelOptimizer, self.policyGradientsModelOptimizer, self.valueModelOptimizer = self.create_optimizer()
 
         # self.test_route_indices(test_loader=test_loader)
 
@@ -657,12 +817,23 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                 # Print learning rates
                 print("Policy Network Lr:{0}".format(self.policyGradientsModelOptimizer.param_groups[0]["lr"]))
                 self.policyGradientsModelOptimizer.zero_grad()
+                self.valueModelOptimizer.zero_grad()
                 with torch.set_grad_enabled(True):
                     input_var = torch.autograd.Variable(input_).to(self.device)
                     target_var = torch.autograd.Variable(target).to(self.device)
                     batch_size = input_var.size(0)
                     outputs = self(x=input_var, labels=target_var, temperature=1.0)
-                    print("X")
+                    network_states = outputs[-1]["policy_gradient_network_states"]
+                    network_rewards = outputs[-1]["policy_gradient_network_rewards"]
+                    network_actions = outputs[-1]["policy_gradient_network_actions"]
+                    network_log_probs = outputs[-1]["policy_gradient_network_log_probs"]
+
+                    # Prepare cumulative reward arrays
+                    cumulative_rewards = self.process_rewards(batch_size=batch_size, network_rewards=network_rewards)
+                    # Train value network
+                    self.train_value_network(cumulative_rewards=cumulative_rewards, network_states=network_states)
+
+
                 self.iteration_id += 1
 
         self.isInWarmUp = temp_warm_up_state

@@ -126,6 +126,7 @@ if __name__ == "__main__":
     load_result = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
     for param_name in load_result.missing_keys:
         block_check1 = [param_name.startswith("policyNetworks.{0}".format(block_id))
+                        or param_name.startswith("valueNetworks.{0}".format(block_id))
                         for block_id in range(len(model.pathCounts[1:]))]
         assert any(block_check1)
         block_check2 = ["block_{0}".format(block_id) in param_name for block_id in range(len(model.pathCounts[1:]))]
