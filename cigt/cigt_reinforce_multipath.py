@@ -774,18 +774,59 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         # Calculate state values and train state value network
         # total_loss = torch.zeros_like(cumulative_rewards[0])
         total_loss_list = []
+        value_predictions_list = []
         for layer_id in range(len(self.pathCounts) - 1):
             layer_states = network_states[layer_id]
             value_predictions = self.valueNetworks[layer_id](layer_states)
             value_predictions = torch.squeeze(value_predictions)
             val_loss = F.mse_loss(cumulative_rewards[layer_id], value_predictions, reduction="none")
+            value_predictions_list.append(value_predictions)
             total_loss_list.append(val_loss)
         # Backpropagate
         total_loss_matrix = torch.stack(total_loss_list, dim=1)
         total_loss = torch.mean(total_loss_matrix, dim=(0, 1))
         total_loss.backward()
         self.valueModelOptimizer.step()
-        print("X")
+        return value_predictions_list
+
+    def train_policy_network(self, cumulative_rewards, value_predictions_list, log_probs):
+        # Calculate deltas
+        policy_values = []
+        for layer_id in range(len(self.pathCounts) - 1):
+            gt = cumulative_rewards[layer_id]
+            val = value_predictions_list[layer_id]
+            lp = log_probs[layer_id]
+            delta = gt - val
+            policy_value = delta * lp
+            policy_values.append(policy_value)
+            # policy_values[t] = log(\pi(a_t|s_t)) * ((\sum_{n=t}^{T} gamma^{n-t} r_{n}) - v(s_t))
+        policy_values_time_step = torch.stack(policy_values, dim=1)
+        total_policy_values_per_sample = torch.sum(policy_values_time_step, dim=1)
+        expected_policy_value = torch.mean(total_policy_values_per_sample)
+        policy_loss = -1.0 * expected_policy_value
+
+        # policy_loss_matrix = torch.stack(policy_losses, dim=1)
+        # total_policy_loss = torch.mean(policy_loss_matrix, dim=(0, 1))
+
+
+
+        # # Calculate state values and train state value network
+        # # total_loss = torch.zeros_like(cumulative_rewards[0])
+        # total_loss_list = []
+        # value_predictions_list = []
+        # for layer_id in range(len(self.pathCounts) - 1):
+        #     layer_states = network_states[layer_id]
+        #     value_predictions = self.valueNetworks[layer_id](layer_states)
+        #     value_predictions = torch.squeeze(value_predictions)
+        #     val_loss = F.mse_loss(cumulative_rewards[layer_id], value_predictions, reduction="none")
+        #     value_predictions_list.append(value_predictions)
+        #     total_loss_list.append(val_loss)
+        # # Backpropagate
+        # total_loss_matrix = torch.stack(total_loss_list, dim=1)
+        # total_loss = torch.mean(total_loss_matrix, dim=(0, 1))
+        # total_loss.backward()
+        # self.valueModelOptimizer.step()
+        # return value_predictions_list
 
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
@@ -831,7 +872,15 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     # Prepare cumulative reward arrays
                     cumulative_rewards = self.process_rewards(batch_size=batch_size, network_rewards=network_rewards)
                     # Train value network
-                    self.train_value_network(cumulative_rewards=cumulative_rewards, network_states=network_states)
+                    value_predictions_list = \
+                        self.train_value_network(cumulative_rewards=cumulative_rewards, network_states=network_states)
+                    # Train policy network
+                    self.train_policy_network(cumulative_rewards=cumulative_rewards,
+                                              value_predictions_list=value_predictions_list,
+                                              log_probs=network_log_probs)
+
+
+
 
 
                 self.iteration_id += 1
