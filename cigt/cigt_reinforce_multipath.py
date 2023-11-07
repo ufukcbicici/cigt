@@ -805,9 +805,9 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         for layer_id in range(len(self.pathCounts) - 1):
             layer_states = network_states[layer_id]
             value_predictions = self.valueNetworks[layer_id](layer_states)
-            value_predictions = torch.squeeze(value_predictions)
-            val_loss = F.mse_loss(cumulative_rewards[layer_id], value_predictions, reduction="none")
-            value_predictions_list.append(value_predictions)
+            value_predictions_squeezed = torch.squeeze(value_predictions)
+            val_loss = F.mse_loss(cumulative_rewards[layer_id], value_predictions_squeezed, reduction="none")
+            value_predictions_list.append(value_predictions_squeezed)
             total_loss_list.append(val_loss)
         # Backpropagate
         total_loss_matrix = torch.stack(total_loss_list, dim=1)
@@ -885,11 +885,11 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.execute_forward_with_random_input()
 
         # Test with enforced actions set to 0. The accuracy should be the naive IG accuracy.
-        # self.toggle_allways_ig_routing(enable=True)
-        # test_ig_accuracy_avg, test_ig_mac_avg = \
-        #     self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=0.1)
-        # self.toggle_allways_ig_routing(enable=False)
-        # print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(test_ig_accuracy_avg, test_ig_mac_avg))
+        self.toggle_allways_ig_routing(enable=True)
+        test_ig_accuracy_avg, test_ig_mac_avg = \
+            self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=0.1)
+        self.toggle_allways_ig_routing(enable=False)
+        print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(test_ig_accuracy_avg, test_ig_mac_avg))
 
         # Create the model optimizer, we should have every parameter initialized right now.
         self.modelOptimizer, self.policyGradientsModelOptimizer, self.valueModelOptimizer = self.create_optimizer()
