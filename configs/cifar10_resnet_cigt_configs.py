@@ -140,4 +140,5 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_discount_factor = 0.99
     policy_networks_logit_temperature = 1.0
     policy_networks_apply_reward_whitening = False
+    policy_networks_evaluation_period = 5
 
