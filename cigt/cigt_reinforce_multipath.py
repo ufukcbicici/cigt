@@ -8,9 +8,12 @@ import torch.nn.functional as F
 from torch import optim
 from torch.distributions import Categorical
 
+from auxillary.db_logger import DbLogger
+from auxillary.average_meter import AverageMeter
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.custom_layers.basic_block_with_cbam import BasicBlockWithCbam
+from tqdm import tqdm
 
 
 class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
@@ -546,9 +549,11 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         # PART 2: CALCULATE THE MAC LOSS
 
         cross_entropy_rewards = -1.0 * nll_per_sample
-        mac_rewards = -1.0 * (mac_per_sample / self.singlePathMacCost - 1.0)
+        relative_macs = (mac_per_sample / self.singlePathMacCost - 1.0)
+        mac_rewards = -1.0 * relative_macs
         final_rewards = (1.0 - self.policyNetworksMacLambda) * cross_entropy_rewards + \
                         self.policyNetworksMacLambda * mac_rewards
+        average_mac = torch.mean(relative_macs)
 
         if self.isDebugMode:
             assert np.array_equal(layer_labels_final.numpy(), labels_original.numpy())
@@ -564,7 +569,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             self.test_mac_calculation(batch_size=batch_size,
                                       list_of_sample_indices_per_layer=list_of_sample_indices_per_layer,
                                       mac_list_calculated=mac_list)
-        return expert_probabilities, final_rewards
+        return expert_probabilities, final_rewards, average_mac, accuracy
 
     def forward(self, x, labels, temperature):
         sample_indices = torch.arange(0, labels.shape[0], device=self.device)
@@ -684,7 +689,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     list_of_sample_indices_per_layer = [d_["sample_indices"] for d_ in layer_outputs]
                     list_of_sample_indices_per_layer.append(layer_sample_indices_unified)
 
-                    expert_probabilities, final_rewards = self.calculate_final_reward(
+                    expert_probabilities, final_rewards, average_mac, accuracy = self.calculate_final_reward(
                         batch_size=x.shape[0],
                         list_of_logits_unified=logits_unified,
                         list_of_route_indices_per_layer=list_of_route_indices_per_layer,
@@ -704,6 +709,8 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                                           "logits_unified": logits_unified,
                                           "expert_probabilities": expert_probabilities,
                                           "final_rewards": final_rewards,
+                                          "average_mac": average_mac,
+                                          "accuracy": accuracy,
                                           "policy_gradient_network_states": policy_gradient_network_states,
                                           "policy_gradient_network_actions": policy_gradient_network_actions,
                                           "policy_gradient_network_log_probs": policy_gradient_network_log_probs,
@@ -810,6 +817,189 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.policyGradientsModelOptimizer.step()
         return expected_policy_value
 
+    def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False,
+                 return_network_outputs=False,
+                 verbose=False):
+        """Perform validation on the validation set"""
+        batch_time = AverageMeter()
+        losses = AverageMeter()
+        losses_c = AverageMeter()
+        losses_t = AverageMeter()
+        losses_t_layer_wise = [AverageMeter() for _ in range(len(self.pathCounts) - 1)]
+        accuracy_avg = AverageMeter()
+        # list_of_original_inputs = []
+        # list_of_original_labels = []
+        # list_of_labels = []
+        # list_of_routing_probability_matrices = []
+        # list_of_routing_activations = []
+        # list_of_logits_complete = []
+        # list_of_logits_unified = []
+        # list_of_final_block_labels = []
+        # for _ in range(len(self.pathCounts) - 1):
+        #     list_of_labels.append([])
+        #     list_of_routing_probability_matrices.append([])
+        #     list_of_routing_activations.append([])
+        # for _ in range(len(self.lossLayers)):
+        #     list_of_logits_complete.append([])
+        #
+        # Temperature of Gumble Softmax
+        # We simply keep it fixed
+        if temperature is None:
+            temperature = 1.0
+
+        # switch to evaluate mode
+        self.eval()
+        if verbose is False:
+            verbose_loader = enumerate(loader)
+        else:
+            verbose_loader = tqdm(enumerate(loader))
+        for i, (input_, target) in verbose_loader:
+            time_begin = time.time()
+            with torch.no_grad():
+                input_var = torch.autograd.Variable(input_).to(self.device)
+                target_var = torch.autograd.Variable(target).to(self.device)
+                batch_size = input_var.size(0)
+                outputs = self(x=input_var, labels=target_var, temperature=temperature)
+                network_states = outputs[-1]["policy_gradient_network_states"]
+                network_rewards = outputs[-1]["policy_gradient_network_rewards"]
+                network_actions = outputs[-1]["policy_gradient_network_actions"]
+                network_log_probs = outputs[-1]["policy_gradient_network_log_probs"]
+                expert_probabilities = outputs[-1]["expert_probabilities"]
+                final_rewards = outputs[-1]["final_rewards"]
+                average_mac = outputs[-1]["average_mac"]
+                accuracy = outputs[-1]["accuracy"]
+
+        #         # Cigt Classification Loss and Accuracy Calculation
+        #         layer_outputs = self(input_var, target_var, temperature)
+        #         if self.lossCalculationKind == "SingleLogitSingleLoss":
+        #             classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
+        #                 list_of_logits=layer_outputs[-1]["list_of_logits"],
+        #                 routing_matrices=None,
+        #                 target_var=[layer_outputs[-1]["labels"]])
+        #         # Calculate logits with all block separately
+        #         elif self.lossCalculationKind == "MultipleLogitsMultipleLosses" \
+        #                 or self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
+        #             classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
+        #                 list_of_logits=layer_outputs[-1]["list_of_logits"],
+        #                 routing_matrices=None,
+        #                 target_var=layer_outputs[-1]["labels_masked"])
+        #         else:
+        #             raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
+        #
+        #         # Calculate the information gain losses, with respect to each routing layer
+        #         routing_matrices_soft = [od["routing_matrices_soft"] for od in layer_outputs[1:-1]]
+        #         routing_activations_list = [od["routing_activations"] for od in layer_outputs[1:-1]]
+        #         labels_per_routing_layer = [od["labels"] for od in layer_outputs[1:-1]]
+        #         information_gain_losses = self.calculate_information_gain_losses(
+        #             routing_matrices=routing_matrices_soft, labels=labels_per_routing_layer,
+        #             balance_coefficient_list=self.informationGainBalanceCoeffList)
+        #         total_routing_loss = 0.0
+        #         for t_loss in information_gain_losses:
+        #             total_routing_loss += t_loss
+        #         total_routing_loss = -1.0 * self.decisionLossCoeff * total_routing_loss
+        #         total_loss = classification_loss + total_routing_loss
+        #
+        #         time_end = time.time()
+        #
+        #         for idx_, matr_ in enumerate(labels_per_routing_layer):
+        #             list_of_labels[idx_].append(matr_.detach().cpu().numpy())
+        #         for idx_, matr_ in enumerate(routing_matrices_soft):
+        #             list_of_routing_probability_matrices[idx_].append(matr_.detach().cpu().numpy())
+        #         for idx_, matr_ in enumerate(routing_activations_list):
+        #             list_of_routing_activations[idx_].append(matr_.detach().cpu().numpy())
+        #         for idx_, matr_ in enumerate(layer_outputs[-1]["list_of_logits"]):
+        #             list_of_logits_complete[idx_].append(matr_.detach().cpu().numpy())
+        #         list_of_logits_unified.append(layer_outputs[-1]["logits_unified"].detach().cpu().numpy())
+        #         list_of_original_inputs.append(input_.cpu().numpy())
+        #         list_of_original_labels.append(target.cpu().numpy())
+        #         list_of_final_block_labels.append(layer_outputs[-1]["labels"].detach().cpu().numpy())
+        #
+        #         # measure accuracy and record loss
+        #         losses.update(total_loss.detach().cpu().numpy().item(), 1)
+        #         losses_c.update(classification_loss.detach().cpu().numpy().item(), 1)
+        #         accuracy_avg.update(batch_accuracy, batch_size)
+        #         batch_time.update((time_end - time_begin), 1)
+        #         losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
+        #         for lid in range(len(self.pathCounts) - 1):
+        #             losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
+        #
+        # kv_rows = []
+        # for idx_ in range(len(list_of_labels)):
+        #     list_of_labels[idx_] = np.concatenate(list_of_labels[idx_], axis=0)
+        # for idx_ in range(len(list_of_routing_probability_matrices)):
+        #     list_of_routing_probability_matrices[idx_] = np.concatenate(
+        #         list_of_routing_probability_matrices[idx_], axis=0)
+        # for idx_ in range(len(list_of_routing_activations)):
+        #     list_of_routing_activations[idx_] = np.concatenate(list_of_routing_activations[idx_], axis=0)
+        # for idx_ in range(len(list_of_logits_complete)):
+        #     list_of_logits_complete[idx_] = np.concatenate(list_of_logits_complete[idx_], axis=0)
+        # list_of_logits_unified = np.concatenate(list_of_logits_unified, axis=0)
+        # list_of_original_inputs = np.concatenate(list_of_original_inputs, axis=0)
+        # list_of_original_labels = np.concatenate(list_of_original_labels, axis=0)
+        # list_of_final_block_labels = np.concatenate(list_of_final_block_labels, axis=0)
+        #
+        # self.calculate_branch_statistics(
+        #     run_id=self.runId,
+        #     iteration=self.numOfTrainingIterations,
+        #     dataset_type=data_kind,
+        #     labels=list_of_labels,
+        #     routing_probability_matrices=list_of_routing_probability_matrices,
+        #     write_to_db=True)
+        #
+        # print("total_loss:{0}".format(losses.avg))
+        # kv_rows.append((self.runId,
+        #                 self.numOfTrainingIterations,
+        #                 "{0} Epoch {1} total_loss".format(data_kind, epoch),
+        #                 "{0}".format(losses.avg)))
+        #
+        # print("accuracy_avg:{0}".format(accuracy_avg.avg))
+        # kv_rows.append((self.runId,
+        #                 self.numOfTrainingIterations,
+        #                 "{0} Epoch {1} Accuracy".format(data_kind, epoch),
+        #                 "{0}".format(accuracy_avg.avg)))
+        #
+        # print("batch_time:{0}".format(batch_time.avg))
+        # kv_rows.append((self.runId,
+        #                 self.numOfTrainingIterations,
+        #                 "{0} Epoch {1} batch_time".format(data_kind, epoch),
+        #                 "{0}".format(batch_time.avg)))
+        #
+        # print("classification_loss:{0}".format(losses_c.avg))
+        # kv_rows.append((self.runId,
+        #                 self.numOfTrainingIterations,
+        #                 "{0} Epoch {1} classification_loss".format(data_kind, epoch),
+        #                 "{0}".format(losses_c.avg)))
+        #
+        # print("routing_loss:{0}".format(losses_t.avg))
+        # kv_rows.append((self.runId,
+        #                 self.numOfTrainingIterations,
+        #                 "{0} Epoch {1} routing_loss".format(data_kind, epoch),
+        #                 "{0}".format(losses_t.avg)))
+        #
+        # for lid in range(len(self.pathCounts) - 1):
+        #     print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
+        #     kv_rows.append((self.runId,
+        #                     self.numOfTrainingIterations,
+        #                     "{0} Epoch {1} Layer {2} routing_loss".format(data_kind, epoch, lid),
+        #                     "{0}".format(losses_t_layer_wise[lid].avg)))
+        #
+        # DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+        # if not return_network_outputs:
+        #     return accuracy_avg.avg
+        # else:
+        #     res_dict = {
+        #         "accuracy": accuracy_avg.avg,
+        #         "list_of_labels": list_of_labels,
+        #         "list_of_routing_probability_matrices": list_of_routing_probability_matrices,
+        #         "list_of_routing_activations": list_of_routing_activations,
+        #         "list_of_logits_complete": list_of_logits_complete,
+        #         "list_of_logits_unified": list_of_logits_unified,
+        #         "list_of_original_inputs": list_of_original_inputs,
+        #         "list_of_original_labels": list_of_original_labels,
+        #         "list_of_final_block_labels": list_of_final_block_labels
+        #     }
+        #     return res_dict
+
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
         torch.manual_seed(1)
@@ -860,6 +1050,12 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     expected_policy_value = self.train_policy_network(cumulative_rewards=cumulative_rewards,
                                                                       value_predictions_list=value_predictions_list,
                                                                       log_probs=network_log_probs)
+
+                    iteration_reward = torch.stack(network_rewards, dim=1)
+                    iteration_reward = torch.sum(iteration_reward, dim=1)
+                    iteration_reward = torch.mean(iteration_reward)
+                    print("Epoch:{0} Iteration:{1} Reward:{2}".format(epoch_id, self.iteration_id,
+                                                                      iteration_reward.detach().cpu().numpy()))
 
                 self.iteration_id += 1
 
