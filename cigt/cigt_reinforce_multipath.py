@@ -600,7 +600,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         average_mac = torch.mean(relative_macs)
 
         if self.isDebugMode:
-            assert np.array_equal(layer_labels_final.numpy(), labels_original.numpy())
+            assert np.array_equal(layer_labels_final.detach().cpu().numpy(), labels_original.detach().cpu().numpy())
             self.test_cross_entropy_loss_calculation(
                 batch_size=batch_size,
                 nll_calculated=nll_per_sample,
