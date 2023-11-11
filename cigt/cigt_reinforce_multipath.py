@@ -639,9 +639,11 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                           "route_indices": torch.zeros(size=(x.shape[0], 1),
                                                        dtype=torch.int64,
                                                        device=self.device)}]
-        print("net device {0}".format(layer_outputs[-1]["net"].device))
-        print("routing_matrix_hard device {0}".format(layer_outputs[-1]["routing_matrix_hard"].device))
         for layer_id, cigt_layer_blocks in enumerate(self.cigtLayers):
+            print("layer {0} net device {1}".format(layer_id,
+                                                    layer_outputs[-1]["net"].device))
+            print("layer {0} routing_matrix_hard device {1}".format(layer_id,
+                                                                    layer_outputs[-1]["routing_matrix_hard"].device))
             net_masked = self.divide_tensor_wrt_routing_matrix(
                 tens=layer_outputs[-1]["net"],
                 routing_matrix=layer_outputs[-1]["routing_matrix_hard"])
