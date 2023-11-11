@@ -40,7 +40,7 @@ class DbLogger:
     truba_5 = "/truba_scratch/ubicici/PHD/simple_tf/dblogger5_cign.db"
     truba_6 = "/truba_scratch/ubicici/PHD/simple_tf/dblogger6_cign.db"
     truba_sigma = "/truba/home/seberger/main/repo/phd_work/cigt_logger.db"
-    paperspace = "/notebooks/cigt_logger.db"
+    paperspace = "/notebooks/cigt/dblogger.db"
     blackshark_desktop = "/home/ubicici/personal_stuff/phd_work/dblogger.db"
     blackshark_laptop = "/home/ubicici/Desktop/phd_work/dblogger.db"
     aig_cigt = "C://Users//asus//Desktop//ConvAig//convnet-aig//cigt//dblogger.db"

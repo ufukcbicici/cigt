@@ -82,6 +82,7 @@ class Cifar10ResnetCigtConfigs:
     model_file_root_path_tetam = "/cta/users/ucbicici/cigt"
     model_file_root_path_tetam_tuna = "/cta/users/hmeral/cigt"
     model_file_root_path_jr = "C://Users//ufuk.bicici//PycharmProjects//cigt"
+    model_file_root_path_paperspace = "/notebooks/cigt"
 
     # Thick Baseline
     # resnet_config_list = [
