@@ -126,14 +126,14 @@ class Cifar10ResnetCigtConfigs:
     kd_loss_alpha = 0.5
 
     # Policy Gradients Multipath Routing Parameters
-    policy_networks_cbam_layer_count = 3
+    policy_networks_cbam_layer_count = 9
     policy_networks_cbam_feature_map_count = 32
     policy_networks_cbam_reduction_ratio = 4
     policy_networks_cbam_layer_input_reduction_ratio = 4
     policy_networks_cbam_end_avg_pool_strode = 2
     policy_networks_lstm_dimension = 128
     policy_networks_total_num_of_epochs = 1000
-    policy_networks_initial_lr = 0.00006
+    policy_networks_initial_lr = 0.001
     policy_networks_polynomial_scheduler_power = 1.0
     policy_networks_wd = 0.0001
     policy_networks_mac_lambda = 0.0
@@ -141,4 +141,7 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_logit_temperature = 1.0
     policy_networks_apply_reward_whitening = False
     policy_networks_evaluation_period = 5
+    policy_networks_use_moving_average_baseline = True
+    policy_networks_baseline_momentum = 0.99
+
 

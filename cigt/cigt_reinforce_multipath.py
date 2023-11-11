@@ -2,6 +2,7 @@ from collections import OrderedDict
 
 import torch
 import time
+import inspect
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
@@ -33,6 +34,8 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.policyNetworksApplyRewardWhitening = configs.policy_networks_apply_reward_whitening
         self.policyNetworksEvaluationPeriod = configs.policy_networks_evaluation_period
         self.policyNetworksEnforcedActions = []
+        self.policyNetworksUseMovingAverageBaseline = configs.policy_networks_use_moving_average_baseline
+        self.policyNetworksBaselineMomentum = configs.policy_networks_baseline_momentum
 
         # Inputs to the policy networks, per layer.
 
@@ -46,6 +49,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
         self.policyGradientsCrossEntropy = nn.CrossEntropyLoss(reduction="none")
         self.policyGradientsNegativeLogLikelihood = nn.NLLLoss(reduction="none")
+        self.policyGradientsMSELosses = [nn.MSELoss(reduction="none") for _ in range(len(self.pathCounts) - 1)]
 
         self.macCountsPerBlock = model_mac_info
         self.singlePathMacCost = sum([sum(d_.values()) for d_ in self.macCountsPerBlock])
@@ -61,6 +65,10 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
         self.create_value_networks()
         self.valueModelOptimizer = None
+
+        self.baselinesPerLayer = []
+        for step_id in range(len(self.pathCounts) - 1):
+            self.baselinesPerLayer.append(None)
 
         self.discountCoefficientArray = []
         for step_id in range(len(self.pathCounts) - 1):
@@ -181,13 +189,29 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             assert np.array_equal(mac_list_calculated.detach().cpu().numpy()[:, layer_id],
                                   mac_list[layer_id])
 
+    def get_explanation_string(self):
+        kv_rows = []
+        explanation = super().get_explanation_string()
+        for elem in inspect.getmembers(self):
+            if elem[0].startswith("policyNetworks") and \
+                    (isinstance(elem[1], bool) or
+                     isinstance(elem[1], float) or
+                     isinstance(elem[1], int) or
+                     isinstance(elem[1], str)):
+                explanation = self.add_explanation(name_of_param=elem[0],
+                                                   value=elem[1],
+                                                   explanation=explanation,
+                                                   kv_rows=kv_rows)
+        DbLogger.write_into_table(rows=kv_rows, table="run_parameters")
+        return explanation
+
     def toggle_allways_ig_routing(self, enable):
         if enable:
             self.policyNetworksEnforcedActions = []
             max_branch_count = np.prod(self.pathCounts)
             for path_count in self.pathCounts[1:]:
                 self.policyNetworksEnforcedActions.append(
-                    torch.zeros(size=(max_branch_count * self.batchSize, ),
+                    torch.zeros(size=(max_branch_count * self.batchSize,),
                                 dtype=torch.int64).to(self.device))
         else:
             self.policyNetworksEnforcedActions = []
@@ -283,7 +307,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             )
             layers["value_networks_input_block_{0}".format(layer_id)] = input_layer
 
-            for cid in range(self.policyNetworksCbamLayerCount):
+            for cid in range(3):
                 block = BasicBlockWithCbam(in_planes=self.policyNetworksCbamFeatureMapCount,
                                            planes=self.policyNetworksCbamFeatureMapCount,
                                            stride=1,
@@ -797,7 +821,18 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
         return cumulative_rewards
 
-    def train_value_network(self, cumulative_rewards, network_states):
+    def update_baselines(self, cumulative_rewards):
+        gamma = self.policyNetworksBaselineMomentum
+        for t_ in range(len(cumulative_rewards)):
+            b_ = self.baselinesPerLayer[t_]
+            r_ = torch.mean(cumulative_rewards[t_])
+            if b_ is None:
+                self.baselinesPerLayer[t_] = r_
+            else:
+                self.baselinesPerLayer[t_] = gamma * b_ + (1.0 - gamma) * r_
+
+    # OK
+    def execute_value_network(self, cumulative_rewards, network_states):
         # Calculate state values and train state value network
         # total_loss = torch.zeros_like(cumulative_rewards[0])
         total_loss_list = []
@@ -810,41 +845,46 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             value_predictions_list.append(value_predictions_squeezed)
             total_loss_list.append(val_loss)
         # Backpropagate
-        total_loss_matrix = torch.stack(total_loss_list, dim=1)
-        total_loss = torch.mean(total_loss_matrix, dim=(0, 1))
-        total_loss.backward(retain_graph=True)
-        self.valueModelOptimizer.step()
-        return value_predictions_list
+        total_state_network_loss_matrix = torch.stack(total_loss_list, dim=1)
+        total_state_network_loss = torch.mean(total_state_network_loss_matrix, dim=(0, 1))
+        return total_state_network_loss, value_predictions_list
 
-    def train_policy_network(self, cumulative_rewards, value_predictions_list, log_probs):
+    def execute_policy_network(self, cumulative_rewards, value_predictions_list, log_probs):
         # Calculate deltas
         policy_values = []
+        policy_values_no_baseline = []
         for layer_id in range(len(self.pathCounts) - 1):
             gt = cumulative_rewards[layer_id]
             val = value_predictions_list[layer_id]
+            if val is None:
+                val = 0.0
             lp = log_probs[layer_id]
             delta = gt - val
             policy_value = delta * lp
             policy_values.append(policy_value)
+            policy_values_no_baseline.append(gt * lp)
             # policy_values[t] = log(\pi(a_t|s_t)) * ((\sum_{n=t}^{T} gamma^{n-t} r_{n}) - v(s_t))
-        policy_values_time_step = torch.stack(policy_values, dim=1)
-        total_policy_values_per_sample = torch.sum(policy_values_time_step, dim=1)
+        policy_values_each_time_step = torch.stack(policy_values, dim=1)
+        total_policy_values_per_sample = torch.sum(policy_values_each_time_step, dim=1)
         expected_policy_value = torch.mean(total_policy_values_per_sample)
-        policy_loss = -1.0 * expected_policy_value
 
-        # Backpropagation
-        policy_loss.backward()
-        self.policyGradientsModelOptimizer.step()
-        return expected_policy_value
+        policy_values_no_baseline_each_time_step = torch.stack(policy_values_no_baseline, dim=1)
+        total_policy_values_no_baseline_per_sample = torch.sum(policy_values_no_baseline_each_time_step, dim=1)
+        expected_policy_value_no_baseline = torch.mean(total_policy_values_no_baseline_per_sample)
+
+        return expected_policy_value, expected_policy_value_no_baseline
 
     def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False,
                  return_network_outputs=False,
                  verbose=False):
         """Perform validation on the validation set"""
         batch_time = AverageMeter()
-        rewards_avg = AverageMeter()
-        mac_avg = AverageMeter()
-        accuracy_avg = AverageMeter()
+        mean_reward_for_batch_avg = AverageMeter()
+        macs_per_batch_avg = AverageMeter()
+        accuracy_per_batch_avg = AverageMeter()
+        mean_state_network_loss_avg = AverageMeter()
+        mean_policy_value_avg = AverageMeter()
+        mean_policy_value_no_baseline_avg = AverageMeter()
 
         if temperature is None:
             temperature = 1.0
@@ -867,12 +907,60 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                 # network_actions = outputs[-1]["policy_gradient_network_actions"]
                 # network_log_probs = outputs[-1]["policy_gradient_network_log_probs"]
                 # expert_probabilities = outputs[-1]["expert_probabilities"]
-                accuracy_per_batch = outputs[-1]["accuracy"]
-                macs_per_batch = outputs[-1]["average_mac"]
+                # We dont need gradients to flow back through network_states to the original network.
+                network_states = [arr.detach() for arr in outputs[-1]["policy_gradient_network_states"]]
+                # We dont need gradients to flow back through network_rewards to the original network.
+                network_rewards = [arr.detach() for arr in outputs[-1]["policy_gradient_network_rewards"]]
+                # We dont need gradients to flow back through network_actions to the original network.
+                network_actions = [arr.detach() for arr in outputs[-1]["policy_gradient_network_actions"]]
+                # We dont gradients through the log probs of the policy network, for validation.
+                network_log_probs = [arr.detach() for arr in outputs[-1]["policy_gradient_network_log_probs"]]
 
-                accuracy_avg.update(accuracy_per_batch.detach().cpu().numpy().item(), batch_size)
-                mac_avg.update(macs_per_batch.detach().cpu().numpy().item(), batch_size)
-        return accuracy_avg.avg, mac_avg.avg
+                # Prepare cumulative reward arrays
+                cumulative_rewards = self.process_rewards(batch_size=batch_size, network_rewards=network_rewards)
+                # Evaluate the state value network
+                if not self.policyNetworksUseMovingAverageBaseline:
+                    mean_state_network_loss, value_predictions_list = self.execute_value_network(
+                        cumulative_rewards=cumulative_rewards,
+                        network_states=network_states)
+                else:
+                    value_predictions_list = self.baselinesPerLayer
+
+                # Evaluate the policy value network
+                mean_policy_value, mean_policy_value_no_baseline = self.execute_policy_network(
+                    cumulative_rewards=cumulative_rewards,
+                    value_predictions_list=value_predictions_list,
+                    log_probs=network_log_probs)
+                # Mean reward from the network execution.
+                mean_reward_for_batch = torch.stack(network_rewards, dim=1)
+                mean_reward_for_batch = torch.sum(mean_reward_for_batch, dim=1)
+                mean_reward_for_batch = torch.mean(mean_reward_for_batch)
+                mean_reward_for_batch = mean_reward_for_batch.detach().cpu().numpy().item()
+                mean_reward_for_batch_avg.update(mean_reward_for_batch, batch_size)
+                # Mean accuracy for the batch.
+                accuracy_per_batch = outputs[-1]["accuracy"].detach().cpu().numpy().item()
+                accuracy_per_batch_avg.update(accuracy_per_batch, batch_size)
+                # Mean mac for the batch.
+                macs_per_batch = outputs[-1]["average_mac"].detach().cpu().numpy().item()
+                macs_per_batch_avg.update(macs_per_batch, batch_size)
+                # Mean state network loss
+                if not self.policyNetworksUseMovingAverageBaseline:
+                    mean_state_network_loss = mean_state_network_loss.detach().cpu().numpy().item()
+                    mean_state_network_loss_avg.update(mean_state_network_loss, batch_size)
+                # Mean policy value
+                mean_policy_value = mean_policy_value.detach().cpu().numpy().item()
+                mean_policy_value_avg.update(mean_policy_value, batch_size)
+                # Mean policy value no baseline
+                mean_policy_value_no_baseline = mean_policy_value_no_baseline.detach().cpu().numpy().item()
+                mean_policy_value_no_baseline_avg.update(mean_policy_value_no_baseline, batch_size)
+        return {
+            "mean_reward_for_batch_avg": mean_reward_for_batch_avg.avg,
+            "accuracy_per_batch_avg": accuracy_per_batch_avg.avg,
+            "macs_per_batch_avg": macs_per_batch_avg.avg,
+            "mean_state_network_loss_avg": mean_state_network_loss_avg.avg,
+            "mean_policy_value_avg": mean_policy_value_avg.avg,
+            "mean_policy_value_no_baseline_avg": mean_policy_value_no_baseline_avg.avg
+        }
 
     def fit_policy_network(self, train_loader, test_loader):
         torch.autograd.set_detect_anomaly(True)
@@ -886,15 +974,13 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
         # Test with enforced actions set to 0. The accuracy should be the naive IG accuracy.
         self.toggle_allways_ig_routing(enable=True)
-        test_ig_accuracy_avg, test_ig_mac_avg = \
-            self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=0.1)
+        validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=0.1)
         self.toggle_allways_ig_routing(enable=False)
-        print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(test_ig_accuracy_avg, test_ig_mac_avg))
+        print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(validation_dict["accuracy_per_batch_avg"],
+                                                                    validation_dict["macs_per_batch_avg"]))
 
         # Create the model optimizer, we should have every parameter initialized right now.
         self.modelOptimizer, self.policyGradientsModelOptimizer, self.valueModelOptimizer = self.create_optimizer()
-
-        # self.test_route_indices(test_loader=test_loader)
 
         temp_warm_up_state = self.isInWarmUp
         temp_random_routing_ratio = self.routingRandomizationRatio
@@ -908,6 +994,9 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                 print("*************Policy Network Training Epoch:{0} Iteration:{1}*************".format(
                     epoch_id, self.iteration_id))
 
+                # Adjust the learning rate
+                self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
+                                                     num_of_total_iterations=num_of_total_iterations)
                 # Print learning rates
                 print("Policy Network Lr:{0}".format(self.policyGradientsModelOptimizer.param_groups[0]["lr"]))
                 self.policyGradientsModelOptimizer.zero_grad()
@@ -917,55 +1006,73 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     target_var = torch.autograd.Variable(target).to(self.device)
                     batch_size = input_var.size(0)
                     outputs = self(x=input_var, labels=target_var, temperature=1.0)
-                    network_states = outputs[-1]["policy_gradient_network_states"]
-                    network_rewards = outputs[-1]["policy_gradient_network_rewards"]
-                    network_actions = outputs[-1]["policy_gradient_network_actions"]
+                    # We dont need gradients to flow back through network_states to the original network.
+                    network_states = [arr.detach() for arr in outputs[-1]["policy_gradient_network_states"]]
+                    # We dont need gradients to flow back through network_rewards to the original network.
+                    network_rewards = [arr.detach() for arr in outputs[-1]["policy_gradient_network_rewards"]]
+                    # We dont need gradients to flow back through network_actions to the original network.
+                    network_actions = [arr.detach() for arr in outputs[-1]["policy_gradient_network_actions"]]
+                    # We NEED gradients through the log probs of the policy network, however.
                     network_log_probs = outputs[-1]["policy_gradient_network_log_probs"]
-
                     # Prepare cumulative reward arrays
                     cumulative_rewards = self.process_rewards(batch_size=batch_size, network_rewards=network_rewards)
-                    # Train value network
-                    value_predictions_list = \
-                        self.train_value_network(cumulative_rewards=cumulative_rewards, network_states=network_states)
-                    # Train policy network
-                    expected_policy_value = self.train_policy_network(cumulative_rewards=cumulative_rewards,
-                                                                      value_predictions_list=value_predictions_list,
-                                                                      log_probs=network_log_probs)
+                    # Evaluate the state value network
+                    if not self.policyNetworksUseMovingAverageBaseline:
+                        mean_state_network_loss, value_predictions_list = self.execute_value_network(
+                            cumulative_rewards=cumulative_rewards,
+                            network_states=network_states)
+                    else:
+                        self.update_baselines(cumulative_rewards=cumulative_rewards)
+                        value_predictions_list = self.baselinesPerLayer
+                    # Evaluate the policy value network
+                    mean_policy_value, mean_policy_value_no_baseline = self.execute_policy_network(
+                        cumulative_rewards=cumulative_rewards,
+                        value_predictions_list=value_predictions_list,
+                        log_probs=network_log_probs)
 
                     iteration_reward = torch.stack(network_rewards, dim=1)
                     iteration_reward = torch.sum(iteration_reward, dim=1)
                     iteration_reward = torch.mean(iteration_reward)
-                    print("Epoch:{0} Iteration:{1} Reward:{2}".format(epoch_id, self.iteration_id,
-                                                                      iteration_reward.detach().cpu().numpy()))
+
+                    # Step
+                    mean_policy_value.backward()
+                    self.modelOptimizer.step()
+
+                    print("Epoch:{0} Iteration:{1} Reward:{2} "
+                          "Mean Policy Value:{3} Mean Policy Value No Baseline:{4}".format(
+                        epoch_id,
+                        self.iteration_id,
+                        iteration_reward.detach().cpu().numpy(),
+                        mean_policy_value.detach().cpu().numpy(),
+                        mean_policy_value_no_baseline.detach().cpu().numpy()))
 
                 self.iteration_id += 1
 
             # Validation
-            # if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
-            #         epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
-                # print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
-                #     DbLogger.log_db_path, self.runId, epoch))
-                # train_accuracy = self.validate(loader=train_loader, epoch=epoch, data_kind="train")
-                # print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
-                #     DbLogger.log_db_path, self.runId, epoch))
-                # test_accuracy = self.validate(loader=test_loader, epoch=epoch, data_kind="test")
-                # self.validate()
+            if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
+                    epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
+                print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
+                    DbLogger.log_db_path, self.runId, epoch_id))
+                train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=0.1)
+                print("train_accuracy:{0} train_mac_avg:{1}".format(train_dict["accuracy_per_batch_avg"],
+                                                                    train_dict["macs_per_batch_avg"]))
+                print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
+                    DbLogger.log_db_path, self.runId, epoch_id))
+                test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=0.1)
+                print("test_accuracy:{0} test_mac_avg:{1}".format(test_dict["accuracy_per_batch_avg"],
+                                                                  test_dict["macs_per_batch_avg"]))
 
-                # if test_accuracy > best_performance:
-                #     self.save_cigt_model(epoch=epoch)
-                #     best_performance = test_accuracy
-                #
-                # DbLogger.write_into_table(
-                #     rows=[(self.runId,
-                #            self.numOfTrainingIterations,
-                #            epoch,
-                #            train_accuracy,
-                #            0.0,
-                #            test_accuracy,
-                #            train_mean_batch_time,
-                #            0.0,
-                #            0.0,
-                #            "YYY")], table=DbLogger.logsTable)
+                DbLogger.write_into_table(
+                    rows=[(self.runId,
+                           self.iteration_id,
+                           epoch_id,
+                           train_dict["accuracy_per_batch_avg"],
+                           train_dict["macs_per_batch_avg"],
+                           test_dict["accuracy_per_batch_avg"],
+                           test_dict["macs_per_batch_avg"],
+                           0.0,
+                           0.0,
+                           "YYY")], table=DbLogger.logsTable)
 
         self.isInWarmUp = temp_warm_up_state
         self.routingRandomizationRatio = temp_random_routing_ratio

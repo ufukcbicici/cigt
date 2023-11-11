@@ -15,7 +15,7 @@ from auxillary.softmax_temperature_optimizer import SoftmaxTemperatureOptimizer
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.multipath_evaluator import MultipathEvaluator
-from cigt.sigmoid_gaussıan_mixture import SigmoidGaussianMixture
+from cigt.sigmoid_gaussian_mixture import SigmoidGaussianMixture
 from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 from tqdm import tqdm
 
