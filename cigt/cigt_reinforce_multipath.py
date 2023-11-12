@@ -1047,8 +1047,16 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     iteration_reward = torch.mean(iteration_reward)
 
                     # Step
+                    if self.isDebugMode:
+                        grad_check = [param.grad is None for param in
+                                      self.policyGradientsModelOptimizer.param_groups[0]["params"]]
+                        assert all(grad_check)
                     mean_policy_value.backward()
-                    self.modelOptimizer.step()
+                    if self.isDebugMode:
+                        grad_check = [isinstance(param.grad, torch.Tensor) for param in
+                                      self.policyGradientsModelOptimizer.param_groups[0]["params"]]
+                        assert all(grad_check)
+                    self.policyGradientsModelOptimizer.step()
 
                     print("Epoch:{0} Iteration:{1} Reward:{2} "
                           "Mean Policy Value:{3} Mean Policy Value No Baseline:{4}".format(
