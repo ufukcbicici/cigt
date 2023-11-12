@@ -700,7 +700,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                 policy_gradient_network_actions.append(actions)
                 policy_gradient_network_log_probs.append(log_probs)
                 if layer_id < len(self.pathCounts) - 2:
-                    policy_gradient_network_rewards.append(torch.zeros_like(log_probs))
+                    policy_gradient_network_rewards.append(torch.zeros_like(log_probs, device=self.device))
 
                 # Create appropriate hard routing matrices with respect to chosen actions
                 rl_hard_routing_matrix = self.convert_actions_to_routing_matrix(
