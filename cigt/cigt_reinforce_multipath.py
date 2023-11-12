@@ -485,13 +485,20 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         if len(self.policyNetworksEnforcedActions) == 0:
             action_probs = self.policyNetworks[layer_id](pg_input)
             # sample an action using the probability distribution
-            dist = Categorical(action_probs)
-            actions = dist.sample()
-            log_probs = dist.log_prob(actions)
-            return actions, log_probs
+            if sample_action:
+                dist = Categorical(action_probs)
+                actions = dist.sample()
+                log_probs = dist.log_prob(actions)
+                return actions, log_probs
+            else:
+                greedy_actions = torch.argmax(action_probs, dim=1)
+                greedy_action_probs = action_probs[torch.arange(action_probs.shape[0]), greedy_actions]
+                greedy_action_log_probs = torch.log(greedy_action_probs + self.policyNetworksNllConstant)
+                return greedy_actions, greedy_action_log_probs
         else:
             actions_enforced = self.policyNetworksEnforcedActions[layer_id][0:pg_input.shape[0]]
-            log_probs_enforced = torch.log(torch.ones(size=(pg_input.shape[0],), dtype=pg_input.dtype))
+            log_probs_enforced = torch.log(torch.ones(size=(pg_input.shape[0],), dtype=pg_input.dtype,
+                                                      device=self.device))
             return actions_enforced, log_probs_enforced
 
     def convert_actions_to_routing_matrix(self, actions, p_n_given_x_soft, layer_sample_indices_unified):
@@ -979,7 +986,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
         # Test with enforced actions set to 0. The accuracy should be the naive IG accuracy.
         self.toggle_allways_ig_routing(enable=True)
-        validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=0.1)
+        validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0)
         self.toggle_allways_ig_routing(enable=False)
         print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(validation_dict["accuracy_per_batch_avg"],
                                                                     validation_dict["macs_per_batch_avg"]))
