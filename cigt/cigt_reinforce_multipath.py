@@ -495,7 +495,8 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             return actions_enforced, log_probs_enforced
 
     def convert_actions_to_routing_matrix(self, actions, p_n_given_x_soft, layer_sample_indices_unified):
-        rl_hard_routing_matrix = torch.zeros(size=p_n_given_x_soft.shape, dtype=p_n_given_x_soft.dtype)
+        rl_hard_routing_matrix = torch.zeros(size=p_n_given_x_soft.shape, dtype=p_n_given_x_soft.dtype,
+                                             device=self.device)
         actions_per_sample_and_path = actions[layer_sample_indices_unified]
         path_selections_sorted = torch.argsort(p_n_given_x_soft, dim=1, descending=True)
         batch_indices = torch.arange(p_n_given_x_soft.shape[0])
