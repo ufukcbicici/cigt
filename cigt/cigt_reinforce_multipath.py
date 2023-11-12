@@ -73,7 +73,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         self.discountCoefficientArray = []
         for step_id in range(len(self.pathCounts) - 1):
             self.discountCoefficientArray.append(torch.pow(torch.tensor(self.policyNetworksDiscountFactor), step_id))
-        self.discountCoefficientArray = torch.tensor(self.discountCoefficientArray)
+        self.discountCoefficientArray = torch.tensor(self.discountCoefficientArray).to(self.device)
 
         print("X")
 
@@ -641,10 +641,10 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                                                        dtype=torch.int64,
                                                        device=self.device)}]
         for layer_id, cigt_layer_blocks in enumerate(self.cigtLayers):
-            print("layer {0} net device {1}".format(layer_id,
-                                                    layer_outputs[-1]["net"].device))
-            print("layer {0} routing_matrix_hard device {1}".format(layer_id,
-                                                                    layer_outputs[-1]["routing_matrix_hard"].device))
+            # print("layer {0} net device {1}".format(layer_id,
+            #                                         layer_outputs[-1]["net"].device))
+            # print("layer {0} routing_matrix_hard device {1}".format(layer_id,
+            #                                                         layer_outputs[-1]["routing_matrix_hard"].device))
             net_masked = self.divide_tensor_wrt_routing_matrix(
                 tens=layer_outputs[-1]["net"],
                 routing_matrix=layer_outputs[-1]["routing_matrix_hard"])
@@ -707,7 +707,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     actions=actions,
                     p_n_given_x_soft=p_n_given_x_soft,
                     layer_sample_indices_unified=layer_sample_indices_unified)
-                print("rl_hard_routing_matrix.device:{0}".format(rl_hard_routing_matrix.device))
+                # print("rl_hard_routing_matrix.device:{0}".format(rl_hard_routing_matrix.device))
 
                 # Calculate the hard routing matrix
                 p_n_given_x_hard = self.routingManager.get_hard_routing_matrix(
