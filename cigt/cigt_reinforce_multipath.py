@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from collections import Counter
 
 import torch
 import time
@@ -1024,6 +1025,9 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     network_rewards = [arr.detach() for arr in outputs[-1]["policy_gradient_network_rewards"]]
                     # We dont need gradients to flow back through network_actions to the original network.
                     network_actions = [arr.detach() for arr in outputs[-1]["policy_gradient_network_actions"]]
+                    for lid, actions_arr in enumerate(network_actions):
+                        print("Layer{0} Actions:{1}".format(lid, Counter(actions_arr.detach().cpu().numpy())))
+
                     # We NEED gradients through the log probs of the policy network, however.
                     network_log_probs = outputs[-1]["policy_gradient_network_log_probs"]
                     # Prepare cumulative reward arrays
