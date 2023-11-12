@@ -1094,6 +1094,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                 self.toggle_allways_ig_routing(enable=False)
                 print("test_ig_accuracy:{0} test_mac_ig_avg:{1}".format(
                     validation_dict["accuracy_per_batch_avg"], validation_dict["macs_per_batch_avg"]))
+                self.save_cigt_model(epoch=epoch_id)
 
                 DbLogger.write_into_table(
                     rows=[(self.runId,
