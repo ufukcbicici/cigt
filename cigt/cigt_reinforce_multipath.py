@@ -1036,6 +1036,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     else:
                         self.update_baselines(cumulative_rewards=cumulative_rewards)
                         value_predictions_list = self.baselinesPerLayer
+                        print("Baseline Values:{0}".format(self.baselinesPerLayer))
                     # Evaluate the policy value network
                     mean_policy_value, mean_policy_value_no_baseline = self.execute_policy_network(
                         cumulative_rewards=cumulative_rewards,
@@ -1052,7 +1053,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                                                                            np.zeros_like(param.grad.cpu().numpy()))
                                       for param in self.policyGradientsModelOptimizer.param_groups[0]["params"]]
                         # print(self.policyGradientsModelOptimizer.param_groups[0]["params"][0].grad)
-                        print(grad_check)
+                        # print(grad_check)
                         assert all(grad_check)
                     mean_policy_value.backward()
                     if self.isDebugMode:
