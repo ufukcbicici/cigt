@@ -1077,14 +1077,19 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
-                train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=0.1)
+                train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=1.0)
                 print("train_accuracy:{0} train_mac_avg:{1}".format(train_dict["accuracy_per_batch_avg"],
                                                                     train_dict["macs_per_batch_avg"]))
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
-                test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=0.1)
+                test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=1.0)
                 print("test_accuracy:{0} test_mac_avg:{1}".format(test_dict["accuracy_per_batch_avg"],
                                                                   test_dict["macs_per_batch_avg"]))
+                self.toggle_allways_ig_routing(enable=True)
+                validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0)
+                self.toggle_allways_ig_routing(enable=False)
+                print("test_ig_accuracy:{0} test_mac_ig_avg:{1}".format(
+                    validation_dict["accuracy_per_batch_avg"], validation_dict["macs_per_batch_avg"]))
 
                 DbLogger.write_into_table(
                     rows=[(self.runId,
