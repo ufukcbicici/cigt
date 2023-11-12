@@ -706,6 +706,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     actions=actions,
                     p_n_given_x_soft=p_n_given_x_soft,
                     layer_sample_indices_unified=layer_sample_indices_unified)
+                print("rl_hard_routing_matrix.device:{0}".format(rl_hard_routing_matrix.device))
 
                 # Calculate the hard routing matrix
                 p_n_given_x_hard = self.routingManager.get_hard_routing_matrix(
