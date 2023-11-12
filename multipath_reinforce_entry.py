@@ -119,7 +119,7 @@ if __name__ == "__main__":
         num_classes=10,
         run_id=run_id,
         model_mac_info=mac_counts_per_block,
-        is_debug_mode=False)
+        is_debug_mode=True)
     model.to(model.device)
     model.execute_forward_with_random_input()
     checkpoint = torch.load(chck_path, map_location=model.device)
