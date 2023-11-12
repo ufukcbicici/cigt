@@ -1050,6 +1050,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     if self.isDebugMode:
                         grad_check = [param.grad is None for param in
                                       self.policyGradientsModelOptimizer.param_groups[0]["params"]]
+                        print(self.policyGradientsModelOptimizer.param_groups[0]["params"][0].grad)
                         print(grad_check)
                         assert all(grad_check)
                     mean_policy_value.backward()
