@@ -229,20 +229,6 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                 layers["policy_gradients_block_{0}_max_pool_dimension_reduction_layer".format(layer_id)] \
                     = conv_block_reduction_layer
 
-            # Network entry
-            # input_layer = nn.LazyConv2d(
-            #     kernel_size=1,
-            #     out_channels=self.policyNetworksCbamFeatureMapCount
-            # )
-            # Cifar10ResnetCigtConfigs.layer_config_list = [
-            #     {"path_count": 1,
-            #      "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
-            #     {"path_count": 2,
-            #      "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
-            #                          {"layer_count": 18, "feature_map_count": 16}]},
-            #     {"path_count": 4,
-            #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
-
             single_path_feature_count = self.layerConfigList[layer_id]["layer_structure"][-1]["feature_map_count"]
             current_route_combinations = self.pathCounts[:(layer_id + 1)]
             input_feature_count = np.prod(current_route_combinations) * single_path_feature_count
@@ -490,24 +476,32 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             else:
                 self.eval()
             action_probs = self.policyNetworks[layer_id](pg_input)
+            # Calculate entropy of policy probs
+            log_action_probs = torch.log(action_probs + self.policyNetworksNllConstant)
+            p_lp = action_probs * log_action_probs
+            entropies = -1.0 * torch.sum(p_lp, dim=1)
+            mean_entropy = torch.mean(entropies)
+
+            # print("Layer {0} Actions:{1}".format(layer_id, Counter(torch.argmax(action_probs, dim=1).numpy())))
             # sample an action using the probability distribution
             if sample_action:
                 dist = Categorical(action_probs)
                 actions = dist.sample()
                 log_probs = dist.log_prob(actions)
                 self.eval()
-                return actions, log_probs
+                return actions, log_probs, entropies, mean_entropy
             else:
                 greedy_actions = torch.argmax(action_probs, dim=1)
                 greedy_action_probs = action_probs[torch.arange(action_probs.shape[0]), greedy_actions]
                 greedy_action_log_probs = torch.log(greedy_action_probs + self.policyNetworksNllConstant)
                 self.eval()
-                return greedy_actions, greedy_action_log_probs
+                return greedy_actions, greedy_action_log_probs, entropies, mean_entropy
         else:
             actions_enforced = self.policyNetworksEnforcedActions[layer_id][0:pg_input.shape[0]]
             log_probs_enforced = torch.log(torch.ones(size=(pg_input.shape[0],), dtype=pg_input.dtype,
                                                       device=self.device))
-            return actions_enforced, log_probs_enforced
+            entropies_enforced = torch.zeros_like(log_probs_enforced).to(self.device)
+            return actions_enforced, log_probs_enforced, entropies_enforced, 0.0
 
     def convert_actions_to_routing_matrix(self, actions, p_n_given_x_soft, layer_sample_indices_unified):
         rl_hard_routing_matrix = torch.zeros(size=p_n_given_x_soft.shape, dtype=p_n_given_x_soft.dtype,
@@ -639,6 +633,8 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         policy_gradient_network_actions = []
         policy_gradient_network_log_probs = []
         policy_gradient_network_rewards = []
+        policy_gradient_network_entropies = []
+        policy_gradient_network_mean_entropies = []
         # Initial layer
         net = self.preprocess_input(x=x)
         layer_outputs = [{"net": net,
@@ -711,10 +707,12 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                 policy_gradient_network_states.append(pg_input_linearized)
 
                 # Sample action from the policy network
-                actions, log_probs = \
+                actions, log_probs, entropies, mean_entropy = \
                     self.select_action(layer_id=layer_id, pg_input=pg_input_linearized, sample_action=self.trainingMode)
                 policy_gradient_network_actions.append(actions)
                 policy_gradient_network_log_probs.append(log_probs)
+                policy_gradient_network_entropies.append(entropies)
+                policy_gradient_network_mean_entropies.append(mean_entropy)
                 if layer_id < len(self.pathCounts) - 2:
                     policy_gradient_network_rewards.append(torch.zeros_like(log_probs, device=self.device))
 
@@ -765,6 +763,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     final_rewards = final_rewards.detach()
                     policy_gradient_network_rewards.append(final_rewards)
 
+
                     layer_outputs.append({"net": layer_outputs_unified,
                                           "labels": layer_labels_unified,
                                           "sample_indices": layer_sample_indices_unified,
@@ -779,7 +778,9 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                                           "policy_gradient_network_states": policy_gradient_network_states,
                                           "policy_gradient_network_actions": policy_gradient_network_actions,
                                           "policy_gradient_network_log_probs": policy_gradient_network_log_probs,
-                                          "policy_gradient_network_rewards": policy_gradient_network_rewards
+                                          "policy_gradient_network_rewards": policy_gradient_network_rewards,
+                                          "policy_gradient_network_entropies": policy_gradient_network_entropies,
+
                                           })
 
                 else:
@@ -1033,6 +1034,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                     network_rewards = [arr.detach() for arr in outputs[-1]["policy_gradient_network_rewards"]]
                     # We dont need gradients to flow back through network_actions to the original network.
                     network_actions = [arr.detach() for arr in outputs[-1]["policy_gradient_network_actions"]]
+                    network_policy_entropies = outputs[-1]["policy_gradient_network_entropies"]
                     for lid, actions_arr in enumerate(network_actions):
                         print("Layer{0} Actions:{1}".format(lid, Counter(actions_arr.detach().cpu().numpy())))
 

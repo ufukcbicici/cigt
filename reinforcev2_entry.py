@@ -8,6 +8,7 @@ from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cigt_reinforce_multipath import CigtReinforceMultipath
+from cigt.cigt_reinforce_v2 import CigtReinforceV2
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.multipath_evaluator import MultipathEvaluator
 from cigt.multipath_inference_bayesian import MultiplePathBayesianOptimizer
@@ -97,8 +98,8 @@ if __name__ == "__main__":
         datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
         batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
-    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
-    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger_331_epoch11.pth")
+    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger_331_epoch11.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
 
     DbLogger.log_db_path = DbLogger.jr_cigt
@@ -114,7 +115,7 @@ if __name__ == "__main__":
     model_mac = None
 
     run_id = DbLogger.get_run_id()
-    model = CigtReinforceMultipath(
+    model = CigtReinforceV2(
         configs=Cifar10ResnetCigtConfigs,
         model_definition="Reinforce Multipath CIGT",
         num_classes=10,
@@ -143,72 +144,3 @@ if __name__ == "__main__":
     # train_dict = model.validate(loader=train_loader_hard, epoch=0, data_kind="train", temperature=1.0)
     # test_dict = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=1.0)
     model.fit_policy_network(train_loader=train_loader_hard, test_loader=test_loader_light)
-
-
-
-
-    # run_id = DbLogger.get_run_id()
-    # model = CigtIgGatherScatterImplementation(
-    #     run_id=run_id,
-    #     model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
-    #     num_classes=10,
-    #     configs=Cifar10ResnetCigtConfigs)
-    # model.to(model.device)
-    # model.execute_forward_with_random_input()
-    #
-    # model_mac = CigtIgGatherScatterImplementation(
-    #     run_id=run_id,
-    #     model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
-    #     num_classes=10,
-    #     configs=Cifar10ResnetCigtConfigs)
-    # model_mac.to(model_mac.device)
-    # model_mac.execute_forward_with_random_input()
-    #
-    # explanation = model.get_explanation_string()
-    # DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    # checkpoint = torch.load(chck_path, map_location=model.device)
-    # model_load_results = model.load_state_dict(state_dict=checkpoint["model_state_dict"])
-    # model_load_results_mac = model_mac.load_state_dict(state_dict=checkpoint["model_state_dict"])
-    #
-    # # total_parameter_count = model.get_total_parameter_count()
-    # mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model_mac)
-    # model_mac = None
-    # # accuracy = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=0.1)
-    #
-    # multipath_evaluator = MultipathEvaluator(
-    #     data_root_path=data_path,
-    #     model=model,
-    #     train_dataset=train_loader_hard,
-    #     test_dataset=test_loader_light,
-    #     mac_counts_per_block=mac_counts_per_block,
-    #     evaluate_network_first=False,
-    #     train_dataset_repeat_count=1
-    # )
-    #
-    # # mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
-    # #     data_root_path=data_path,
-    # #     init_points=250,
-    # #     mac_lambda=0.9975,
-    # #     max_probabilities=[0.5, 0.25],
-    # #     model=model,
-    # #     multipath_evaluator=multipath_evaluator,
-    # #     n_iter=750
-    # # )
-    # #
-    # # mp_bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-    # #                           log_file_name="Multipath_CIFAR10")
-    #
-    # mp_cross_entropy_optimizer = MultipathInferenceCrossEntropy(
-    #     data_root_path=data_path,
-    #     distribution_type="Gaussian",
-    #     mac_lambda=0.9975,
-    #     max_probabilities=[0.5, 0.25],
-    #     model=model,
-    #     multipath_evaluator=multipath_evaluator,
-    #     n_iter=100,
-    #     quantile=0.05,
-    #     num_of_components=1,
-    #     num_samples_each_iteration=10000,
-    #     num_jobs=4)
-    #
-    # mp_cross_entropy_optimizer.fit()
