@@ -102,7 +102,7 @@ if __name__ == "__main__":
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger_331_epoch11.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.paperspace
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         block_check2 = ["block_{0}".format(block_id) in param_name for block_id in range(len(model.pathCounts[1:]))]
         assert any(block_check2)
 
-    model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_jr
+    model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_paperspace
     explanation = model.get_explanation_string()
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
