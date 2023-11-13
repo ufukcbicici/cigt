@@ -37,6 +37,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         self.policyNetworksEnforcedActions = []
         self.policyNetworksUseMovingAverageBaseline = configs.policy_networks_use_moving_average_baseline
         self.policyNetworksBaselineMomentum = configs.policy_networks_baseline_momentum
+        self.policyNetworksEntropyLossCoeff = configs.policy_networks_policy_entropy_loss_coeff
 
         # Inputs to the policy networks, per layer.
 
@@ -92,7 +93,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
             print("Parameter {0} Device:{1}".format(name, param.device))
 
         self.eval()
-        self.run_with_policies(x=fake_input, y=fake_target, training=False, greedy_actions=True)
+        self.forward_with_policies(x=fake_input, y=fake_target, training=False, greedy_actions=True)
         self.enforcedRoutingMatrices = []
 
     def create_policy_networks(self):
@@ -206,17 +207,26 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         return pg_sparse_input
 
     def run_policy_networks(self, layer_id, pn_input):
-        policy_network = self.policyNetworks[layer_id]
-        action_probs = policy_network(pn_input)
-        log_action_probs = torch.log(action_probs + self.policyNetworksNllConstant)
-        p_lp = torch.sum(-1.0 * (action_probs * log_action_probs), dim=1)
-        mean_policy_entropy = torch.mean(p_lp)
+        if len(self.policyNetworksEnforcedActions) == 0:
+            policy_network = self.policyNetworks[layer_id]
+            action_probs = policy_network(pn_input)
+            log_action_probs = torch.log(action_probs + self.policyNetworksNllConstant)
+            p_lp = torch.sum(-1.0 * (action_probs * log_action_probs), dim=1)
+            mean_policy_entropy = torch.mean(p_lp)
 
-        dist = Categorical(action_probs)
-        actions = dist.sample()
-        log_probs_selected = dist.log_prob(actions)
-        probs_selected = torch.exp(log_probs_selected)
-        return mean_policy_entropy, log_probs_selected, probs_selected, action_probs, actions.detach().cpu().numpy()
+            dist = Categorical(action_probs)
+            actions = dist.sample()
+            log_probs_selected = dist.log_prob(actions)
+            probs_selected = torch.exp(log_probs_selected)
+            return mean_policy_entropy, log_probs_selected, probs_selected, action_probs, actions.detach().cpu().numpy()
+        else:
+            actions_enforced = self.policyNetworksEnforcedActions[layer_id][0:pn_input.shape[0]]
+            log_probs_selected = torch.log(torch.ones(size=(pn_input.shape[0],), dtype=pn_input.dtype,
+                                                      device=self.device))
+            probs_selected = torch.ones(size=(pn_input.shape[0],), dtype=pn_input.dtype, device=self.device)
+            mean_policy_entropy = 0.0
+            return mean_policy_entropy, log_probs_selected, probs_selected, \
+                probs_selected, actions_enforced.detach().cpu().numpy()
 
     def extend_sample_trajectories_wrt_actions(self, layer_id, actions, cigt_outputs, current_paths_dict):
         paths_to_this_layer = self.pathCounts[:(layer_id + 1)]
@@ -281,12 +291,12 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
                 mac_total += layer_cost
             relative_mac_cost = (mac_total / single_path_cost) - 1.0
             mac_vec.append(relative_mac_cost)
-        mac_vec = torch.from_numpy(np.array(mac_vec)).to(self.device)
+        mac_vec = -torch.from_numpy(np.array(mac_vec)).to(self.device)
 
         reward_array = (1.0 - self.policyNetworksMacLambda) * correctness_vec + self.policyNetworksMacLambda * mac_vec
         return reward_array, correctness_vec, mac_vec
 
-    def run_with_policies(self, x, y, training, greedy_actions):
+    def forward_with_policies(self, x, y, training, greedy_actions):
         self.eval()
         cigt_outputs = self.forward_v2(x=x, labels=y, temperature=1.0)
 
@@ -335,6 +345,177 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
             "reward_array": reward_array,
             "correctness_vec": correctness_vec,
             "mac_vec": mac_vec}
+
+    def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False,
+                 return_network_outputs=False,
+                 verbose=False):
+        batch_time = AverageMeter()
+        mean_reward_for_batch_avg = AverageMeter()
+        macs_per_batch_avg = AverageMeter()
+        accuracy_per_batch_avg = AverageMeter()
+        mean_state_network_loss_avg = AverageMeter()
+        mean_policy_value_avg = AverageMeter()
+        mean_policy_value_no_baseline_avg = AverageMeter()
+
+        if temperature is None:
+            temperature = 1.0
+        if verbose is False:
+            verbose_loader = enumerate(loader)
+        else:
+            verbose_loader = tqdm(enumerate(loader))
+
+        for i, (input_, target) in verbose_loader:
+            time_begin = time.time()
+            with torch.no_grad():
+                input_var = torch.autograd.Variable(input_).to(self.device)
+                target_var = torch.autograd.Variable(target).to(self.device)
+                batch_size = input_var.size(0)
+                outputs = self.forward_with_policies(x=input_var, y=target_var, training=False, greedy_actions=False)
+
+                # Mean reward from the network execution.
+                mean_reward_for_batch = torch.mean(outputs["reward_array"])
+                mean_reward_for_batch = mean_reward_for_batch.detach().cpu().numpy().item()
+                mean_reward_for_batch_avg.update(mean_reward_for_batch, batch_size)
+                # Mean accuracy for the batch.
+                accuracy_per_batch = torch.mean(outputs["correctness_vec"]).detach().cpu().numpy().item()
+                accuracy_per_batch_avg.update(accuracy_per_batch, batch_size)
+                # Mean mac for the batch.
+                macs_per_batch = torch.mean(outputs["mac_vec"]).detach().cpu().numpy().item()
+                macs_per_batch_avg.update(macs_per_batch, batch_size)
+        return {
+            "mean_reward_for_batch_avg": mean_reward_for_batch_avg.avg,
+            "accuracy_per_batch_avg": accuracy_per_batch_avg.avg,
+            "macs_per_batch_avg": macs_per_batch_avg.avg}
+
+    def toggle_allways_ig_routing(self, enable):
+        if enable:
+            self.policyNetworksEnforcedActions = []
+            max_branch_count = np.prod(self.pathCounts)
+            for path_count in self.pathCounts[1:]:
+                self.policyNetworksEnforcedActions.append(
+                    torch.zeros(size=(max_branch_count * self.batchSize,),
+                                dtype=torch.int64).to(self.device))
+        else:
+            self.policyNetworksEnforcedActions = []
+
+    def create_optimizer(self):
+        paths = []
+        for pc in self.pathCounts:
+            paths.append([i_ for i_ in range(pc)])
+        path_variaties = Utilities.get_cartesian_product(list_of_lists=paths)
+
+        for idx in range(len(self.pathCounts)):
+            cnt = len([tpl for tpl in path_variaties if tpl[idx] == 0])
+            self.layerCoefficients.append(len(path_variaties) / cnt)
+
+        # Create parameter groups per CIGT layer and shared parameters
+        shared_parameters = []
+        parameters_per_cigt_layers = []
+        for idx in range(len(self.pathCounts)):
+            parameters_per_cigt_layers.append([])
+        # Policy Network parameters.
+        policy_networks_parameters = []
+        # Value Networks parameters.
+        value_networks_parameters = []
+
+        for name, param in self.named_parameters():
+            assert not (("cigtLayers" in name and "policyNetworks" in name) or
+                        ("cigtLayers" in name and "valueNetworks" in name) or
+                        ("policyNetworks" in name and "valueNetworks" in name))
+            if "cigtLayers" in name:
+                assert "policyNetworks" not in name and "valueNetworks" not in name
+                param_name_splitted = name.split(".")
+                layer_id = int(param_name_splitted[1])
+                assert 0 <= layer_id <= len(self.pathCounts) - 1
+                parameters_per_cigt_layers[layer_id].append(param)
+            elif "policyNetworks" in name:
+                assert "cigtLayers" not in name and "valueNetworks" not in name
+                policy_networks_parameters.append(param)
+            elif "valueNetworks" in name:
+                assert "cigtLayers" not in name and "policyNetworks" not in name
+                value_networks_parameters.append(param)
+            else:
+                shared_parameters.append(param)
+
+        num_shared_parameters = len(shared_parameters)
+        num_policy_network_parameters = len(policy_networks_parameters)
+        num_value_networks_parameters = len(value_networks_parameters)
+        num_cigt_layer_parameters = sum([len(arr) for arr in parameters_per_cigt_layers])
+        num_all_parameters = len([tpl for tpl in self.named_parameters()])
+        assert num_shared_parameters + num_policy_network_parameters + \
+               num_value_networks_parameters + num_cigt_layer_parameters == num_all_parameters
+
+        # Create a separate optimizer that only optimizes the policy networks.
+        policy_networks_optimizer = optim.AdamW(
+            [{'params': policy_networks_parameters,
+              'lr': self.policyNetworkInitialLr,
+              'weight_decay': self.policyNetworkWd}])
+
+        return policy_networks_optimizer
+
+    def get_explanation_string(self):
+        kv_rows = []
+        explanation = super().get_explanation_string()
+        for elem in inspect.getmembers(self):
+            if elem[0].startswith("policyNetworks") and \
+                    (isinstance(elem[1], bool) or
+                     isinstance(elem[1], float) or
+                     isinstance(elem[1], int) or
+                     isinstance(elem[1], str)):
+                explanation = self.add_explanation(name_of_param=elem[0],
+                                                   value=elem[1],
+                                                   explanation=explanation,
+                                                   kv_rows=kv_rows)
+        DbLogger.write_into_table(rows=kv_rows, table="run_parameters")
+        return explanation
+
+    def adjust_learning_rate_polynomial(self, iteration, num_of_total_iterations):
+        lr = self.policyNetworkInitialLr
+        where = np.clip(iteration / num_of_total_iterations, a_min=0.0, a_max=1.0)
+        modified_lr = lr * (1 - where) ** self.policyNetworkPolynomialSchedulerPower
+        self.policyGradientsModelOptimizer.param_groups[0]['lr'] = modified_lr
+
+    def calculate_cumulative_rewards(self, rewards_array):
+        network_rewards = [torch.zeros_like(rewards_array, device=self.device) for _ in range(len(self.pathCounts) - 2)]
+        network_rewards.append(rewards_array)
+        rewards_matrix = torch.stack(network_rewards, dim=1)
+        cumulative_rewards = []
+
+        for t_ in range(rewards_matrix.shape[1]):
+            discounts_arr = self.discountCoefficientArray[0:rewards_matrix.shape[1] - t_]
+            discounts_arr = torch.unsqueeze(discounts_arr, dim=0)
+            rewards_partial = rewards_matrix[:, t_:]
+            rewards_partial_discounted = rewards_partial * discounts_arr
+            cumulative_reward = torch.sum(rewards_partial_discounted, dim=1)
+            cumulative_rewards.append(cumulative_reward)
+        return cumulative_rewards
+
+    def update_baselines(self, cumulative_rewards):
+        gamma = self.policyNetworksBaselineMomentum
+        for t_ in range(len(cumulative_rewards)):
+            b_ = self.baselinesPerLayer[t_]
+            r_ = torch.mean(cumulative_rewards[t_])
+            if b_ is None:
+                self.baselinesPerLayer[t_] = r_
+            else:
+                self.baselinesPerLayer[t_] = gamma * b_ + (1.0 - gamma) * r_
+
+    def calculate_policy_loss(self, cumulative_rewards, log_policy_probs):
+        policy_values = []
+        for layer_id in range(len(self.pathCounts) - 1):
+            G_t = cumulative_rewards[layer_id]
+            B_t = self.baselinesPerLayer[layer_id]
+            if B_t is None:
+                B_t = 0.0
+            Lp_t = -1.0 * log_policy_probs[layer_id]
+            delta = G_t - B_t
+            policy_value = delta * Lp_t
+            policy_values.append(policy_value)
+        policy_values_each_time_step = torch.stack(policy_values, dim=1)
+        total_policy_values_per_sample = torch.sum(policy_values_each_time_step, dim=1)
+        expected_policy_loss = torch.mean(total_policy_values_per_sample)
+        return expected_policy_loss
+
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
         torch.manual_seed(1)
@@ -343,3 +524,103 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
 
         # Run a forward pass first to initialize each LazyXXX layer.
         self.execute_forward_with_random_input()
+
+        # Test with enforced actions set to 0. The accuracy should be the naive IG accuracy.
+        self.toggle_allways_ig_routing(enable=True)
+        validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0)
+        self.toggle_allways_ig_routing(enable=False)
+        print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(validation_dict["accuracy_per_batch_avg"],
+                                                                    validation_dict["macs_per_batch_avg"]))
+
+        # Create the model optimizer, we should have every parameter initialized right now.
+        self.policyGradientsModelOptimizer = self.create_optimizer()
+
+        temp_warm_up_state = self.isInWarmUp
+        temp_random_routing_ratio = self.routingRandomizationRatio
+        self.isInWarmUp = False
+        self.routingRandomizationRatio = -1.0
+        # Train the policy network for one epoch
+        iteration_id = 0
+        for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
+            for i, (input_, target) in enumerate(train_loader):
+                print("*************Policy Network Training Epoch:{0} Iteration:{1}*************".format(
+                    epoch_id, self.iteration_id))
+
+                # Adjust the learning rate
+                self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
+                                                     num_of_total_iterations=num_of_total_iterations)
+                # Print learning rates
+                print("Policy Network Lr:{0}".format(self.policyGradientsModelOptimizer.param_groups[0]["lr"]))
+                self.policyGradientsModelOptimizer.zero_grad()
+                with torch.set_grad_enabled(True):
+                    input_var = torch.autograd.Variable(input_).to(self.device)
+                    target_var = torch.autograd.Variable(target).to(self.device)
+                    batch_size = input_var.size(0)
+                    outputs = self.forward_with_policies(x=input_var, y=target_var, training=True,
+                                                         greedy_actions=False)
+                    cumulative_rewards = self.calculate_cumulative_rewards(rewards_array=outputs["reward_array"])
+                    # self.update_baselines(cumulative_rewards=cumulative_rewards)
+                    policy_loss = self.calculate_policy_loss(cumulative_rewards=cumulative_rewards,
+                                                             log_policy_probs=outputs["log_probs_trajectory"])
+                    entropy_loss = torch.Tensor(outputs["policy_entropies"])
+                    entropy_loss = -torch.sum(entropy_loss)
+                    total_loss = policy_loss + (self.policyNetworksEntropyLossCoeff * entropy_loss)
+
+                    # Step
+                    if self.isDebugMode:
+                        grad_check = [param.grad is None or np.array_equal(param.grad.cpu().numpy(),
+                                                                           np.zeros_like(param.grad.cpu().numpy()))
+                                      for param in self.policyGradientsModelOptimizer.param_groups[0]["params"]]
+                        # print(self.policyGradientsModelOptimizer.param_groups[0]["params"][0].grad)
+                        # print(grad_check)
+                        assert all(grad_check)
+                    total_loss.backward()
+                    if self.isDebugMode:
+                        grad_check = [isinstance(param.grad, torch.Tensor) for param in
+                                      self.policyGradientsModelOptimizer.param_groups[0]["params"]]
+                        assert all(grad_check)
+                    self.policyGradientsModelOptimizer.step()
+
+                    print("Epoch:{0} Iteration:{1} Reward:{2} Policy Loss:{3} Entropy Loss:{4}".format(
+                        epoch_id,
+                        self.iteration_id,
+                        torch.mean(outputs["reward_array"]).detach().cpu().numpy(),
+                        policy_loss.detach().cpu().numpy(),
+                        entropy_loss.detach().cpu().numpy()))
+                self.iteration_id += 1
+
+            # Validation
+            if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
+                    epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
+                print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
+                    DbLogger.log_db_path, self.runId, epoch_id))
+                train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=1.0)
+                print("train_reward:{0} train_accuracy:{1} train_mac_avg:{2}".format(
+                    train_dict["mean_reward_for_batch_avg"],
+                    train_dict["accuracy_per_batch_avg"],
+                    train_dict["macs_per_batch_avg"]))
+                print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
+                    DbLogger.log_db_path, self.runId, epoch_id))
+                test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=1.0)
+                print("test_reward:{0} test_accuracy:{1} test_mac_avg:{2}".format(
+                    test_dict["mean_reward_for_batch_avg"],
+                    test_dict["accuracy_per_batch_avg"],
+                    test_dict["macs_per_batch_avg"]))
+                self.toggle_allways_ig_routing(enable=True)
+                validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0)
+                self.toggle_allways_ig_routing(enable=False)
+                print("test_ig_accuracy:{0} test_mac_ig_avg:{1}".format(
+                    validation_dict["accuracy_per_batch_avg"], validation_dict["macs_per_batch_avg"]))
+                self.save_cigt_model(epoch=epoch_id)
+
+                DbLogger.write_into_table(
+                    rows=[(self.runId,
+                           self.iteration_id,
+                           epoch_id,
+                           train_dict["accuracy_per_batch_avg"],
+                           train_dict["macs_per_batch_avg"],
+                           test_dict["accuracy_per_batch_avg"],
+                           test_dict["macs_per_batch_avg"],
+                           0.0,
+                           0.0,
+                           "YYY")], table=DbLogger.logsTable)
