@@ -1054,6 +1054,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                         cumulative_rewards=cumulative_rewards,
                         value_predictions_list=value_predictions_list,
                         log_probs=network_log_probs)
+                    mean_policy_value_neg = -1.0 * mean_policy_value
 
                     iteration_reward = torch.stack(network_rewards, dim=1)
                     iteration_reward = torch.sum(iteration_reward, dim=1)
@@ -1067,7 +1068,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                         # print(self.policyGradientsModelOptimizer.param_groups[0]["params"][0].grad)
                         # print(grad_check)
                         assert all(grad_check)
-                    mean_policy_value.backward()
+                    mean_policy_value_neg.backward()
                     if self.isDebugMode:
                         grad_check = [isinstance(param.grad, torch.Tensor) for param in
                                       self.policyGradientsModelOptimizer.param_groups[0]["params"]]
