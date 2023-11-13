@@ -338,7 +338,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
                     self.calculate_rewards(cigt_outputs=cigt_outputs, complete_path_history=paths_history)
 
         for lid, actions_arr in enumerate(actions_trajectory):
-            print("Layer{0} Actions:{1}".format(lid, Counter(actions_arr.detach().cpu().numpy())))
+            print("Layer{0} Actions:{1}".format(lid, Counter(actions_arr)))
 
         return {
             "policy_entropies": policy_entropies,
