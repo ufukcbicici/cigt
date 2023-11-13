@@ -134,7 +134,7 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_cbam_end_avg_pool_strode = 2
     policy_networks_lstm_dimension = 128
     policy_networks_total_num_of_epochs = 1000
-    policy_networks_initial_lr = 0.001
+    policy_networks_initial_lr = 0.00006
     policy_networks_polynomial_scheduler_power = 1.0
     policy_networks_wd = 0.0001
     policy_networks_mac_lambda = 0.0
