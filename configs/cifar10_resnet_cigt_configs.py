@@ -127,7 +127,7 @@ class Cifar10ResnetCigtConfigs:
     kd_loss_alpha = 0.5
 
     # Policy Gradients Multipath Routing Parameters
-    policy_networks_cbam_layer_count = 9
+    policy_networks_cbam_layer_count = 6
     policy_networks_cbam_feature_map_count = 32
     policy_networks_cbam_reduction_ratio = 4
     policy_networks_cbam_layer_input_reduction_ratio = 4
