@@ -291,7 +291,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
                 mac_total += layer_cost
             relative_mac_cost = (mac_total / single_path_cost) - 1.0
             mac_vec.append(relative_mac_cost)
-        mac_vec = -torch.from_numpy(np.array(mac_vec)).to(self.device)
+        mac_vec = -torch.Tensor(mac_vec).to(self.device)
 
         reward_array = (1.0 - self.policyNetworksMacLambda) * correctness_vec + self.policyNetworksMacLambda * mac_vec
         return reward_array, correctness_vec, mac_vec
