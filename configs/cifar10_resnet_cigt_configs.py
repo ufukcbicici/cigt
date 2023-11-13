@@ -137,13 +137,13 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_initial_lr = 0.00006
     policy_networks_polynomial_scheduler_power = 1.0
     policy_networks_wd = 0.0001
-    policy_networks_mac_lambda = 0.0
+    policy_networks_mac_lambda = 0.1
     policy_networks_discount_factor = 0.99
     policy_networks_logit_temperature = 1.0
     policy_networks_apply_reward_whitening = False
     policy_networks_evaluation_period = 1
     policy_networks_use_moving_average_baseline = True
     policy_networks_baseline_momentum = 0.99
-    policy_networks_policy_entropy_loss_coeff = 0.0
+    policy_networks_policy_entropy_loss_coeff = 0.1
 
 
