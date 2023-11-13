@@ -66,6 +66,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
         self.create_value_networks()
         self.valueModelOptimizer = None
+        self.trainingMode = False
 
         self.baselinesPerLayer = []
         for step_id in range(len(self.pathCounts) - 1):
@@ -484,17 +485,23 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
         # No enforced action
         if len(self.policyNetworksEnforcedActions) == 0:
+            if self.trainingMode:
+                self.train()
+            else:
+                self.eval()
             action_probs = self.policyNetworks[layer_id](pg_input)
             # sample an action using the probability distribution
             if sample_action:
                 dist = Categorical(action_probs)
                 actions = dist.sample()
                 log_probs = dist.log_prob(actions)
+                self.eval()
                 return actions, log_probs
             else:
                 greedy_actions = torch.argmax(action_probs, dim=1)
                 greedy_action_probs = action_probs[torch.arange(action_probs.shape[0]), greedy_actions]
                 greedy_action_log_probs = torch.log(greedy_action_probs + self.policyNetworksNllConstant)
+                self.eval()
                 return greedy_actions, greedy_action_log_probs
         else:
             actions_enforced = self.policyNetworksEnforcedActions[layer_id][0:pg_input.shape[0]]
@@ -625,6 +632,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         return expert_probabilities, final_rewards, average_mac, accuracy
 
     def forward(self, x, labels, temperature):
+        self.eval()
         sample_indices = torch.arange(0, labels.shape[0], device=self.device)
         balance_coefficient_list = self.informationGainBalanceCoeffList
         policy_gradient_network_states = []
@@ -704,7 +712,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
 
                 # Sample action from the policy network
                 actions, log_probs = \
-                    self.select_action(layer_id=layer_id, pg_input=pg_input_linearized, sample_action=self.training)
+                    self.select_action(layer_id=layer_id, pg_input=pg_input_linearized, sample_action=self.trainingMode)
                 policy_gradient_network_actions.append(actions)
                 policy_gradient_network_log_probs.append(log_probs)
                 if layer_id < len(self.pathCounts) - 2:
@@ -903,7 +911,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
             temperature = 1.0
 
         # switch to evaluate mode
-        self.eval()
+        self.trainingMode = False
         if verbose is False:
             verbose_loader = enumerate(loader)
         else:
@@ -1002,7 +1010,7 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
         # Train the policy network for one epoch
         iteration_id = 0
         for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
-            self.train()
+            self.trainingMode = True
             for i, (input_, target) in enumerate(train_loader):
                 print("*************Policy Network Training Epoch:{0} Iteration:{1}*************".format(
                     epoch_id, self.iteration_id))
@@ -1082,13 +1090,17 @@ class CigtReinforceMultipath(CigtIgGatherScatterImplementation):
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
                 train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=1.0)
-                print("train_accuracy:{0} train_mac_avg:{1}".format(train_dict["accuracy_per_batch_avg"],
-                                                                    train_dict["macs_per_batch_avg"]))
+                print("train_reward:{0} train_accuracy:{1} train_mac_avg:{2}".format(
+                    train_dict["mean_reward_for_batch_avg"],
+                    train_dict["accuracy_per_batch_avg"],
+                    train_dict["macs_per_batch_avg"]))
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
                 test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=1.0)
-                print("test_accuracy:{0} test_mac_avg:{1}".format(test_dict["accuracy_per_batch_avg"],
-                                                                  test_dict["macs_per_batch_avg"]))
+                print("test_reward:{0} test_accuracy:{1} test_mac_avg:{2}".format(
+                    test_dict["mean_reward_for_batch_avg"],
+                    test_dict["accuracy_per_batch_avg"],
+                    test_dict["macs_per_batch_avg"]))
                 self.toggle_allways_ig_routing(enable=True)
                 validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0)
                 self.toggle_allways_ig_routing(enable=False)
