@@ -562,7 +562,8 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
                     outputs = self.forward_with_policies(x=input_var, y=target_var, training=True,
                                                          greedy_actions=False)
                     cumulative_rewards = self.calculate_cumulative_rewards(rewards_array=outputs["reward_array"])
-                    # self.update_baselines(cumulative_rewards=cumulative_rewards)
+                    self.update_baselines(cumulative_rewards=cumulative_rewards)
+                    print("Baseline Values:{0}".format(self.baselinesPerLayer))
                     policy_loss = self.calculate_policy_loss(cumulative_rewards=cumulative_rewards,
                                                              log_policy_probs=outputs["log_probs_trajectory"])
                     entropy_loss = torch.Tensor(outputs["policy_entropies"])
@@ -614,7 +615,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
                 self.toggle_allways_ig_routing(enable=False)
                 print("test_ig_accuracy:{0} test_mac_ig_avg:{1}".format(
                     validation_dict["accuracy_per_batch_avg"], validation_dict["macs_per_batch_avg"]))
-                self.save_cigt_model(epoch=epoch_id)
+                # self.save_cigt_model(epoch=epoch_id)
 
                 DbLogger.write_into_table(
                     rows=[(self.runId,
