@@ -144,6 +144,6 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_evaluation_period = 1
     policy_networks_use_moving_average_baseline = True
     policy_networks_baseline_momentum = 0.99
-    policy_networks_policy_entropy_loss_coeff = 0.0
+    policy_networks_policy_entropy_loss_coeff = 0.25
 
 
