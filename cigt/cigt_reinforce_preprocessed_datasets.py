@@ -114,8 +114,10 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
             verbose_loader = tqdm(enumerate(loader))
 
         results_array = []
+        counters = [Counter() for _ in range(len(self.pathCounts) - 1)]
 
         for repeat_id in range(repeat_count):
+            print("Repeat Id:{0}".format(repeat_id))
             for i, cigt_outputs in verbose_loader:
                 time_begin = time.time()
                 cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
@@ -135,6 +137,11 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                     # Mean mac for the batch.
                     macs_per_batch = torch.mean(outputs["mac_vec"]).detach().cpu().numpy().item()
                     macs_per_batch_avg.update(macs_per_batch, batch_size)
+                    # Action trajectory
+                    actions_trajectory = outputs["actions_trajectory"]
+                    for lid, actions_arr in enumerate(actions_trajectory):
+                        counters[lid].update(actions_arr)
+
             results_dict = {
                 "mean_reward_for_batch_avg": mean_reward_for_batch_avg.avg,
                 "accuracy_per_batch_avg": accuracy_per_batch_avg.avg,
@@ -151,6 +158,9 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         for k in results_accumulated:
             results_accumulated[k] = np.mean(np.array(results_accumulated[k]))
 
+        for lid, counter in enumerate(counters):
+            results_accumulated["counter_{0}".format(lid)] = counter
+
         return results_accumulated
 
     def fit_policy_network(self, train_loader, test_loader):
@@ -165,7 +175,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         # Test with enforced actions set to 0. The accuracy should be the naive IG accuracy.
         self.toggle_allways_ig_routing(enable=True)
         validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0,
-                                        repeat_count=1)
+                                        repeat_count=1, verbose=True)
         self.toggle_allways_ig_routing(enable=False)
         print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(validation_dict["accuracy_per_batch_avg"],
                                                                     validation_dict["macs_per_batch_avg"]))
@@ -204,6 +214,11 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                     entropy_loss = -torch.sum(entropy_loss)
                     total_loss = policy_loss + (self.policyNetworksEntropyLossCoeff * entropy_loss)
 
+                    actions_trajectory = outputs["actions_trajectory"]
+
+                    for lid, actions_arr in enumerate(actions_trajectory):
+                        print("Layer{0} Actions:{1}".format(lid, Counter(actions_arr)))
+
                     # Step
                     if self.isDebugMode:
                         grad_check = [param.grad is None or np.array_equal(param.grad.cpu().numpy(),
@@ -233,19 +248,25 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
                 train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=1.0,
-                                           repeat_count=10)
+                                           repeat_count=10, verbose=True)
                 print("train_reward:{0} train_accuracy:{1} train_mac_avg:{2}".format(
                     train_dict["mean_reward_for_batch_avg"],
                     train_dict["accuracy_per_batch_avg"],
                     train_dict["macs_per_batch_avg"]))
+                for lid in range(len(self.pathCounts) - 1):
+                    print("Train actions level {0}:{1}".format(lid, train_dict["counter_{0}".format(lid)]))
+
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
                 test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=1.0,
-                                          repeat_count=10)
+                                          repeat_count=10, verbose=True)
                 print("test_reward:{0} test_accuracy:{1} test_mac_avg:{2}".format(
                     test_dict["mean_reward_for_batch_avg"],
                     test_dict["accuracy_per_batch_avg"],
                     test_dict["macs_per_batch_avg"]))
+                for lid in range(len(self.pathCounts) - 1):
+                    print("Test actions level {0}:{1}".format(lid, test_dict["counter_{0}".format(lid)]))
+
                 self.toggle_allways_ig_routing(enable=True)
                 validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0)
                 self.toggle_allways_ig_routing(enable=False)
