@@ -253,8 +253,8 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
     def calculate_rewards(self, cigt_outputs, complete_path_history):
         paths_to_this_layer = self.pathCounts
         route_combinations = Utilities.create_route_combinations(shape_=paths_to_this_layer)
-        route_combinations_dict = {idx: path for idx, path in enumerate(route_combinations)}
-        route_combinations_dict_inverse = {path: idx for idx, path in enumerate(route_combinations)}
+        # route_combinations_dict = {idx: path for idx, path in enumerate(route_combinations)}
+        # route_combinations_dict_inverse = {path: idx for idx, path in enumerate(route_combinations)}
 
         # Step1: Calculate per sample accuracy. This will be the first component for the loss.
         labels = [arr for arr in cigt_outputs["labels_dict"].values()]
@@ -296,26 +296,29 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         reward_array = (1.0 - self.policyNetworksMacLambda) * correctness_vec + self.policyNetworksMacLambda * mac_vec
         return reward_array, correctness_vec, mac_vec
 
-    def forward_with_policies(self, x, y, training, greedy_actions):
+    def get_cigt_outputs(self, x, y):
         self.eval()
         cigt_outputs = self.forward_v2(x=x, labels=y, temperature=1.0)
+        batch_size = x.shape[0]
+        return cigt_outputs, batch_size
 
+    def forward_with_policies(self, x, y, training, greedy_actions):
+        cigt_outputs, batch_size = self.get_cigt_outputs(x=x, y=y)
         if training:
             self.train()
-
         policy_entropies = []
         log_probs_trajectory = []
         actions_trajectory = []
         correctness_vec = None
         mac_vec = None
         reward_array = None
-        paths_history = [{idx: {(0,)} for idx in range(x.shape[0])}]
+        paths_history = [{idx: {(0,)} for idx in range(batch_size)}]
 
         for layer_id in range(len(self.pathCounts)):
             if layer_id < len(self.pathCounts) - 1:
                 # Get sparse input arrays for the policy networks
                 pg_sparse_input = self.prepare_policy_network_input_f(
-                    batch_size=x.shape[0],
+                    batch_size=batch_size,
                     layer_id=layer_id,
                     current_paths_dict=paths_history[layer_id],
                     cigt_outputs=cigt_outputs
