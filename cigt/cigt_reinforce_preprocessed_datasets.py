@@ -75,7 +75,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         assert isinstance(x, dict)
         assert y is None
         cigt_outputs = x
-        batch_size = cigt_outputs["block_outputs_dict"][(0, )].shape[0]
+        batch_size = cigt_outputs["block_outputs_dict"][(0,)].shape[0]
         return cigt_outputs, batch_size
 
     def execute_forward_with_random_input(self):
@@ -91,12 +91,13 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
 
         self.eval()
-        self.forward_with_policies(x=cigt_outputs, y=None, training=False, greedy_actions=True)
+        self.forward_with_policies(x=cigt_outputs, y=None, greedy_actions=True)
         self.enforcedRoutingMatrices = []
 
     def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False,
                  return_network_outputs=False,
-                 verbose=False):
+                 verbose=False, repeat_count=1):
+        self.eval()
         batch_time = AverageMeter()
         mean_reward_for_batch_avg = AverageMeter()
         macs_per_batch_avg = AverageMeter()
@@ -112,29 +113,45 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         else:
             verbose_loader = tqdm(enumerate(loader))
 
-        for i, cigt_outputs in verbose_loader:
-            time_begin = time.time()
-            cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
-            with torch.no_grad():
-                # input_var = torch.autograd.Variable(input_).to(self.device)
-                # target_var = torch.autograd.Variable(target).to(self.device)
-                batch_size = cigt_outputs["block_outputs_dict"][(0, )].shape[0]
-                outputs = self.forward_with_policies(x=cigt_outputs, y=None, training=False, greedy_actions=False)
+        results_array = []
 
-                # Mean reward from the network execution.
-                mean_reward_for_batch = torch.mean(outputs["reward_array"])
-                mean_reward_for_batch = mean_reward_for_batch.detach().cpu().numpy().item()
-                mean_reward_for_batch_avg.update(mean_reward_for_batch, batch_size)
-                # Mean accuracy for the batch.
-                accuracy_per_batch = torch.mean(outputs["correctness_vec"]).detach().cpu().numpy().item()
-                accuracy_per_batch_avg.update(accuracy_per_batch, batch_size)
-                # Mean mac for the batch.
-                macs_per_batch = torch.mean(outputs["mac_vec"]).detach().cpu().numpy().item()
-                macs_per_batch_avg.update(macs_per_batch, batch_size)
-        return {
-            "mean_reward_for_batch_avg": mean_reward_for_batch_avg.avg,
-            "accuracy_per_batch_avg": accuracy_per_batch_avg.avg,
-            "macs_per_batch_avg": macs_per_batch_avg.avg}
+        for repeat_id in range(repeat_count):
+            for i, cigt_outputs in verbose_loader:
+                time_begin = time.time()
+                cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
+                with torch.no_grad():
+                    # input_var = torch.autograd.Variable(input_).to(self.device)
+                    # target_var = torch.autograd.Variable(target).to(self.device)
+                    batch_size = cigt_outputs["block_outputs_dict"][(0,)].shape[0]
+                    outputs = self.forward_with_policies(x=cigt_outputs, y=None, greedy_actions=False)
+
+                    # Mean reward from the network execution.
+                    mean_reward_for_batch = torch.mean(outputs["reward_array"])
+                    mean_reward_for_batch = mean_reward_for_batch.detach().cpu().numpy().item()
+                    mean_reward_for_batch_avg.update(mean_reward_for_batch, batch_size)
+                    # Mean accuracy for the batch.
+                    accuracy_per_batch = torch.mean(outputs["correctness_vec"]).detach().cpu().numpy().item()
+                    accuracy_per_batch_avg.update(accuracy_per_batch, batch_size)
+                    # Mean mac for the batch.
+                    macs_per_batch = torch.mean(outputs["mac_vec"]).detach().cpu().numpy().item()
+                    macs_per_batch_avg.update(macs_per_batch, batch_size)
+            results_dict = {
+                "mean_reward_for_batch_avg": mean_reward_for_batch_avg.avg,
+                "accuracy_per_batch_avg": accuracy_per_batch_avg.avg,
+                "macs_per_batch_avg": macs_per_batch_avg.avg}
+            results_array.append(results_dict)
+
+        results_accumulated = {}
+        for d_ in results_array:
+            for k, v in d_.items():
+                if k not in results_accumulated:
+                    results_accumulated[k] = []
+                results_accumulated[k].append(v)
+
+        for k in results_accumulated:
+            results_accumulated[k] = np.mean(np.array(results_accumulated[k]))
+
+        return results_accumulated
 
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
@@ -147,7 +164,8 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
 
         # Test with enforced actions set to 0. The accuracy should be the naive IG accuracy.
         self.toggle_allways_ig_routing(enable=True)
-        validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0)
+        validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0,
+                                        repeat_count=1)
         self.toggle_allways_ig_routing(enable=False)
         print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(validation_dict["accuracy_per_batch_avg"],
                                                                     validation_dict["macs_per_batch_avg"]))
@@ -163,6 +181,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         iteration_id = 0
         for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
             for i, cigt_outputs in enumerate(train_loader):
+                self.train()
                 print("*************Policy Network Training Epoch:{0} Iteration:{1}*************".format(
                     epoch_id, self.iteration_id))
                 cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
@@ -175,7 +194,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                 self.policyGradientsModelOptimizer.zero_grad()
                 with torch.set_grad_enabled(True):
                     batch_size = cigt_outputs["block_outputs_dict"][(0,)].shape[0]
-                    outputs = self.forward_with_policies(x=cigt_outputs, y=None, training=True, greedy_actions=False)
+                    outputs = self.forward_with_policies(x=cigt_outputs, y=None, greedy_actions=False)
                     cumulative_rewards = self.calculate_cumulative_rewards(rewards_array=outputs["reward_array"])
                     self.update_baselines(cumulative_rewards=cumulative_rewards)
                     print("Baseline Values:{0}".format(self.baselinesPerLayer))
@@ -213,14 +232,16 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                     epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
-                train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=1.0)
+                train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=1.0,
+                                           repeat_count=10)
                 print("train_reward:{0} train_accuracy:{1} train_mac_avg:{2}".format(
                     train_dict["mean_reward_for_batch_avg"],
                     train_dict["accuracy_per_batch_avg"],
                     train_dict["macs_per_batch_avg"]))
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
-                test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=1.0)
+                test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=1.0,
+                                          repeat_count=10)
                 print("test_reward:{0} test_accuracy:{1} test_mac_avg:{2}".format(
                     test_dict["mean_reward_for_batch_avg"],
                     test_dict["accuracy_per_batch_avg"],

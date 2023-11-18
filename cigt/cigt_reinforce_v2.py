@@ -297,15 +297,18 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         return reward_array, correctness_vec, mac_vec
 
     def get_cigt_outputs(self, x, y):
+        training_state = self.training
         self.eval()
         cigt_outputs = self.forward_v2(x=x, labels=y, temperature=1.0)
         batch_size = x.shape[0]
+        if training_state == self.training:
+            self.train()
+        else:
+            self.eval()
         return cigt_outputs, batch_size
 
-    def forward_with_policies(self, x, y, training, greedy_actions):
+    def forward_with_policies(self, x, y, greedy_actions):
         cigt_outputs, batch_size = self.get_cigt_outputs(x=x, y=y)
-        if training:
-            self.train()
         policy_entropies = []
         log_probs_trajectory = []
         actions_trajectory = []
@@ -355,6 +358,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
     def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False,
                  return_network_outputs=False,
                  verbose=False):
+        self.eval()
         batch_time = AverageMeter()
         mean_reward_for_batch_avg = AverageMeter()
         macs_per_batch_avg = AverageMeter()
@@ -376,7 +380,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
                 input_var = torch.autograd.Variable(input_).to(self.device)
                 target_var = torch.autograd.Variable(target).to(self.device)
                 batch_size = input_var.size(0)
-                outputs = self.forward_with_policies(x=input_var, y=target_var, training=False, greedy_actions=False)
+                outputs = self.forward_with_policies(x=input_var, y=target_var, greedy_actions=False)
 
                 # Mean reward from the network execution.
                 mean_reward_for_batch = torch.mean(outputs["reward_array"])
@@ -549,6 +553,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         iteration_id = 0
         for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
             for i, (input_, target) in enumerate(train_loader):
+                self.train()
                 print("*************Policy Network Training Epoch:{0} Iteration:{1}*************".format(
                     epoch_id, self.iteration_id))
 
@@ -562,8 +567,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
                     input_var = torch.autograd.Variable(input_).to(self.device)
                     target_var = torch.autograd.Variable(target).to(self.device)
                     batch_size = input_var.size(0)
-                    outputs = self.forward_with_policies(x=input_var, y=target_var, training=True,
-                                                         greedy_actions=False)
+                    outputs = self.forward_with_policies(x=input_var, y=target_var, greedy_actions=False)
                     cumulative_rewards = self.calculate_cumulative_rewards(rewards_array=outputs["reward_array"])
                     self.update_baselines(cumulative_rewards=cumulative_rewards)
                     print("Baseline Values:{0}".format(self.baselinesPerLayer))
