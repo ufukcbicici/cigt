@@ -67,8 +67,8 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         d_ = {}
         for field_name in cigt_outputs.keys():
             d_[field_name] = {}
-            for k, v in cigt_outputs[field_name]:
-                d_[k] = v.to(self.device)
+            for k, v in cigt_outputs[field_name].items():
+                d_[field_name][k] = v.to(self.device)
         return d_
 
     def get_cigt_outputs(self, x, y):
