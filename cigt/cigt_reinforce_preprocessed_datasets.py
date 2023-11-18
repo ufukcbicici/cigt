@@ -63,6 +63,14 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
             policy_gradient_network_backbone = nn.Sequential(layers)
             self.policyNetworks.append(policy_gradient_network_backbone)
 
+    def move_cigt_outputs_to_device(self, cigt_outputs):
+        d_ = {}
+        for field_name in cigt_outputs.keys():
+            d_[field_name] = {}
+            for k, v in cigt_outputs[field_name]:
+                d_[k] = v.to(self.device)
+        return d_
+
     def get_cigt_outputs(self, x, y):
         assert isinstance(x, dict)
         assert y is None
@@ -79,10 +87,11 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         # for cigt_output in self.trainDataset:
         #     print("X")
         #     break
-        cigt_output = next(iter(self.testDataset))
+        cigt_outputs = next(iter(self.testDataset))
+        cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
 
         self.eval()
-        self.forward_with_policies(x=cigt_output, y=None, training=False, greedy_actions=True)
+        self.forward_with_policies(x=cigt_outputs, y=None, training=False, greedy_actions=True)
         self.enforcedRoutingMatrices = []
 
     def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False,
@@ -105,6 +114,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
 
         for i, cigt_outputs in verbose_loader:
             time_begin = time.time()
+            cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
             with torch.no_grad():
                 # input_var = torch.autograd.Variable(input_).to(self.device)
                 # target_var = torch.autograd.Variable(target).to(self.device)
@@ -155,6 +165,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
             for i, cigt_outputs in enumerate(train_loader):
                 print("*************Policy Network Training Epoch:{0} Iteration:{1}*************".format(
                     epoch_id, self.iteration_id))
+                cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
 
                 # Adjust the learning rate
                 self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
