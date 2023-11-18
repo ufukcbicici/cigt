@@ -116,21 +116,21 @@ if __name__ == "__main__":
     load_result = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
 
     test_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
-    test_cigt_output_dataset.load_from_file(file_path="test_cigt_dataset.sav")
-    # test_cigt_output_dataset.load_from_model(model=model, data_loader=test_loader_light, repeat_count=1,
-    #                                          list_of_fields=["block_outputs_dict", "routing_matrices_soft_dict",
-    #                                                          "labels_dict", "logits_dict"])
-    # test_cigt_output_dataset.save(file_path="test_cigt_dataset.sav")
+    # test_cigt_output_dataset.load_from_file(file_path="test_cigt_dataset.sav")
+    test_cigt_output_dataset.load_from_model(model=model, data_loader=test_loader_light, repeat_count=1,
+                                             list_of_fields=["block_outputs_dict", "routing_matrices_soft_dict",
+                                                             "labels_dict", "logits_dict"])
+    test_cigt_output_dataset.save(file_path="test_cigt_dataset.sav")
 
     train_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
-    train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset.sav")
-    # train_cigt_output_dataset.load_from_model(model=model, data_loader=train_loader_hard, repeat_count=10,
-    #                                           list_of_fields=["block_outputs_dict", "routing_matrices_soft_dict",
-    #                                                           "labels_dict", "logits_dict"])
-    # train_cigt_output_dataset.save(file_path="train_cigt_dataset.sav")
+    # train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset.sav")
+    train_cigt_output_dataset.load_from_model(model=model, data_loader=train_loader_hard, repeat_count=10,
+                                              list_of_fields=["block_outputs_dict", "routing_matrices_soft_dict",
+                                                              "labels_dict", "logits_dict"])
+    train_cigt_output_dataset.save(file_path="train_cigt_dataset.sav")
 
-    train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
-                                               batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
+    # train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
+    #                                            batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
     # for d__ in train_loader:
     #     print("X")
 
