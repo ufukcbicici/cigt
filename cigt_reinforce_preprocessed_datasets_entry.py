@@ -93,13 +93,9 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
-    # ll = enumerate([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-    # for i in range(2):
-    #     for j, d__ in ll:
-    #         print(d__)
-
     DbLogger.log_db_path = DbLogger.paperspace
 
+    print("Start!")
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
         model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
