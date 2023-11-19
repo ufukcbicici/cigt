@@ -113,7 +113,7 @@ if __name__ == "__main__":
         num_classes=10,
         run_id=run_id,
         model_mac_info=mac_counts_per_block,
-        is_debug_mode=True,
+        is_debug_mode=False,
         train_dataset=train_loader,
         test_dataset=test_loader)
     model.to(model.device)
