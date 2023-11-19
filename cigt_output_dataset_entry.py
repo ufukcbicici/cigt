@@ -131,8 +131,8 @@ if __name__ == "__main__":
 
     # train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
     #                                            batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
-    # for d__ in train_loader:
-    #     print("X")
+    for d__ in test_loader_light:
+        print("X")
 
     # run_id = DbLogger.get_run_id()
     # model = CigtReinforceV2(

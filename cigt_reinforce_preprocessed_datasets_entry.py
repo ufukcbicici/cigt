@@ -86,12 +86,17 @@ if __name__ == "__main__":
     test_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
     test_cigt_output_dataset.load_from_file(file_path="test_cigt_dataset.sav")
     test_loader = torch.utils.data.DataLoader(test_cigt_output_dataset,
-                                              batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
+                                              batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
     train_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
     train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset.sav")
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
+
+    # ll = enumerate([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    # for i in range(2):
+    #     for j, d__ in ll:
+    #         print(d__)
 
     DbLogger.log_db_path = DbLogger.paperspace
 

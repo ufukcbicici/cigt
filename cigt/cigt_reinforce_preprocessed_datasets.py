@@ -98,29 +98,26 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                  return_network_outputs=False,
                  verbose=False, repeat_count=1):
         self.eval()
-        batch_time = AverageMeter()
-        mean_reward_for_batch_avg = AverageMeter()
-        macs_per_batch_avg = AverageMeter()
-        accuracy_per_batch_avg = AverageMeter()
-        mean_state_network_loss_avg = AverageMeter()
-        mean_policy_value_avg = AverageMeter()
-        mean_policy_value_no_baseline_avg = AverageMeter()
-
         if temperature is None:
             temperature = 1.0
-        if verbose is False:
-            verbose_loader = enumerate(loader)
-        else:
-            verbose_loader = tqdm(enumerate(loader))
+        # if verbose is False:
+        #     verbose_loader = enumerate(loader)
+        # else:
+        #     verbose_loader = tqdm(enumerate(loader))
 
         results_array = []
         counters = [Counter() for _ in range(len(self.pathCounts) - 1)]
 
         for repeat_id in range(repeat_count):
+            mean_reward_for_batch_avg = AverageMeter()
+            macs_per_batch_avg = AverageMeter()
+            accuracy_per_batch_avg = AverageMeter()
             print("Repeat Id:{0}".format(repeat_id))
-            for i, cigt_outputs in verbose_loader:
+            print("Device:{0}".format(self.device))
+            for i__, cigt_outputs in tqdm(enumerate(loader)):
                 time_begin = time.time()
                 cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
+                # print(cigt_outputs["block_outputs_dict"][(0,)].shape[0])
                 with torch.no_grad():
                     # input_var = torch.autograd.Variable(input_).to(self.device)
                     # target_var = torch.autograd.Variable(target).to(self.device)
@@ -175,10 +172,29 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         # Test with enforced actions set to 0. The accuracy should be the naive IG accuracy.
         self.toggle_allways_ig_routing(enable=True)
         validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0,
-                                        repeat_count=1, verbose=True)
+                                        repeat_count=1, verbose=False)
         self.toggle_allways_ig_routing(enable=False)
         print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(validation_dict["accuracy_per_batch_avg"],
                                                                     validation_dict["macs_per_batch_avg"]))
+        print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
+            DbLogger.log_db_path, self.runId, -1))
+        train_dict = self.validate(loader=train_loader, epoch=-1, data_kind="train", temperature=1.0,
+                                   repeat_count=10, verbose=False)
+        print("train_reward:{0} train_accuracy:{1} train_mac_avg:{2}".format(
+            train_dict["mean_reward_for_batch_avg"],
+            train_dict["accuracy_per_batch_avg"],
+            train_dict["macs_per_batch_avg"]))
+        for lid in range(len(self.pathCounts) - 1):
+            print("Train actions level {0}:{1}".format(lid, train_dict["counter_{0}".format(lid)]))
+
+        print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
+            DbLogger.log_db_path, self.runId, -1))
+        test_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0,
+                                  repeat_count=10, verbose=False)
+        print("test_reward:{0} test_accuracy:{1} test_mac_avg:{2}".format(
+            test_dict["mean_reward_for_batch_avg"],
+            test_dict["accuracy_per_batch_avg"],
+            test_dict["macs_per_batch_avg"]))
 
         # Create the model optimizer, we should have every parameter initialized right now.
         self.policyGradientsModelOptimizer = self.create_optimizer()
@@ -248,7 +264,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
                 train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=1.0,
-                                           repeat_count=10, verbose=True)
+                                           repeat_count=10, verbose=False)
                 print("train_reward:{0} train_accuracy:{1} train_mac_avg:{2}".format(
                     train_dict["mean_reward_for_batch_avg"],
                     train_dict["accuracy_per_batch_avg"],
@@ -259,7 +275,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
                 test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=1.0,
-                                          repeat_count=10, verbose=True)
+                                          repeat_count=10, verbose=False)
                 print("test_reward:{0} test_accuracy:{1} test_mac_avg:{2}".format(
                     test_dict["mean_reward_for_batch_avg"],
                     test_dict["accuracy_per_batch_avg"],
