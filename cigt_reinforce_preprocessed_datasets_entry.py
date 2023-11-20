@@ -82,7 +82,7 @@ if __name__ == "__main__":
         decay_period=Cifar10ResnetCigtConfigs.softmax_decay_period,
         decay_min_limit=Cifar10ResnetCigtConfigs.softmax_decay_min_limit)
 
-    kwargs = {'num_workers': 4, 'pin_memory': True}
+    kwargs = {'num_workers': 0, 'pin_memory': True}
     test_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
     test_cigt_output_dataset.load_from_file(file_path="test_cigt_dataset.sav")
     test_loader = torch.utils.data.DataLoader(test_cigt_output_dataset,
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
-    DbLogger.log_db_path = DbLogger.paperspace
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     print("Start!")
     model_mac = CigtIgGatherScatterImplementation(

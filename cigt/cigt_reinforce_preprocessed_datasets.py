@@ -160,6 +160,155 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
 
         return results_accumulated
 
+    def validate_with_expectation(self, loader, temperature=None):
+        self.eval()
+        if temperature is None:
+            temperature = 1.0
+        action_space = Utilities.create_route_combinations(shape_=self.pathCounts[1:])
+        action_probabilities_dict = {}
+        correctness_vectors_dict = {}
+        mac_vectors_dict = {}
+        reward_vectors_dict = {}
+        policy_probabilities_dict = {}
+        for actions in action_space:
+            action_probabilities_dict[actions] = []
+            correctness_vectors_dict[actions] = []
+            mac_vectors_dict[actions] = []
+            reward_vectors_dict[actions] = []
+            policy_probabilities_dict[actions] = []
+            for _ in range(len(self.pathCounts) - 1):
+                policy_probabilities_dict[actions].append([])
+
+        print("Device:{0}".format(self.device))
+        for i__, cigt_outputs in tqdm(enumerate(loader)):
+            time_begin = time.time()
+            cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
+            for actions in action_space:
+                # Prepare actions arrays
+                self.policyNetworksEnforcedActions = []
+                max_branch_count = np.prod(self.pathCounts)
+                for layer_id, action in enumerate(actions):
+                    layer_actions = action * torch.ones(size=(max_branch_count * self.batchSize,),
+                                                        dtype=torch.int64).to(self.device)
+                    self.policyNetworksEnforcedActions.append(layer_actions)
+                # Run on the dataset with the predefined action arrays
+                with torch.no_grad():
+                    # input_var = torch.autograd.Variable(input_).to(self.device)
+                    # target_var = torch.autograd.Variable(target).to(self.device)
+                    batch_size = cigt_outputs["block_outputs_dict"][(0,)].shape[0]
+                    outputs = self.forward_with_policies(x=cigt_outputs, y=None, greedy_actions=False)
+                    # Record probabilities
+                    action_trajectory_probabilities = outputs["probs_trajectory"]
+                    action_trajectory_probabilities = torch.stack(action_trajectory_probabilities, dim=1)
+                    action_trajectory_probabilities = torch.prod(action_trajectory_probabilities, dim=1)
+                    action_probabilities_dict[actions].append(action_trajectory_probabilities.detach().cpu().numpy())
+                    # Record rewards
+                    reward_vectors_dict[actions].append(outputs["reward_array"].detach().cpu().numpy())
+                    # Record accuracies
+                    correctness_vectors_dict[actions].append(outputs["correctness_vec"].detach().cpu().numpy())
+                    # Record mac values
+                    mac_vectors_dict[actions].append(outputs["mac_vec"].detach().cpu().numpy())
+                    # Record full policy distributions
+                    for lid, arr in enumerate(outputs["full_action_probs_trajectory"]):
+                        policy_probabilities_dict[actions][lid].append(arr.detach().cpu().numpy())
+
+        # Merge all results
+        for actions in action_space:
+            action_probabilities_dict[actions] = np.concatenate(action_probabilities_dict[actions])
+            # Record rewards
+            reward_vectors_dict[actions] = np.concatenate(reward_vectors_dict[actions])
+            # Record accuracies
+            correctness_vectors_dict[actions] = np.concatenate(correctness_vectors_dict[actions])
+            # Record mac values
+            mac_vectors_dict[actions] = np.concatenate(mac_vectors_dict[actions])
+            # Record full policy distributions
+            for lid, arr in enumerate(policy_probabilities_dict[actions]):
+                policy_probabilities_dict[actions][lid] = np.concatenate(arr, axis=0)
+
+        action_probabilities_matrix = []
+        reward_vectors_matrix = []
+        correctness_vectors_matrix = []
+        mac_vectors_matrix = []
+        for actions in action_space:
+            action_probabilities_matrix.append(action_probabilities_dict[actions])
+            reward_vectors_matrix.append(reward_vectors_dict[actions])
+            correctness_vectors_matrix.append(correctness_vectors_dict[actions])
+            mac_vectors_matrix.append(mac_vectors_dict[actions])
+
+        action_probabilities_matrix = np.stack(action_probabilities_matrix, axis=1)
+        reward_vectors_matrix = np.stack(reward_vectors_matrix, axis=1)
+        correctness_vectors_matrix = np.stack(correctness_vectors_matrix, axis=1)
+        mac_vectors_matrix = np.stack(mac_vectors_matrix, axis=1)
+
+        sum_prob = np.sum(action_probabilities_matrix, axis=1)
+        assert np.allclose(sum_prob, np.ones_like(sum_prob))
+
+        expected_reward = np.mean(np.sum(action_probabilities_matrix * reward_vectors_matrix, axis=1))
+        expected_accuracy = np.mean(np.sum(action_probabilities_matrix * correctness_vectors_matrix, axis=1))
+        expected_mac = np.mean(np.sum(action_probabilities_matrix * mac_vectors_matrix, axis=1))
+
+        prob_dict = {}
+        for lid in range(len(self.pathCounts) - 1):
+            for actions in action_space:
+                if actions[:lid] not in prob_dict:
+                    prob_dict[actions[:lid]] = []
+                prob_dict[actions[:lid]].append(policy_probabilities_dict[actions][lid])
+        mean_policy_distributions = {}
+        for k in prob_dict.keys():
+            stacked_probs = np.stack(prob_dict[k], axis=0)
+            mean_probs = np.mean(stacked_probs, axis=0)
+            diff_arr = stacked_probs - np.expand_dims(mean_probs, axis=0)
+            assert np.abs(diff_arr - np.zeros_like(diff_arr)).max() < 1e-6
+            mean_policy_distribution = np.mean(mean_probs, axis=0)
+            print("Trajectory {0} Mean Policy Distribution:{1}".format(k, mean_policy_distribution))
+            mean_policy_distributions[k] = mean_policy_distribution
+
+        results_dict = {
+            "expected_reward": expected_reward,
+            "expected_accuracy": expected_accuracy,
+            "expected_mac": expected_mac,
+            "mean_policy_distributions": mean_policy_distributions}
+        return results_dict
+
+    def evaluate_datasets(self, train_loader, test_loader, epoch):
+        # Test with enforced actions set to 0. The accuracy should be the naive IG accuracy.
+        self.toggle_allways_ig_routing(enable=True)
+        validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0,
+                                        repeat_count=1, verbose=False)
+        self.toggle_allways_ig_routing(enable=False)
+        print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(validation_dict["accuracy_per_batch_avg"],
+                                                                    validation_dict["macs_per_batch_avg"]))
+        outputs = {}
+        kv_rows = []
+        for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
+            print("***************Db:{0} RunId:{1} Epoch {2} End, {3} Evaluation***************".format(
+                DbLogger.log_db_path, self.runId, epoch, data_type))
+            outputs_dict = self.validate_with_expectation(loader=data_loader, temperature=1.0)
+            outputs[data_type] = outputs_dict
+            print("{0} Reward:{1}".format(data_type, outputs_dict["expected_reward"]))
+            print("{0} Accuracy:{1}".format(data_type, outputs_dict["expected_accuracy"]))
+            print("{0} Mac:{1}".format(data_type, outputs_dict["expected_mac"]))
+            for k, dist in outputs_dict["mean_policy_distributions"].items():
+                print("{0}-{1} mean_policy_distributions:{2}".format(data_type, k, dist))
+                kv_rows.append((self.runId,
+                                epoch,
+                                "{0}-{1} mean_policy_distributions".format(data_type, k),
+                                "{0}".format(dist)))
+        DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+
+        DbLogger.write_into_table(
+            rows=[(self.runId,
+                   self.iteration_id,
+                   epoch,
+                   outputs["Train"]["expected_reward"].item(),
+                   outputs["Train"]["expected_accuracy"].item(),
+                   outputs["Train"]["expected_mac"].item(),
+                   outputs["Test"]["expected_reward"].item(),
+                   outputs["Test"]["expected_accuracy"].item(),
+                   outputs["Test"]["expected_mac"].item(),
+                   "YYY")], table=DbLogger.logsTable)
+
+
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
         torch.manual_seed(1)
@@ -169,32 +318,8 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         # Run a forward pass first to initialize each LazyXXX layer.
         self.execute_forward_with_random_input()
 
-        # Test with enforced actions set to 0. The accuracy should be the naive IG accuracy.
-        self.toggle_allways_ig_routing(enable=True)
-        validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0,
-                                        repeat_count=1, verbose=False)
-        self.toggle_allways_ig_routing(enable=False)
-        print("test_ig_accuracy_avg:{0} test_ig_mac_avg:{1}".format(validation_dict["accuracy_per_batch_avg"],
-                                                                    validation_dict["macs_per_batch_avg"]))
-        print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
-            DbLogger.log_db_path, self.runId, -1))
-        train_dict = self.validate(loader=train_loader, epoch=-1, data_kind="train", temperature=1.0,
-                                   repeat_count=10, verbose=False)
-        print("train_reward:{0} train_accuracy:{1} train_mac_avg:{2}".format(
-            train_dict["mean_reward_for_batch_avg"],
-            train_dict["accuracy_per_batch_avg"],
-            train_dict["macs_per_batch_avg"]))
-        for lid in range(len(self.pathCounts) - 1):
-            print("Train actions level {0}:{1}".format(lid, train_dict["counter_{0}".format(lid)]))
-
-        print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
-            DbLogger.log_db_path, self.runId, -1))
-        test_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0,
-                                  repeat_count=10, verbose=False)
-        print("test_reward:{0} test_accuracy:{1} test_mac_avg:{2}".format(
-            test_dict["mean_reward_for_batch_avg"],
-            test_dict["accuracy_per_batch_avg"],
-            test_dict["macs_per_batch_avg"]))
+        # Run validation in the beginning
+        self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
 
         # Create the model optimizer, we should have every parameter initialized right now.
         self.policyGradientsModelOptimizer = self.create_optimizer()
@@ -261,46 +386,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
             # Validation
             if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
                     epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
-                print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
-                    DbLogger.log_db_path, self.runId, epoch_id))
-                train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=1.0,
-                                           repeat_count=10, verbose=False)
-                print("train_reward:{0} train_accuracy:{1} train_mac_avg:{2}".format(
-                    train_dict["mean_reward_for_batch_avg"],
-                    train_dict["accuracy_per_batch_avg"],
-                    train_dict["macs_per_batch_avg"]))
-                for lid in range(len(self.pathCounts) - 1):
-                    print("Train actions level {0}:{1}".format(lid, train_dict["counter_{0}".format(lid)]))
-
-                print("***************Db:{0} RunId:{1} Epoch {2} End, Test Evaluation***************".format(
-                    DbLogger.log_db_path, self.runId, epoch_id))
-                test_dict = self.validate(loader=test_loader, epoch=epoch_id, data_kind="test", temperature=1.0,
-                                          repeat_count=10, verbose=False)
-                print("test_reward:{0} test_accuracy:{1} test_mac_avg:{2}".format(
-                    test_dict["mean_reward_for_batch_avg"],
-                    test_dict["accuracy_per_batch_avg"],
-                    test_dict["macs_per_batch_avg"]))
-                for lid in range(len(self.pathCounts) - 1):
-                    print("Test actions level {0}:{1}".format(lid, test_dict["counter_{0}".format(lid)]))
-
-                self.toggle_allways_ig_routing(enable=True)
-                validation_dict = self.validate(loader=test_loader, epoch=-1, data_kind="test", temperature=1.0)
-                self.toggle_allways_ig_routing(enable=False)
-                print("test_ig_accuracy:{0} test_mac_ig_avg:{1}".format(
-                    validation_dict["accuracy_per_batch_avg"], validation_dict["macs_per_batch_avg"]))
-                # self.save_cigt_model(epoch=epoch_id)
-
-                DbLogger.write_into_table(
-                    rows=[(self.runId,
-                           self.iteration_id,
-                           epoch_id,
-                           train_dict["accuracy_per_batch_avg"],
-                           train_dict["macs_per_batch_avg"],
-                           test_dict["accuracy_per_batch_avg"],
-                           test_dict["macs_per_batch_avg"],
-                           0.0,
-                           0.0,
-                           "YYY")], table=DbLogger.logsTable)
+                self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=epoch_id)
 
     # def forward_with_policies(self, x, y, training, greedy_actions):
     #     cigt_outputs = x

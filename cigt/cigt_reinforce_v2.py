@@ -207,13 +207,14 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         return pg_sparse_input
 
     def run_policy_networks(self, layer_id, pn_input):
-        if len(self.policyNetworksEnforcedActions) == 0:
-            policy_network = self.policyNetworks[layer_id]
-            action_probs = policy_network(pn_input)
-            log_action_probs = torch.log(action_probs + self.policyNetworksNllConstant)
-            p_lp = torch.sum(-1.0 * (action_probs * log_action_probs), dim=1)
-            mean_policy_entropy = torch.mean(p_lp)
+        batch_size = pn_input.shape[0]
+        policy_network = self.policyNetworks[layer_id]
+        action_probs = policy_network(pn_input)
+        log_action_probs = torch.log(action_probs + self.policyNetworksNllConstant)
+        p_lp = torch.sum(-1.0 * (action_probs * log_action_probs), dim=1)
+        mean_policy_entropy = torch.mean(p_lp)
 
+        if len(self.policyNetworksEnforcedActions) == 0:
             dist = Categorical(action_probs)
             actions = dist.sample()
             log_probs_selected = dist.log_prob(actions)
@@ -221,12 +222,10 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
             return mean_policy_entropy, log_probs_selected, probs_selected, action_probs, actions.detach().cpu().numpy()
         else:
             actions_enforced = self.policyNetworksEnforcedActions[layer_id][0:pn_input.shape[0]]
-            log_probs_selected = torch.log(torch.ones(size=(pn_input.shape[0],), dtype=pn_input.dtype,
-                                                      device=self.device))
-            probs_selected = torch.ones(size=(pn_input.shape[0],), dtype=pn_input.dtype, device=self.device)
-            mean_policy_entropy = 0.0
+            probs_selected = action_probs[torch.arange(batch_size), actions_enforced]
+            log_probs_selected = torch.log(probs_selected)
             return mean_policy_entropy, log_probs_selected, probs_selected, \
-                probs_selected, actions_enforced.detach().cpu().numpy()
+                action_probs, actions_enforced.detach().cpu().numpy()
 
     def extend_sample_trajectories_wrt_actions(self, layer_id, actions, cigt_outputs, current_paths_dict):
         paths_to_this_layer = self.pathCounts[:(layer_id + 1)]
@@ -311,7 +310,9 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         cigt_outputs, batch_size = self.get_cigt_outputs(x=x, y=y)
         policy_entropies = []
         log_probs_trajectory = []
+        probs_trajectory = []
         actions_trajectory = []
+        full_action_probs_trajectory = []
         correctness_vec = None
         mac_vec = None
         reward_array = None
@@ -331,7 +332,9 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
                     self.run_policy_networks(layer_id=layer_id, pn_input=pg_sparse_input)
                 policy_entropies.append(mean_policy_entropy)
                 log_probs_trajectory.append(log_probs_selected)
+                probs_trajectory.append(probs_selected)
                 actions_trajectory.append(actions)
+                full_action_probs_trajectory.append(action_probs)
 
                 # Extend the trajectories for each sample based on the actions selected.
                 new_paths_dict = self.extend_sample_trajectories_wrt_actions(actions=actions,
@@ -346,11 +349,13 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         return {
             "policy_entropies": policy_entropies,
             "log_probs_trajectory": log_probs_trajectory,
+            "probs_trajectory": probs_trajectory,
             "actions_trajectory": actions_trajectory,
             "paths_history": paths_history,
             "reward_array": reward_array,
             "correctness_vec": correctness_vec,
-            "mac_vec": mac_vec}
+            "mac_vec": mac_vec,
+            "full_action_probs_trajectory": full_action_probs_trajectory}
 
     def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False,
                  return_network_outputs=False,
