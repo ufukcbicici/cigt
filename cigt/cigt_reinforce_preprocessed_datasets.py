@@ -211,6 +211,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                     # Record full policy distributions
                     for lid, arr in enumerate(outputs["full_action_probs_trajectory"]):
                         policy_probabilities_dict[actions][lid].append(arr.detach().cpu().numpy())
+        self.policyNetworksEnforcedActions = []
 
         # Merge all results
         for actions in action_space:
@@ -268,6 +269,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
             "expected_accuracy": expected_accuracy,
             "expected_mac": expected_mac,
             "mean_policy_distributions": mean_policy_distributions}
+        self.policyNetworksEnforcedActions = []
         return results_dict
 
     def evaluate_datasets(self, train_loader, test_loader, epoch):
@@ -280,7 +282,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                                                                     validation_dict["macs_per_batch_avg"]))
         outputs = {}
         kv_rows = []
-        for data_type, data_loader in [("Test", test_loader)]:
+        for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
             print("***************Db:{0} RunId:{1} Epoch {2} End, {3} Evaluation***************".format(
                 DbLogger.log_db_path, self.runId, epoch, data_type))
             outputs_dict = self.validate_with_expectation(loader=data_loader, temperature=1.0)
@@ -300,12 +302,12 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
             rows=[(self.runId,
                    self.iteration_id,
                    epoch,
-                   # outputs["Train"]["expected_reward"].item(),
-                   # outputs["Train"]["expected_accuracy"].item(),
-                   # outputs["Train"]["expected_mac"].item(),
-                   0.0,
-                   0.0,
-                   0.0,
+                   outputs["Train"]["expected_reward"].item(),
+                   outputs["Train"]["expected_accuracy"].item(),
+                   outputs["Train"]["expected_mac"].item(),
+                   # 0.0,
+                   # 0.0,
+                   # 0.0,
                    outputs["Test"]["expected_reward"].item(),
                    outputs["Test"]["expected_accuracy"].item(),
                    outputs["Test"]["expected_mac"].item(),
