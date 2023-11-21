@@ -124,43 +124,7 @@ if __name__ == "__main__":
 
     train_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
     # train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset.sav")
-    train_cigt_output_dataset.load_from_model(model=model, data_loader=train_loader_hard, repeat_count=10,
+    train_cigt_output_dataset.load_from_model(model=model, data_loader=train_loader_hard, repeat_count=3,
                                               list_of_fields=["block_outputs_dict", "routing_matrices_soft_dict",
                                                               "labels_dict", "logits_dict"])
-    train_cigt_output_dataset.save(file_path="train_cigt_dataset.sav")
-
-    # train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
-    #                                            batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
-    for d__ in test_loader_light:
-        print("X")
-
-    # run_id = DbLogger.get_run_id()
-    # model = CigtReinforceV2(
-    #     configs=Cifar10ResnetCigtConfigs,
-    #     model_definition="Reinforce Multipath CIGT",
-    #     num_classes=10,
-    #     run_id=run_id,
-    #     model_mac_info=mac_counts_per_block,
-    #     is_debug_mode=True)
-    # model.to(model.device)
-    # model.execute_forward_with_random_input()
-    # checkpoint = torch.load(chck_path, map_location=model.device)
-    # load_result = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
-    # for param_name in load_result.missing_keys:
-    #     block_check1 = [param_name.startswith("policyNetworks.{0}".format(block_id))
-    #                     or param_name.startswith("valueNetworks.{0}".format(block_id))
-    #                     for block_id in range(len(model.pathCounts[1:]))]
-    #     assert any(block_check1)
-    #     block_check2 = ["block_{0}".format(block_id) in param_name for block_id in range(len(model.pathCounts[1:]))]
-    #     assert any(block_check2)
-    #
-    # model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_paperspace
-    # explanation = model.get_explanation_string()
-    # DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    #
-    # # model.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
-    # # model.validate(loader=test_loader, data_kind="test", epoch=0, temperature=0.1)
-    #
-    # # train_dict = model.validate(loader=train_loader_hard, epoch=0, data_kind="train", temperature=1.0)
-    # # test_dict = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=1.0)
-    # model.fit_policy_network(train_loader=train_loader_hard, test_loader=test_loader_light)
+    train_cigt_output_dataset.save(file_path="train_cigt_dataset3.sav")
