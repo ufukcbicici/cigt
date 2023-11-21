@@ -119,6 +119,10 @@ if __name__ == "__main__":
     model.to(model.device)
     model.execute_forward_with_random_input()
 
+    model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_paperspace
+    explanation = model.get_explanation_string()
+    DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
     model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
 
     # kwargs = {'num_workers': 0, 'pin_memory': True}
