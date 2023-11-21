@@ -280,7 +280,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                                                                     validation_dict["macs_per_batch_avg"]))
         outputs = {}
         kv_rows = []
-        for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
+        for data_type, data_loader in [("Test", test_loader)]:
             print("***************Db:{0} RunId:{1} Epoch {2} End, {3} Evaluation***************".format(
                 DbLogger.log_db_path, self.runId, epoch, data_type))
             outputs_dict = self.validate_with_expectation(loader=data_loader, temperature=1.0)
