@@ -308,7 +308,6 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                    outputs["Test"]["expected_mac"].item(),
                    "YYY")], table=DbLogger.logsTable)
 
-
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
         torch.manual_seed(1)
@@ -388,60 +387,3 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
                     epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
                 self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=epoch_id)
 
-    # def forward_with_policies(self, x, y, training, greedy_actions):
-    #     cigt_outputs = x
-    #     # cigt_outputs = self.forward_v2(x=x, labels=y, temperature=1.0)
-    #     if training:
-    #         self.train()
-    #     else:
-    #         self.eval()
-    #
-    #     policy_entropies = []
-    #     log_probs_trajectory = []
-    #     actions_trajectory = []
-    #     correctness_vec = None
-    #     mac_vec = None
-    #     reward_array = None
-    #     paths_history = [{idx: {(0,)} for idx in range(x.shape[0])}]
-    #
-    #     for layer_id in range(len(self.pathCounts)):
-    #         if layer_id < len(self.pathCounts) - 1:
-    #             # Get sparse input arrays for the policy networks
-    #             # OK FOR PREPROCESSED DATASET IMPLEMENTATION!!!
-    #             pg_sparse_input = self.prepare_policy_network_input_f(
-    #                 batch_size=x.shape[0],
-    #                 layer_id=layer_id,
-    #                 current_paths_dict=paths_history[layer_id],
-    #                 cigt_outputs=cigt_outputs
-    #             )
-    #             # Execute this layers policy network, get log action probs, actions and policy entropies.
-    #             # OK FOR PREPROCESSED DATASET IMPLEMENTATION!!!
-    #             mean_policy_entropy, log_probs_selected, probs_selected, action_probs, actions = \
-    #                 self.run_policy_networks(layer_id=layer_id, pn_input=pg_sparse_input)
-    #             policy_entropies.append(mean_policy_entropy)
-    #             log_probs_trajectory.append(log_probs_selected)
-    #             actions_trajectory.append(actions)
-    #
-    #             # Extend the trajectories for each sample based on the actions selected.
-    #             # OK FOR PREPROCESSED DATASET IMPLEMENTATION!!!
-    #             new_paths_dict = self.extend_sample_trajectories_wrt_actions(actions=actions,
-    #                                                                          cigt_outputs=cigt_outputs,
-    #                                                                          current_paths_dict=paths_history[layer_id],
-    #                                                                          layer_id=layer_id)
-    #             paths_history.append(new_paths_dict)
-    #         else:
-    #             # OK FOR PREPROCESSED DATASET IMPLEMENTATION!!!
-    #             reward_array, correctness_vec, mac_vec = \
-    #                 self.calculate_rewards(cigt_outputs=cigt_outputs, complete_path_history=paths_history)
-    #
-    #     for lid, actions_arr in enumerate(actions_trajectory):
-    #         print("Layer{0} Actions:{1}".format(lid, Counter(actions_arr)))
-    #
-    #     return {
-    #         "policy_entropies": policy_entropies,
-    #         "log_probs_trajectory": log_probs_trajectory,
-    #         "actions_trajectory": actions_trajectory,
-    #         "paths_history": paths_history,
-    #         "reward_array": reward_array,
-    #         "correctness_vec": correctness_vec,
-    #         "mac_vec": mac_vec}
