@@ -89,7 +89,7 @@ if __name__ == "__main__":
                                               batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
     train_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
-    train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset.sav")
+    train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset3.sav")
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
