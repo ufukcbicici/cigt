@@ -318,7 +318,7 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
         self.execute_forward_with_random_input()
 
         # Run validation in the beginning
-        self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
+        # self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
 
         # Create the model optimizer, we should have every parameter initialized right now.
         self.policyGradientsModelOptimizer = self.create_optimizer()
