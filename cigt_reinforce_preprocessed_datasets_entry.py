@@ -89,11 +89,11 @@ if __name__ == "__main__":
                                               batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
     train_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
-    train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset10.sav")
+    train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset3.sav")
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db2
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
     mac_lambda_list = sorted(mac_lambda_list)
-    Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 10
+    Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
 
     for mac_lambda in mac_lambda_list:
         run_id = DbLogger.get_run_id()
@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
         model = CigtReinforcePreprocessedDatasets(
             configs=Cifar10ResnetCigtConfigs,
-            model_definition="Reinforce Multipath CIGT with 10 Repeats",
+            model_definition="Reinforce Multipath CIGT with 3 Repeats",
             num_classes=10,
             run_id=run_id,
             model_mac_info=mac_counts_per_block,
