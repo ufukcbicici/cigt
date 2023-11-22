@@ -89,13 +89,12 @@ if __name__ == "__main__":
                                               batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
     train_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
-    train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset3.sav")
+    train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset10.sav")
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
-    DbLogger.log_db_path = DbLogger.paperspace
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db
 
-    print("Start!")
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
         model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
@@ -105,87 +104,50 @@ if __name__ == "__main__":
     model_mac.execute_forward_with_random_input()
     mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model_mac)
     model_mac = None
-    run_id = DbLogger.get_run_id()
 
-    model = CigtReinforcePreprocessedDatasets(
-        configs=Cifar10ResnetCigtConfigs,
-        model_definition="Reinforce Multipath CIGT",
-        num_classes=10,
-        run_id=run_id,
-        model_mac_info=mac_counts_per_block,
-        is_debug_mode=False,
-        train_dataset=train_loader,
-        test_dataset=test_loader)
-    model.to(model.device)
-    model.execute_forward_with_random_input()
+    print("Start!")
 
-    model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_paperspace
-    explanation = model.get_explanation_string()
-    DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+    # policy_networks_cbam_layer_count = 6
+    # policy_networks_cbam_feature_map_count = 32
+    # policy_networks_cbam_reduction_ratio = 4
+    # policy_networks_cbam_layer_input_reduction_ratio = 4
+    # policy_networks_cbam_end_avg_pool_strode = 2
+    # policy_networks_lstm_dimension = 128
+    # policy_networks_total_num_of_epochs = 250
+    # policy_networks_initial_lr = 0.00006
+    # policy_networks_polynomial_scheduler_power = 1.0
+    # policy_networks_wd = 0.0001
+    # policy_networks_mac_lambda = 0.0
+    # policy_networks_discount_factor = 0.99
+    # policy_networks_logit_temperature = 1.0
+    # policy_networks_apply_reward_whitening = False
+    # policy_networks_evaluation_period = 5
+    # policy_networks_use_moving_average_baseline = True
+    # policy_networks_baseline_momentum = 0.99
+    # policy_networks_policy_entropy_loss_coeff = 0.0
 
-    model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
+    mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
+    mac_lambda_list = sorted(mac_lambda_list)
+    Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 10
 
-    # kwargs = {'num_workers': 0, 'pin_memory': True}
-    # heavyweight_augmentation = transforms.Compose([
-    #     transforms.Resize((32, 32)),
-    #     CutoutPIL(cutout_factor=0.5),
-    #     RandAugment(),
-    #     transforms.ToTensor(),
-    # ])
-    # lightweight_augmentation = transforms.Compose([
-    #     transforms.Resize((32, 32)),
-    #     transforms.ToTensor(),
-    # ])
-    # train_loader_hard = torch.utils.data.DataLoader(
-    #     datasets.CIFAR10('../data', download=True, train=True, transform=heavyweight_augmentation),
-    #     batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
-    # test_loader_light = torch.utils.data.DataLoader(
-    #     datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
-    #     batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
-    #
-    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
-    # # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger_331_epoch11.pth")
-    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
-    #
-    # DbLogger.log_db_path = DbLogger.paperspace
-    #
-    # model_mac = CigtIgGatherScatterImplementation(
-    #     run_id=-1,
-    #     model_definition="Gather Scatter Cigt With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:4  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:3 - MultipleLogitsMultipleLosses - Wd:0.0006 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
-    #     num_classes=10,
-    #     configs=Cifar10ResnetCigtConfigs)
-    # model_mac.to(model_mac.device)
-    # model_mac.execute_forward_with_random_input()
-    # mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model_mac)
-    # model_mac = None
-    #
-    # run_id = DbLogger.get_run_id()
-    # model = CigtReinforceV2(
-    #     configs=Cifar10ResnetCigtConfigs,
-    #     model_definition="Reinforce Multipath CIGT",
-    #     num_classes=10,
-    #     run_id=run_id,
-    #     model_mac_info=mac_counts_per_block,
-    #     is_debug_mode=True)
-    # model.to(model.device)
-    # model.execute_forward_with_random_input()
-    # checkpoint = torch.load(chck_path, map_location=model.device)
-    # load_result = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
-    # for param_name in load_result.missing_keys:
-    #     block_check1 = [param_name.startswith("policyNetworks.{0}".format(block_id))
-    #                     or param_name.startswith("valueNetworks.{0}".format(block_id))
-    #                     for block_id in range(len(model.pathCounts[1:]))]
-    #     assert any(block_check1)
-    #     block_check2 = ["block_{0}".format(block_id) in param_name for block_id in range(len(model.pathCounts[1:]))]
-    #     assert any(block_check2)
-    #
-    # model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_paperspace
-    # explanation = model.get_explanation_string()
-    # DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-    #
-    # # model.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
-    # # model.validate(loader=test_loader, data_kind="test", epoch=0, temperature=0.1)
-    #
-    # # train_dict = model.validate(loader=train_loader_hard, epoch=0, data_kind="train", temperature=1.0)
-    # # test_dict = model.validate(loader=test_loader_light, epoch=0, data_kind="test", temperature=1.0)
-    # model.fit_policy_network(train_loader=train_loader_hard, test_loader=test_loader_light)
+    for mac_lambda in mac_lambda_list:
+        run_id = DbLogger.get_run_id()
+        Cifar10ResnetCigtConfigs.policy_networks_mac_lambda = mac_lambda
+
+        model = CigtReinforcePreprocessedDatasets(
+            configs=Cifar10ResnetCigtConfigs,
+            model_definition="Reinforce Multipath CIGT with 10 Repeats",
+            num_classes=10,
+            run_id=run_id,
+            model_mac_info=mac_counts_per_block,
+            is_debug_mode=False,
+            train_dataset=train_loader,
+            test_dataset=test_loader)
+        model.to(model.device)
+        model.execute_forward_with_random_input()
+
+        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_tetam
+        explanation = model.get_explanation_string()
+        DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
+        model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
