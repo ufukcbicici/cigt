@@ -650,3 +650,11 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
         }
 
         return res_dict
+
+    def move_cigt_outputs_to_device(self, cigt_outputs):
+        d_ = {}
+        for field_name in cigt_outputs.keys():
+            d_[field_name] = {}
+            for k, v in cigt_outputs[field_name].items():
+                d_[field_name][k] = v.to(self.device)
+        return d_

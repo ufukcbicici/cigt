@@ -2730,3 +2730,7 @@ SELECT RunID, Max(TestAccuracy) AS TestAcc FROM logs_table WHERE RunID IN (SELEC
 --Started on: Tetam - "/cta/users/hmeral/cigt/cigt/cigtlogger2.db"
 --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = True - warm_up_kind = FullRouting%";
 SELECT RunID, Max(TestAccuracy) AS TestAcc FROM logs_table WHERE RunID IN (SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = True - warm_up_kind = FullRouting%") GROUP BY RunID ORDER BY TestAcc DESC;
+
+
+-- CIGT Policy Gradients
+SELECT RunID, Max("TrainingError") AS TestAcc FROM logs_table WHERE RunID IN (SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Reinforce Multipath CIGT with%");

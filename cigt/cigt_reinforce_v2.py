@@ -93,7 +93,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
             print("Parameter {0} Device:{1}".format(name, param.device))
 
         self.eval()
-        self.forward_with_policies(x=fake_input, y=fake_target, training=False, greedy_actions=True)
+        self.forward_with_policies(x=fake_input, y=fake_target, greedy_actions=True)
         self.enforcedRoutingMatrices = []
 
     def create_policy_networks(self):

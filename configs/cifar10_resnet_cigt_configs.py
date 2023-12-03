@@ -132,7 +132,10 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_cbam_reduction_ratio = 4
     policy_networks_cbam_layer_input_reduction_ratio = 4
     policy_networks_cbam_end_avg_pool_strode = 2
+    policy_networks_use_lstm = True
     policy_networks_lstm_dimension = 128
+    policy_networks_lstm_num_layers = 1
+    policy_networks_lstm_bidirectional = False
     policy_networks_total_num_of_epochs = 250
     policy_networks_initial_lr = 0.00006
     policy_networks_polynomial_scheduler_power = 1.0
@@ -145,5 +148,6 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_use_moving_average_baseline = True
     policy_networks_baseline_momentum = 0.99
     policy_networks_policy_entropy_loss_coeff = 0.0
+    policy_networks_epsilon_decay_coeff = 1.0
 
 
