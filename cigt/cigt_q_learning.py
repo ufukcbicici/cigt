@@ -171,7 +171,7 @@ class CigtQLearning(CigtReinforceV2):
     def get_executed_nodes_wrt_trajectories(self, cigt_outputs, batch_size, action_trajectories):
         trajectory_length = action_trajectories.shape[1]
         # First nodes are always selected
-        node_selection_arrays = [torch.ones(size=(batch_size, 1), dtype=torch.float32)]
+        node_selection_arrays = [torch.ones(size=(batch_size, 1), dtype=torch.float32, device=self.device)]
         for t in range(trajectory_length):
             previous_layer_node_combinations = Utilities.create_route_combinations(shape_=self.pathCounts[:(t + 1)])
             next_level_selection_array_shape = (batch_size, *self.pathCounts[:(t + 2)])
