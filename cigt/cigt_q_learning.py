@@ -181,7 +181,8 @@ class CigtQLearning(CigtReinforceV2):
             for prev_node_combination in previous_layer_node_combinations:
                 index_array = [torch.arange(batch_size)]
                 for a_ in prev_node_combination:
-                    index_array.append(torch.Tensor([a_] * batch_size, device=self.device).to(torch.int64))
+                    i_arr = torch.Tensor([a_] * batch_size).to(self.device).to(torch.int64)
+                    index_array.append(i_arr)
                 parent_node_selections = node_selection_arrays[-1][index_array]
                 for a_ in range(self.actionSpaces[t]):
                     current_node_selections = (a_ <= curr_level_actions).to(torch.float32)
