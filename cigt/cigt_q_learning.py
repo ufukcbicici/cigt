@@ -175,7 +175,8 @@ class CigtQLearning(CigtReinforceV2):
         for t in range(trajectory_length):
             previous_layer_node_combinations = Utilities.create_route_combinations(shape_=self.pathCounts[:(t + 1)])
             next_level_selection_array_shape = (batch_size, *self.pathCounts[:(t + 2)])
-            next_level_selection_array = torch.zeros(size=next_level_selection_array_shape, dtype=torch.float32)
+            next_level_selection_array = torch.zeros(size=next_level_selection_array_shape, dtype=torch.float32,
+                                                     device=self.device)
             curr_level_actions = action_trajectories[:, t]
             # Extend to next level nodes.
             for prev_node_combination in previous_layer_node_combinations:
