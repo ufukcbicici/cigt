@@ -180,7 +180,7 @@ class CigtQLearning(CigtReinforceV2):
             curr_level_actions = action_trajectories[:, t]
             # Extend to next level nodes.
             for prev_node_combination in previous_layer_node_combinations:
-                index_array = [torch.arange(batch_size)]
+                index_array = [torch.arange(batch_size).to(self.device).to(torch.int64)]
                 for a_ in prev_node_combination:
                     i_arr = torch.Tensor([a_] * batch_size).to(self.device).to(torch.int64)
                     index_array.append(i_arr)
@@ -299,7 +299,7 @@ class CigtQLearning(CigtReinforceV2):
             if t == len(self.pathCounts) - 2:
                 for path_combination in path_combinations_for_t:
                     action_trajectory = path_combination
-                    action_trajectories = torch.Tensor(action_trajectory, device=self.device, dtype=torch.int64)
+                    action_trajectories = torch.Tensor(action_trajectory).to(self.device).to(torch.int64)
                     action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
                     action_trajectories = torch.tile(action_trajectories, dims=(batch_size, 1))
                     action_trajectories = action_trajectories[:, 1:]

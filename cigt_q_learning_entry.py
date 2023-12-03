@@ -144,11 +144,11 @@ if __name__ == "__main__":
             is_debug_mode=False,
             precalculated_datasets_dict={"train_dataset": train_loader, "test_dataset": test_loader})
         model.to(model.device)
-        print("Comparison with the test set.")
-        model.compare_trajectory_evaluation_methods(dataset=test_loader, repeat_count=1000)
-        print("Comparison with the training set.")
-        model.compare_trajectory_evaluation_methods(dataset=train_loader, repeat_count=1000)
-        # model.execute_forward_with_random_input()
+        # print("Comparison with the test set.")
+        # model.compare_trajectory_evaluation_methods(dataset=test_loader, repeat_count=1000)
+        # print("Comparison with the training set.")
+        # model.compare_trajectory_evaluation_methods(dataset=train_loader, repeat_count=1000)
+        model.execute_forward_with_random_input()
 
         break
 
