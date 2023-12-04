@@ -216,66 +216,9 @@ class CigtQLearning(CigtReinforceV2):
             node_selection_arrays.append(next_level_node_selections_array)
         return node_selection_arrays
 
-    def compare_trajectory_evaluation_methods(self, dataset, repeat_count):
-        for i, batch in enumerate(dataset):
-            print("Iteration:{0}".format(i))
-            if self.usingPrecalculatedDatasets:
-                cigt_outputs, batch_size = self.get_cigt_outputs(x=batch, y=None)
-            else:
-                input_var = torch.autograd.Variable(batch[0]).to(self.device)
-                target_var = torch.autograd.Variable(batch[1]).to(self.device)
-                cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
-
-            torch_computation_times = []
-            numpy_computation_times = []
-
-            for repeat_id in tqdm(range(repeat_count)):
-                actions = []
-                for a_ in self.actionSpaces:
-                    actions.append(np.random.randint(low=0, high=a_, size=(batch_size,)))
-                actions = np.stack(actions, axis=1)
-                actions_torch = torch.from_numpy(actions).to(self.device)
-
-                t0 = time.time()
-                node_selection_arrays_torch = self.get_executed_nodes_wrt_trajectories(cigt_outputs=cigt_outputs,
-                                                                                       batch_size=batch_size,
-                                                                                       action_trajectories=actions_torch)
-                t1 = time.time()
-                torch_computation_times.append(t1 - t0)
-
-                t2 = time.time()
-                node_selection_arrays_numpy = self.get_executed_nodes_wrt_trajectories_baseline(
-                    cigt_outputs=cigt_outputs,
-                    batch_size=batch_size,
-                    action_trajectories=actions)
-                t3 = time.time()
-                numpy_computation_times.append(t3 - t2)
-
-                assert len(node_selection_arrays_torch) == len(self.pathCounts)
-                assert len(node_selection_arrays_numpy) == len(self.pathCounts)
-                for t in range(len(self.pathCounts)):
-                    numpy_selections_array = node_selection_arrays_numpy[t]
-                    selections_torch = node_selection_arrays_torch[t].detach().cpu().numpy()
-                    torch_selections_array = [set() for _ in range(batch_size)]
-                    non_zero_indices = np.nonzero(selections_torch)
-                    non_zero_indices = np.stack(non_zero_indices, axis=1)
-                    for idx in range(non_zero_indices.shape[0]):
-                        index_tpl = non_zero_indices[idx]
-                        sample_id = index_tpl[0]
-                        selection_tuple = tuple(index_tpl[1:])
-                        torch_selections_array[sample_id].add(selection_tuple)
-
-                    assert len(numpy_selections_array) == len(torch_selections_array)
-                    for idx in range(len(numpy_selections_array)):
-                        assert numpy_selections_array[idx] == torch_selections_array[idx]
-
-            print("Torch computation time:{0}".format(np.mean(np.array(torch_computation_times))))
-            print("Numpy computation time:{0}".format(np.mean(np.array(numpy_computation_times))))
-
-    def calculate_final_rewards_wrt_execution_of_final_layer(self, cigt_outputs, batch_size, executed_nodes_array):
+    def calculate_moe_for_final_layer(self, cigt_outputs, batch_size, executed_nodes_array):
         # ************** First calculate the MoE accuracies **************
         path_combinations_for_t = Utilities.create_route_combinations(shape_=self.pathCounts)
-        validness_array = torch.zeros(size=(batch_size, *self.pathCounts), dtype=torch.float32)
         mixture_of_experts_list = []
         for path_combination in path_combinations_for_t:
             softmax_probs = cigt_outputs["softmax_dict"][path_combination]
@@ -311,12 +254,130 @@ class CigtQLearning(CigtReinforceV2):
                     for arr in cigt_outputs["labels_dict"].values()])
 
         correctness_vector = (true_labels == predicted_labels).to(torch.float32)
-        # ************** First calculate the MoE accuracies **************
+        return correctness_vector, expert_probs
 
+    def calculate_moe_for_final_layer_baseline(self, cigt_outputs, batch_size, executed_nodes_array):
+        path_combinations_for_t = Utilities.create_route_combinations(shape_=self.pathCounts)
+        true_labels = [arr for arr in cigt_outputs["labels_dict"].values()]
+        true_labels = torch.stack(true_labels, dim=1)
+        true_labels = torch.mean(true_labels.to(torch.float32), dim=1).to(torch.int64)
+        assert all([np.array_equal(true_labels.detach().cpu().numpy(), arr.detach().cpu().numpy())
+                    for arr in cigt_outputs["labels_dict"].values()])
+
+        all_expert_probs = []
+        for sample_id in range(batch_size):
+            selected_expert_nodes = executed_nodes_array[sample_id]
+            expert_probs = []
+            assert isinstance(selected_expert_nodes, set)
+            for path_combination in selected_expert_nodes:
+                softmax_probs = cigt_outputs["softmax_dict"][path_combination][sample_id]
+                expert_probs.append(softmax_probs)
+            expert_probs = torch.stack(expert_probs, dim=0)
+            expert_probs = torch.mean(expert_probs, dim=0)
+            all_expert_probs.append(expert_probs)
+
+        all_expert_probs = torch.stack(all_expert_probs, dim=0)
+        predicted_labels = torch.argmax(all_expert_probs, dim=1)
+
+        correctness_vector = (true_labels == predicted_labels).to(torch.float32)
+        return correctness_vector, all_expert_probs
+
+    def compare_trajectory_evaluation_methods(self, dataset, repeat_count):
+        for i, batch in enumerate(dataset):
+            print("Iteration:{0}".format(i))
+            if self.usingPrecalculatedDatasets:
+                cigt_outputs, batch_size = self.get_cigt_outputs(x=batch, y=None)
+            else:
+                input_var = torch.autograd.Variable(batch[0]).to(self.device)
+                target_var = torch.autograd.Variable(batch[1]).to(self.device)
+                cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
+
+            torch_trajectory_computation_times = []
+            numpy_trajectory_computation_times = []
+            torch_moe_computation_times = []
+            numpy_moe_computation_times = []
+
+            for repeat_id in tqdm(range(repeat_count)):
+                actions = []
+                for a_ in self.actionSpaces:
+                    actions.append(np.random.randint(low=0, high=a_, size=(batch_size,)))
+                actions = np.stack(actions, axis=1)
+                actions_torch = torch.from_numpy(actions).to(self.device)
+
+                t0 = time.time()
+                node_selection_arrays_torch = self.get_executed_nodes_wrt_trajectories(
+                    cigt_outputs=cigt_outputs,
+                    batch_size=batch_size,
+                    action_trajectories=actions_torch)
+                t1 = time.time()
+                torch_trajectory_computation_times.append(t1 - t0)
+
+                t2 = time.time()
+                correctness_vector_torch, expert_probs_torch = self.calculate_moe_for_final_layer(
+                    cigt_outputs=cigt_outputs,
+                    batch_size=batch_size,
+                    executed_nodes_array=
+                    node_selection_arrays_torch[-1])
+                t3 = time.time()
+                torch_moe_computation_times.append(t3 - t2)
+
+                t4 = time.time()
+                node_selection_arrays_numpy = self.get_executed_nodes_wrt_trajectories_baseline(
+                    cigt_outputs=cigt_outputs,
+                    batch_size=batch_size,
+                    action_trajectories=actions)
+                t5 = time.time()
+                numpy_trajectory_computation_times.append(t5 - t4)
+
+                t6 = time.time()
+                correctness_vector_numpy, expert_probs_numpy = self.calculate_moe_for_final_layer_baseline(
+                    cigt_outputs=cigt_outputs,
+                    batch_size=batch_size,
+                    executed_nodes_array=
+                    node_selection_arrays_numpy[-1])
+                t7 = time.time()
+                numpy_moe_computation_times.append(t7 - t6)
+
+                # Compare executed node arrays
+                assert len(node_selection_arrays_torch) == len(self.pathCounts)
+                assert len(node_selection_arrays_numpy) == len(self.pathCounts)
+                for t in range(len(self.pathCounts)):
+                    numpy_selections_array = node_selection_arrays_numpy[t]
+                    selections_torch = node_selection_arrays_torch[t].detach().cpu().numpy()
+                    torch_selections_array = [set() for _ in range(batch_size)]
+                    non_zero_indices = np.nonzero(selections_torch)
+                    non_zero_indices = np.stack(non_zero_indices, axis=1)
+                    for idx in range(non_zero_indices.shape[0]):
+                        index_tpl = non_zero_indices[idx]
+                        sample_id = index_tpl[0]
+                        selection_tuple = tuple(index_tpl[1:])
+                        torch_selections_array[sample_id].add(selection_tuple)
+
+                    assert len(numpy_selections_array) == len(torch_selections_array)
+                    for idx in range(len(numpy_selections_array)):
+                        assert numpy_selections_array[idx] == torch_selections_array[idx]
+
+                # Compare MoE results
+                assert np.array_equal(correctness_vector_torch.detach().cpu().numpy(),
+                                      correctness_vector_numpy.detach().cpu().numpy())
+                assert np.allclose(expert_probs_torch.detach().cpu().numpy(),
+                                   expert_probs_numpy.detach().cpu().numpy())
+
+            print("Torch Trajectory Computation time:{0}".format(np.mean(np.array(torch_trajectory_computation_times))))
+            print("Numpy Trajectory Computation time:{0}".format(np.mean(np.array(numpy_trajectory_computation_times))))
+            print("Torch MoE Computation time:{0}".format(np.mean(np.array(torch_moe_computation_times))))
+            print("Numpy MoE Computation time:{0}".format(np.mean(np.array(numpy_moe_computation_times))))
+
+    def calculate_mac_vector_for_layer(self, layer, batch_size, executed_nodes_array):
         # ************** Secondly calculate the MAC costs for the final layer **************
-
+        assert executed_nodes_array.shape[1:] == self.pathCounts[:(layer + 2)]
+        node_dims = tuple([idx for idx in range(1, len(executed_nodes_array.shape))])
+        node_counts = torch.sum(executed_nodes_array, dim=node_dims)
+        extra_node_counts = node_counts - 1
+        mac_values_for_layer = extra_node_counts * self.macCostPerLayer[layer + 1]
+        relative_mac_values_for_layer = mac_values_for_layer / self.singlePathMacCost
         # ************** Secondly calculate the MAC costs for the final layer **************
-
+        return relative_mac_values_for_layer
 
     def calculate_optimal_q_tables(self, cigt_outputs, batch_size):
         # Always start with a fixed action, that is the execution of the root node.
@@ -334,10 +395,10 @@ class CigtQLearning(CigtReinforceV2):
                         cigt_outputs=cigt_outputs,
                         batch_size=batch_size,
                         action_trajectories=action_trajectories)
-                    self.calculate_final_rewards_wrt_execution_of_final_layer(cigt_outputs=cigt_outputs,
-                                                                              batch_size=batch_size,
-                                                                              executed_nodes_array=executed_nodes_array[
-                                                                                  -1])
+                    self.calculate_accuracy_vector_for_final_layer(cigt_outputs=cigt_outputs,
+                                                                   batch_size=batch_size,
+                                                                   executed_nodes_array=executed_nodes_array[
+                                                                       -1])
 
             print("X")
 
