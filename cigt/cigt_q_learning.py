@@ -272,33 +272,60 @@ class CigtQLearning(CigtReinforceV2):
             print("Torch computation time:{0}".format(np.mean(np.array(torch_computation_times))))
             print("Numpy computation time:{0}".format(np.mean(np.array(numpy_computation_times))))
 
-    def calculate_final_rewards(self, cigt_outputs, batch_size, executed_nodes_array):
-        # First calculate the MoE accuracies
+    def calculate_final_rewards_wrt_execution_of_final_layer(self, cigt_outputs, batch_size, executed_nodes_array):
+        # ************** First calculate the MoE accuracies **************
         path_combinations_for_t = Utilities.create_route_combinations(shape_=self.pathCounts)
         validness_array = torch.zeros(size=(batch_size, *self.pathCounts), dtype=torch.float32)
         mixture_of_experts_list = []
         for path_combination in path_combinations_for_t:
             softmax_probs = cigt_outputs["softmax_dict"][path_combination]
-            action_trajectory = path_combination
-            action_trajectories = torch.Tensor(action_trajectory, device=self.device, dtype=torch.int64)
-            action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
-            action_trajectories = torch.tile(action_trajectories, dims=(batch_size, 1))
+            path_trajectories = torch.Tensor(path_combination).to(self.device).to(torch.int64)
+            path_trajectories = torch.unsqueeze(path_trajectories, dim=0)
+            path_trajectories = torch.tile(path_trajectories, dims=(batch_size, 1))
             index_array = [torch.arange(batch_size, device=self.device)]
-            for t in range(action_trajectories.shape[1]):
-                index_array.append(action_trajectories[:, t])
+            for t in range(path_trajectories.shape[1]):
+                index_array.append(path_trajectories[:, t])
             selection_array = executed_nodes_array[index_array]
+            selection_array = torch.unsqueeze(selection_array, dim=1)
             weighted_softmax_probs = selection_array * softmax_probs
             mixture_of_experts_list.append(weighted_softmax_probs)
-            print("X")
+        # Generate ensemble probabilities
+        mixture_of_experts_matrix = torch.stack(mixture_of_experts_list, dim=1)
+        experts_sum = torch.sum(mixture_of_experts_matrix, dim=1)
+        # Total number of involved experts. This is the sum of executed_nodes_array expect the batch dimension.
+        expert_dims = tuple([idx for idx in range(1, len(executed_nodes_array.shape))])
+        expert_counts = torch.sum(executed_nodes_array, dim=expert_dims)
+        expert_coeffs = torch.reciprocal(expert_counts)
+
+        expert_probs = torch.unsqueeze(expert_coeffs, dim=1) * experts_sum
+        expert_probs_np = expert_probs.detach().cpu().numpy()
+        expert_probs_sum_np = np.sum(expert_probs_np, axis=1)
+        assert np.allclose(expert_probs_sum_np, np.ones_like(expert_probs_sum_np))
+        predicted_labels = torch.argmax(expert_probs, dim=1)
+
+        # Calculate prediction validities, per sample
+        true_labels = [arr for arr in cigt_outputs["labels_dict"].values()]
+        true_labels = torch.stack(true_labels, dim=1)
+        true_labels = torch.mean(true_labels.to(torch.float32), dim=1).to(torch.int64)
+        assert all([np.array_equal(true_labels.detach().cpu().numpy(), arr.detach().cpu().numpy())
+                    for arr in cigt_outputs["labels_dict"].values()])
+
+        correctness_vector = (true_labels == predicted_labels).to(torch.float32)
+        # ************** First calculate the MoE accuracies **************
+
+        # ************** Secondly calculate the MAC costs for the final layer **************
+
+        # ************** Secondly calculate the MAC costs for the final layer **************
+
 
     def calculate_optimal_q_tables(self, cigt_outputs, batch_size):
-        for t in range(len(self.pathCounts) - 2, -1, -1):
-            path_combinations_for_t = Utilities.create_route_combinations(shape_=self.pathCounts[:(t + 2)])
-            q_table_shape = (batch_size, *self.pathCounts[:(t + 2)])
-            # Last layer (the loss layer). Calculate sample accuracies and MAC costs for the final layer.
-            if t == len(self.pathCounts) - 2:
-                for path_combination in path_combinations_for_t:
-                    action_trajectory = path_combination
+        # Always start with a fixed action, that is the execution of the root node.
+        action_spaces = [1]
+        action_spaces.extend(self.actionSpaces)
+        for t in range(len(action_spaces) - 2, -1, -1):
+            action_trajectories_for_t = Utilities.create_route_combinations(shape_=action_spaces[:(t + 2)])
+            if t == len(action_spaces) - 2:
+                for action_trajectory in action_trajectories_for_t:
                     action_trajectories = torch.Tensor(action_trajectory).to(self.device).to(torch.int64)
                     action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
                     action_trajectories = torch.tile(action_trajectories, dims=(batch_size, 1))
@@ -307,9 +334,30 @@ class CigtQLearning(CigtReinforceV2):
                         cigt_outputs=cigt_outputs,
                         batch_size=batch_size,
                         action_trajectories=action_trajectories)
-                    self.calculate_final_rewards(cigt_outputs=cigt_outputs,
-                                                 batch_size=batch_size,
-                                                 executed_nodes_array=executed_nodes_array[-1])
+                    self.calculate_final_rewards_wrt_execution_of_final_layer(cigt_outputs=cigt_outputs,
+                                                                              batch_size=batch_size,
+                                                                              executed_nodes_array=executed_nodes_array[
+                                                                                  -1])
+
+            print("X")
+
+            # path_combinations_for_t = Utilities.create_route_combinations(shape_=self.pathCounts[:(t + 2)])
+            # q_table_shape = (batch_size, *self.pathCounts[:(t + 2)])
+            # # Last layer (the loss layer). Calculate sample accuracies and MAC costs for the final layer.
+            # if t == len(self.pathCounts) - 2:
+            #     for path_combination in path_combinations_for_t:
+            #         action_trajectory = path_combination
+            #         action_trajectories = torch.Tensor(action_trajectory).to(self.device).to(torch.int64)
+            #         action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
+            #         action_trajectories = torch.tile(action_trajectories, dims=(batch_size, 1))
+            #         action_trajectories = action_trajectories[:, 1:]
+            #         executed_nodes_array = self.get_executed_nodes_wrt_trajectories(
+            #             cigt_outputs=cigt_outputs,
+            #             batch_size=batch_size,
+            #             action_trajectories=action_trajectories)
+            #         self.calculate_final_rewards(cigt_outputs=cigt_outputs,
+            #                                      batch_size=batch_size,
+            #                                      executed_nodes_array=executed_nodes_array[-1])
 
     def forward_with_policies(self, x, y, greedy_actions=None):
         cigt_outputs, batch_size = self.get_cigt_outputs(x=x, y=y)
