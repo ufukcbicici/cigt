@@ -139,6 +139,14 @@ class CigtQLearning(CigtReinforceV2):
         for path, arr in cigt_outputs["logits_dict"].items():
             softmax_arr = torch.nn.functional.softmax(arr, dim=1)
             cigt_outputs["softmax_dict"][path] = softmax_arr
+
+        # for arr_name, d_ in cigt_outputs.items():
+        #     if not isinstance(d_, dict):
+        #         continue
+        #     print("Array Name:{0}".format(arr_name))
+        #     for k, v in d_.items():
+        #         print("Key:{0} Device:{1}".format(k, v.device))
+
         return cigt_outputs, batch_size
 
     def execute_forward_with_random_input(self):
@@ -190,8 +198,11 @@ class CigtQLearning(CigtReinforceV2):
                     final_node_selections = parent_node_selections * current_node_selections
                     next_level_index_array = []
                     next_level_index_array.extend(index_array)
+                    # print("index_array.device:{0}".format(set([arr.device for arr in index_array])))
                     next_level_index_array.append(
                         cigt_outputs["routing_matrices_sorting_indices_dict"][prev_node_combination][:, a_])
+                    # print("index_array_last.device:{0}".format(next_level_index_array[-1].device))
+                    # print("All devices:{0}".format(set([arr.device for arr in next_level_index_array])))
                     next_level_selection_array[next_level_index_array] = final_node_selections
             node_selection_arrays.append(next_level_selection_array)
         return node_selection_arrays
@@ -230,6 +241,9 @@ class CigtQLearning(CigtReinforceV2):
                 index_array.append(path_trajectories[:, t])
             selection_array = executed_nodes_array[index_array]
             selection_array = torch.unsqueeze(selection_array, dim=1)
+            # print("selection_array.device:{0}".format(selection_array.device))
+            # print("softmax_probs.device:{0}".format(softmax_probs.device))
+
             weighted_softmax_probs = selection_array * softmax_probs
             mixture_of_experts_list.append(weighted_softmax_probs)
         # Generate ensemble probabilities
@@ -287,6 +301,7 @@ class CigtQLearning(CigtReinforceV2):
             print("Iteration:{0}".format(i))
             if self.usingPrecalculatedDatasets:
                 cigt_outputs, batch_size = self.get_cigt_outputs(x=batch, y=None)
+                cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
             else:
                 input_var = torch.autograd.Variable(batch[0]).to(self.device)
                 target_var = torch.autograd.Variable(batch[1]).to(self.device)

@@ -103,7 +103,7 @@ if __name__ == "__main__":
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger_331_epoch11.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db
 
     model = CigtIgGatherScatterImplementation(
         run_id=-1,
@@ -111,6 +111,7 @@ if __name__ == "__main__":
         num_classes=10,
         configs=Cifar10ResnetCigtConfigs)
     model.to(model.device)
+    print("Device:{0}".format(model.device))
     model.execute_forward_with_random_input()
     checkpoint = torch.load(chck_path, map_location=model.device)
     load_result = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
@@ -122,9 +123,10 @@ if __name__ == "__main__":
                                                              "labels_dict", "logits_dict"])
     test_cigt_output_dataset.save(file_path="test_cigt_dataset.sav")
 
-    train_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
-    # train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset.sav")
-    train_cigt_output_dataset.load_from_model(model=model, data_loader=train_loader_hard, repeat_count=3,
-                                              list_of_fields=["block_outputs_dict", "routing_matrices_soft_dict",
-                                                              "labels_dict", "logits_dict"])
-    train_cigt_output_dataset.save(file_path="train_cigt_dataset3.sav")
+    for repeat_count in [3, 10]:
+        train_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
+        # train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset.sav")
+        train_cigt_output_dataset.load_from_model(model=model, data_loader=train_loader_hard, repeat_count=repeat_count,
+                                                  list_of_fields=["block_outputs_dict", "routing_matrices_soft_dict",
+                                                                  "labels_dict", "logits_dict"])
+        train_cigt_output_dataset.save(file_path="train_cigt_dataset{0}.sav".format(repeat_count))

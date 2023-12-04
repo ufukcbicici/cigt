@@ -38,6 +38,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         self.policyNetworksUseMovingAverageBaseline = configs.policy_networks_use_moving_average_baseline
         self.policyNetworksBaselineMomentum = configs.policy_networks_baseline_momentum
         self.policyNetworksEntropyLossCoeff = configs.policy_networks_policy_entropy_loss_coeff
+        self.policyNetworksLastEvalStart = configs.policy_networks_last_eval_start
 
         # Inputs to the policy networks, per layer.
 
@@ -530,6 +531,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
 
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
+        print("Device:{0}".format(self.device))
         torch.manual_seed(1)
         best_performance = 0.0
         num_of_total_iterations = self.policyNetworkTotalNumOfEpochs * len(train_loader)
@@ -604,7 +606,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
 
             # Validation
             if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
-                    epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
+                    epoch_id >= (self.policyNetworkTotalNumOfEpochs - self.policyNetworksLastEvalStart):
                 print("***************Db:{0} RunId:{1} Epoch {2} End, Training Evaluation***************".format(
                     DbLogger.log_db_path, self.runId, epoch_id))
                 train_dict = self.validate(loader=train_loader, epoch=epoch_id, data_kind="train", temperature=1.0)

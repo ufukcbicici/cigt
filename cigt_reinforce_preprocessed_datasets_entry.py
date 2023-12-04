@@ -129,6 +129,8 @@ if __name__ == "__main__":
     mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
     mac_lambda_list = sorted(mac_lambda_list)
     Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
+    Cifar10ResnetCigtConfigs.policy_networks_total_num_of_epochs = 250
+    Cifar10ResnetCigtConfigs.policy_networks_last_eval_start = 5
 
     for mac_lambda in mac_lambda_list:
         run_id = DbLogger.get_run_id()

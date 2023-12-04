@@ -381,6 +381,6 @@ class CigtReinforcePreprocessedDatasets(CigtReinforceV2):
 
             # Validation
             if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
-                    epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
+                    epoch_id >= (self.policyNetworkTotalNumOfEpochs - self.policyNetworksLastEvalStart):
                 self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=epoch_id)
 
