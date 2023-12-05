@@ -12,6 +12,7 @@ from torch.distributions import Categorical
 
 from auxillary.db_logger import DbLogger
 from auxillary.average_meter import AverageMeter
+from auxillary.time_profiler import TimeProfiler
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.custom_layers.basic_block_with_cbam import BasicBlockWithCbam
@@ -296,7 +297,30 @@ class CigtQLearning(CigtReinforceV2):
         correctness_vector = (true_labels == predicted_labels).to(torch.float32)
         return correctness_vector, all_expert_probs
 
+    def calculate_mac_vector_for_layer(self, layer, executed_nodes_array):
+        # ************** Secondly calculate the MAC costs for the final layer **************
+        assert tuple(executed_nodes_array.shape[1:]) == tuple(self.pathCounts[:(layer + 2)])
+        node_dims = tuple([idx for idx in range(1, len(executed_nodes_array.shape))])
+        node_counts = torch.sum(executed_nodes_array, dim=node_dims)
+        extra_node_counts = node_counts - 1
+        mac_values_for_layer = extra_node_counts * self.macCostPerLayer[layer + 1]
+        relative_mac_values_for_layer = mac_values_for_layer / self.singlePathMacCost
+        # ************** Secondly calculate the MAC costs for the final layer **************
+        return relative_mac_values_for_layer
+
+    def calculate_mac_vector_for_layer_baseline(self, layer, executed_nodes_array):
+        relative_mac_values_for_layer = []
+        base_cost = self.macCostPerLayer[layer + 1].detach().cpu().numpy()
+        for sample_id, selected_expert_nodes in enumerate(executed_nodes_array):
+            node_count = len(selected_expert_nodes)
+            total_layer_cost = node_count * base_cost
+            extra_cost = total_layer_cost - base_cost
+            relative_mac_values_for_layer.append(extra_cost / self.singlePathMacCost)
+        relative_mac_values_for_layer = np.array(relative_mac_values_for_layer)
+        return relative_mac_values_for_layer
+
     def compare_trajectory_evaluation_methods(self, dataset, repeat_count):
+        time_profiler = TimeProfiler()
         for i, batch in enumerate(dataset):
             print("Iteration:{0}".format(i))
             if self.usingPrecalculatedDatasets:
@@ -311,6 +335,8 @@ class CigtQLearning(CigtReinforceV2):
             numpy_trajectory_computation_times = []
             torch_moe_computation_times = []
             numpy_moe_computation_times = []
+            torch_mac_computation_times = []
+            numpy_mac_computation_times = []
 
             for repeat_id in tqdm(range(repeat_count)):
                 actions = []
@@ -319,39 +345,63 @@ class CigtQLearning(CigtReinforceV2):
                 actions = np.stack(actions, axis=1)
                 actions_torch = torch.from_numpy(actions).to(self.device)
 
-                t0 = time.time()
+                time_profiler.start_measurement()
                 node_selection_arrays_torch = self.get_executed_nodes_wrt_trajectories(
                     cigt_outputs=cigt_outputs,
                     batch_size=batch_size,
                     action_trajectories=actions_torch)
-                t1 = time.time()
-                torch_trajectory_computation_times.append(t1 - t0)
+                time_profiler.end_measurement()
+                torch_trajectory_computation_times.append(time_profiler.get_time())
 
-                t2 = time.time()
+                time_profiler.start_measurement()
                 correctness_vector_torch, expert_probs_torch = self.calculate_moe_for_final_layer(
                     cigt_outputs=cigt_outputs,
                     batch_size=batch_size,
                     executed_nodes_array=
                     node_selection_arrays_torch[-1])
-                t3 = time.time()
-                torch_moe_computation_times.append(t3 - t2)
+                time_profiler.end_measurement()
+                torch_moe_computation_times.append(time_profiler.get_time())
 
-                t4 = time.time()
+                time_profiler.start_measurement()
+                mac_vectors_torch = []
+                for layer, trajectory_single_step in enumerate(node_selection_arrays_torch):
+                    mac_vector_torch = \
+                        self.calculate_mac_vector_for_layer(layer=layer - 1,
+                                                            executed_nodes_array=trajectory_single_step)
+                    mac_vectors_torch.append(mac_vector_torch)
+                total_mac_vectors_torch = torch.stack(mac_vectors_torch, dim=1)
+                total_mac_vectors_torch = torch.sum(total_mac_vectors_torch, dim=1)
+                time_profiler.end_measurement()
+                torch_mac_computation_times.append(time_profiler.get_time())
+
+                time_profiler.start_measurement()
                 node_selection_arrays_numpy = self.get_executed_nodes_wrt_trajectories_baseline(
                     cigt_outputs=cigt_outputs,
                     batch_size=batch_size,
                     action_trajectories=actions)
-                t5 = time.time()
-                numpy_trajectory_computation_times.append(t5 - t4)
+                time_profiler.end_measurement()
+                numpy_trajectory_computation_times.append(time_profiler.get_time())
 
-                t6 = time.time()
+                time_profiler.start_measurement()
                 correctness_vector_numpy, expert_probs_numpy = self.calculate_moe_for_final_layer_baseline(
                     cigt_outputs=cigt_outputs,
                     batch_size=batch_size,
                     executed_nodes_array=
                     node_selection_arrays_numpy[-1])
-                t7 = time.time()
-                numpy_moe_computation_times.append(t7 - t6)
+                time_profiler.end_measurement()
+                numpy_moe_computation_times.append(time_profiler.get_time())
+
+                time_profiler.start_measurement()
+                mac_vectors_numpy = []
+                for layer, trajectory_single_step in enumerate(node_selection_arrays_numpy):
+                    mac_vector_numpy = \
+                        self.calculate_mac_vector_for_layer_baseline(layer=layer - 1,
+                                                                     executed_nodes_array=trajectory_single_step)
+                    mac_vectors_numpy.append(mac_vector_numpy)
+                mac_vectors_numpy = np.stack(mac_vectors_numpy, axis=1)
+                mac_vectors_numpy = np.sum(mac_vectors_numpy, axis=1)
+                time_profiler.end_measurement()
+                numpy_mac_computation_times.append(time_profiler.get_time())
 
                 # Compare executed node arrays
                 assert len(node_selection_arrays_torch) == len(self.pathCounts)
@@ -378,21 +428,16 @@ class CigtQLearning(CigtReinforceV2):
                 assert np.allclose(expert_probs_torch.detach().cpu().numpy(),
                                    expert_probs_numpy.detach().cpu().numpy())
 
+                # Compare MAC results
+                assert np.allclose(total_mac_vectors_torch.detach().cpu().numpy(),
+                                   mac_vectors_numpy)
+
             print("Torch Trajectory Computation time:{0}".format(np.mean(np.array(torch_trajectory_computation_times))))
             print("Numpy Trajectory Computation time:{0}".format(np.mean(np.array(numpy_trajectory_computation_times))))
             print("Torch MoE Computation time:{0}".format(np.mean(np.array(torch_moe_computation_times))))
             print("Numpy MoE Computation time:{0}".format(np.mean(np.array(numpy_moe_computation_times))))
-
-    def calculate_mac_vector_for_layer(self, layer, batch_size, executed_nodes_array):
-        # ************** Secondly calculate the MAC costs for the final layer **************
-        assert executed_nodes_array.shape[1:] == self.pathCounts[:(layer + 2)]
-        node_dims = tuple([idx for idx in range(1, len(executed_nodes_array.shape))])
-        node_counts = torch.sum(executed_nodes_array, dim=node_dims)
-        extra_node_counts = node_counts - 1
-        mac_values_for_layer = extra_node_counts * self.macCostPerLayer[layer + 1]
-        relative_mac_values_for_layer = mac_values_for_layer / self.singlePathMacCost
-        # ************** Secondly calculate the MAC costs for the final layer **************
-        return relative_mac_values_for_layer
+            print("Torch MAC Computation time:{0}".format(np.mean(np.array(torch_mac_computation_times))))
+            print("Numpy MAC Computation time:{0}".format(np.mean(np.array(numpy_mac_computation_times))))
 
     def calculate_optimal_q_tables(self, cigt_outputs, batch_size):
         # Always start with a fixed action, that is the execution of the root node.
