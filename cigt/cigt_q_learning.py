@@ -299,18 +299,18 @@ class CigtQLearning(CigtReinforceV2):
 
     def calculate_mac_vector_for_layer(self, layer, executed_nodes_array):
         # ************** Secondly calculate the MAC costs for the final layer **************
-        assert tuple(executed_nodes_array.shape[1:]) == tuple(self.pathCounts[:(layer + 2)])
+        assert tuple(executed_nodes_array.shape[1:]) == tuple(self.pathCounts[:(layer + 1)])
         node_dims = tuple([idx for idx in range(1, len(executed_nodes_array.shape))])
         node_counts = torch.sum(executed_nodes_array, dim=node_dims)
         extra_node_counts = node_counts - 1
-        mac_values_for_layer = extra_node_counts * self.macCostPerLayer[layer + 1]
+        mac_values_for_layer = extra_node_counts * self.macCostPerLayer[layer]
         relative_mac_values_for_layer = mac_values_for_layer / self.singlePathMacCost
         # ************** Secondly calculate the MAC costs for the final layer **************
         return relative_mac_values_for_layer
 
     def calculate_mac_vector_for_layer_baseline(self, layer, executed_nodes_array):
         relative_mac_values_for_layer = []
-        base_cost = self.macCostPerLayer[layer + 1].detach().cpu().numpy()
+        base_cost = self.macCostPerLayer[layer].detach().cpu().numpy()
         for sample_id, selected_expert_nodes in enumerate(executed_nodes_array):
             node_count = len(selected_expert_nodes)
             total_layer_cost = node_count * base_cost
@@ -366,7 +366,7 @@ class CigtQLearning(CigtReinforceV2):
                 mac_vectors_torch = []
                 for layer, trajectory_single_step in enumerate(node_selection_arrays_torch):
                     mac_vector_torch = \
-                        self.calculate_mac_vector_for_layer(layer=layer - 1,
+                        self.calculate_mac_vector_for_layer(layer=layer,
                                                             executed_nodes_array=trajectory_single_step)
                     mac_vectors_torch.append(mac_vector_torch)
                 total_mac_vectors_torch = torch.stack(mac_vectors_torch, dim=1)
@@ -395,11 +395,11 @@ class CigtQLearning(CigtReinforceV2):
                 mac_vectors_numpy = []
                 for layer, trajectory_single_step in enumerate(node_selection_arrays_numpy):
                     mac_vector_numpy = \
-                        self.calculate_mac_vector_for_layer_baseline(layer=layer - 1,
+                        self.calculate_mac_vector_for_layer_baseline(layer=layer,
                                                                      executed_nodes_array=trajectory_single_step)
                     mac_vectors_numpy.append(mac_vector_numpy)
-                mac_vectors_numpy = np.stack(mac_vectors_numpy, axis=1)
-                mac_vectors_numpy = np.sum(mac_vectors_numpy, axis=1)
+                total_mac_vectors_numpy = np.stack(mac_vectors_numpy, axis=1)
+                total_mac_vectors_numpy = np.sum(total_mac_vectors_numpy, axis=1)
                 time_profiler.end_measurement()
                 numpy_mac_computation_times.append(time_profiler.get_time())
 
@@ -430,7 +430,7 @@ class CigtQLearning(CigtReinforceV2):
 
                 # Compare MAC results
                 assert np.allclose(total_mac_vectors_torch.detach().cpu().numpy(),
-                                   mac_vectors_numpy)
+                                   total_mac_vectors_numpy)
 
             print("Torch Trajectory Computation time:{0}".format(np.mean(np.array(torch_trajectory_computation_times))))
             print("Numpy Trajectory Computation time:{0}".format(np.mean(np.array(numpy_trajectory_computation_times))))
@@ -443,9 +443,9 @@ class CigtQLearning(CigtReinforceV2):
         # Always start with a fixed action, that is the execution of the root node.
         action_spaces = [1]
         action_spaces.extend(self.actionSpaces)
-        for t in range(len(action_spaces) - 2, -1, -1):
-            action_trajectories_for_t = Utilities.create_route_combinations(shape_=action_spaces[:(t + 2)])
-            if t == len(action_spaces) - 2:
+        for t in range(len(action_spaces) - 1, -1, -1):
+            action_trajectories_for_t = Utilities.create_route_combinations(shape_=action_spaces[:(t + 1)])
+            if t == len(action_spaces) - 1:
                 for action_trajectory in action_trajectories_for_t:
                     action_trajectories = torch.Tensor(action_trajectory).to(self.device).to(torch.int64)
                     action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
@@ -455,12 +455,35 @@ class CigtQLearning(CigtReinforceV2):
                         cigt_outputs=cigt_outputs,
                         batch_size=batch_size,
                         action_trajectories=action_trajectories)
-                    self.calculate_accuracy_vector_for_final_layer(cigt_outputs=cigt_outputs,
-                                                                   batch_size=batch_size,
-                                                                   executed_nodes_array=executed_nodes_array[
-                                                                       -1])
+                    correctness_vector, expert_probs = self.calculate_moe_for_final_layer(
+                        cigt_outputs=cigt_outputs,
+                        batch_size=batch_size,
+                        executed_nodes_array=executed_nodes_array[-1])
+                    mac_vector = \
+                        self.calculate_mac_vector_for_layer(layer=t - 1,
+                                                            executed_nodes_array=executed_nodes_array[-1])
 
-            print("X")
+
+
+            # action_trajectories_for_t = Utilities.create_route_combinations(shape_=action_spaces[:(t + 2)])
+            # if t == len(action_spaces) - 2:
+            #     for action_trajectory in action_trajectories_for_t:
+            #         action_trajectories = torch.Tensor(action_trajectory).to(self.device).to(torch.int64)
+            #         action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
+            #         action_trajectories = torch.tile(action_trajectories, dims=(batch_size, 1))
+            #         action_trajectories = action_trajectories[:, 1:]
+            #         executed_nodes_array = self.get_executed_nodes_wrt_trajectories(
+            #             cigt_outputs=cigt_outputs,
+            #             batch_size=batch_size,
+            #             action_trajectories=action_trajectories)
+            #         correctness_vector, expert_probs = self.calculate_moe_for_final_layer(
+            #             cigt_outputs=cigt_outputs,
+            #             batch_size=batch_size,
+            #             executed_nodes_array=executed_nodes_array[-1])
+            #         mac_vector = \
+            #             self.calculate_mac_vector_for_layer(layer=t, executed_nodes_array=executed_nodes_array[-1])
+            #
+            # print("X")
 
             # path_combinations_for_t = Utilities.create_route_combinations(shape_=self.pathCounts[:(t + 2)])
             # q_table_shape = (batch_size, *self.pathCounts[:(t + 2)])
