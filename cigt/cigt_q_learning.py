@@ -443,70 +443,171 @@ class CigtQLearning(CigtReinforceV2):
         # Always start with a fixed action, that is the execution of the root node.
         action_spaces = [1]
         action_spaces.extend(self.actionSpaces)
+        q_tables = []
+        for t in range(len(action_spaces)):
+            q_table_shape = (batch_size, *action_spaces[:(t + 1)])
+            q_table = torch.zeros(size=q_table_shape, dtype=torch.float32)
+            q_tables.append(q_table)
+        action_trajectory_to_executed_nodes_dict = {}
+
         for t in range(len(action_spaces) - 1, -1, -1):
             action_trajectories_for_t = Utilities.create_route_combinations(shape_=action_spaces[:(t + 1)])
             if t == len(action_spaces) - 1:
+                # Last layer
                 for action_trajectory in action_trajectories_for_t:
                     action_trajectories = torch.Tensor(action_trajectory).to(self.device).to(torch.int64)
                     action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
                     action_trajectories = torch.tile(action_trajectories, dims=(batch_size, 1))
-                    action_trajectories = action_trajectories[:, 1:]
+                    # action_trajectories = action_trajectories[:, 1:]
                     executed_nodes_array = self.get_executed_nodes_wrt_trajectories(
                         cigt_outputs=cigt_outputs,
                         batch_size=batch_size,
-                        action_trajectories=action_trajectories)
+                        action_trajectories=action_trajectories[:, 1:])
+                    # Add execution nodes
+                    for tt in range(len(action_trajectory)):
+                        sub_trajectory = action_trajectory[:(tt + 1)]
+                        if sub_trajectory not in action_trajectory_to_executed_nodes_dict:
+                            action_trajectory_to_executed_nodes_dict[sub_trajectory] = executed_nodes_array[tt]
+                        else:
+                            comparison_flag = torch.equal(executed_nodes_array[tt],
+                                                          action_trajectory_to_executed_nodes_dict[sub_trajectory])
+                            assert comparison_flag
+
                     correctness_vector, expert_probs = self.calculate_moe_for_final_layer(
                         cigt_outputs=cigt_outputs,
                         batch_size=batch_size,
                         executed_nodes_array=executed_nodes_array[-1])
                     mac_vector = \
-                        self.calculate_mac_vector_for_layer(layer=t - 1,
-                                                            executed_nodes_array=executed_nodes_array[-1])
+                        self.calculate_mac_vector_for_layer(layer=t, executed_nodes_array=executed_nodes_array[-1])
+                    lmb = self.policyNetworksMacLambda
+                    reward_array = (1.0 - lmb) * correctness_vector - lmb * mac_vector
+                    # Prepare the index array to write into the optimal q table
+                    index_array = [torch.arange(batch_size, device=self.device)]
+                    for idx in range(action_trajectories.shape[1]):
+                        index_array.append(action_trajectories[:, idx])
+                    q_tables[t][index_array] = reward_array
+            else:
+                # Intermediate layers, apply Bellman equation
+                # Q(s_t,a_t) = E_{s_{t+1}}[r(s_t,a_t) + \gamma \max_{a_{t+1}} Q(s_{t+1},a_{t+1})]
+                # In our case, p(s_{t+1}|s_t,a_t) is deterministic: s_{t+1}=f(s_t,a_t)
+                # Q(s_t,a_t) = r(s_t,a_t) + \gamma \max_{a_{t+1}} Q(f(s_t,a_t),a_{t+1})]
+                for action_trajectory in action_trajectories_for_t:
+                    # print(action_trajectory)
+                    action_trajectories = torch.Tensor(action_trajectory).to(self.device).to(torch.int64)
+                    action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
+                    action_trajectories = torch.tile(action_trajectories, dims=(batch_size, 1))
+                    index_array = [torch.arange(batch_size, device=self.device)]
+                    for idx in range(action_trajectories.shape[1]):
+                        index_array.append(action_trajectories[:, idx])
+                    q_table_next_step = q_tables[t + 1][index_array]
+                    assert len(q_table_next_step.shape) == 2
+                    assert q_table_next_step.shape[1] == action_spaces[t + 1]
+                    q_max_t_plus_1 = torch.max(q_table_next_step, dim=1)[0]
+                    gamma_q_max_t_plus_1 = q_max_t_plus_1 * self.policyNetworksDiscountFactor
+                    assert action_trajectory in action_trajectory_to_executed_nodes_dict
+                    mac_vector = \
+                        self.calculate_mac_vector_for_layer(
+                            layer=t, executed_nodes_array=action_trajectory_to_executed_nodes_dict[action_trajectory])
+                    layer_reward = -self.policyNetworksMacLambda * mac_vector
+                    q_tables[t][index_array] = layer_reward + gamma_q_max_t_plus_1
+        return q_tables
 
+    def calculate_optimal_q_tables_baseline(self, cigt_outputs, batch_size):
+        action_spaces = [1]
+        action_spaces.extend(self.actionSpaces)
+        q_tables = []
+        for t in range(len(action_spaces)):
+            q_table_shape = (batch_size, *action_spaces[:(t + 1)])
+            q_table = np.zeros(shape=q_table_shape, dtype=np.float32)
+            q_tables.append(q_table)
+        action_trajectory_to_executed_nodes_dict = {}
 
+        for t in range(len(action_spaces) - 1, -1, -1):
+            action_trajectories_for_t = Utilities.create_route_combinations(shape_=action_spaces[:(t + 1)])
+            if t == len(action_spaces) - 1:
+                for action_trajectory in action_trajectories_for_t:
+                    action_trajectories = np.expand_dims(action_trajectory, axis=0)
+                    action_trajectories = np.tile(action_trajectories, reps=(batch_size, 1))
+                    node_selection_arrays = self.get_executed_nodes_wrt_trajectories_baseline(
+                        cigt_outputs=cigt_outputs,
+                        batch_size=batch_size,
+                        action_trajectories=action_trajectories[:, 1:])
+                    # Add execution nodes
+                    for tt in range(len(action_trajectory)):
+                        sub_trajectory = action_trajectory[:(tt + 1)]
+                        if sub_trajectory not in action_trajectory_to_executed_nodes_dict:
+                            action_trajectory_to_executed_nodes_dict[sub_trajectory] = node_selection_arrays[tt]
+                        else:
+                            comparison_flag = np.array_equal(node_selection_arrays[tt],
+                                                             action_trajectory_to_executed_nodes_dict[sub_trajectory])
+                            assert comparison_flag
 
-            # action_trajectories_for_t = Utilities.create_route_combinations(shape_=action_spaces[:(t + 2)])
-            # if t == len(action_spaces) - 2:
-            #     for action_trajectory in action_trajectories_for_t:
-            #         action_trajectories = torch.Tensor(action_trajectory).to(self.device).to(torch.int64)
-            #         action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
-            #         action_trajectories = torch.tile(action_trajectories, dims=(batch_size, 1))
-            #         action_trajectories = action_trajectories[:, 1:]
-            #         executed_nodes_array = self.get_executed_nodes_wrt_trajectories(
-            #             cigt_outputs=cigt_outputs,
-            #             batch_size=batch_size,
-            #             action_trajectories=action_trajectories)
-            #         correctness_vector, expert_probs = self.calculate_moe_for_final_layer(
-            #             cigt_outputs=cigt_outputs,
-            #             batch_size=batch_size,
-            #             executed_nodes_array=executed_nodes_array[-1])
-            #         mac_vector = \
-            #             self.calculate_mac_vector_for_layer(layer=t, executed_nodes_array=executed_nodes_array[-1])
-            #
-            # print("X")
+                    correctness_vector, expert_probs = \
+                        self.calculate_moe_for_final_layer_baseline(cigt_outputs=cigt_outputs,
+                                                                    batch_size=batch_size,
+                                                                    executed_nodes_array=node_selection_arrays[-1])
+                    mac_vector_numpy = \
+                        self.calculate_mac_vector_for_layer_baseline(layer=t,
+                                                                     executed_nodes_array=node_selection_arrays[-1])
+                    for sample_id in range(batch_size):
+                        reward_accuracy = (1.0 - self.policyNetworksMacLambda) * \
+                                          correctness_vector[sample_id].detach().cpu().numpy()
+                        mac_penalty = self.policyNetworksMacLambda * mac_vector_numpy[sample_id]
+                        final_reward = reward_accuracy - mac_penalty
+                        q_tables[-1][(sample_id, *action_trajectory)] = final_reward
+            else:
+                for action_trajectory in action_trajectories_for_t:
+                    mac_vector_numpy = \
+                        self.calculate_mac_vector_for_layer_baseline(
+                            layer=t,
+                            executed_nodes_array=action_trajectory_to_executed_nodes_dict[action_trajectory])
+                    for sample_id in range(batch_size):
+                        q_plus_one = q_tables[t + 1][(sample_id, *action_trajectory)]
+                        max_q = np.max(q_plus_one)
+                        mac_sample = mac_vector_numpy[sample_id]
+                        q_tables[t][(sample_id, *action_trajectory)] = \
+                            (self.policyNetworksDiscountFactor * max_q) - self.policyNetworksMacLambda * mac_sample
+        return q_tables
 
-            # path_combinations_for_t = Utilities.create_route_combinations(shape_=self.pathCounts[:(t + 2)])
-            # q_table_shape = (batch_size, *self.pathCounts[:(t + 2)])
-            # # Last layer (the loss layer). Calculate sample accuracies and MAC costs for the final layer.
-            # if t == len(self.pathCounts) - 2:
-            #     for path_combination in path_combinations_for_t:
-            #         action_trajectory = path_combination
-            #         action_trajectories = torch.Tensor(action_trajectory).to(self.device).to(torch.int64)
-            #         action_trajectories = torch.unsqueeze(action_trajectories, dim=0)
-            #         action_trajectories = torch.tile(action_trajectories, dims=(batch_size, 1))
-            #         action_trajectories = action_trajectories[:, 1:]
-            #         executed_nodes_array = self.get_executed_nodes_wrt_trajectories(
-            #             cigt_outputs=cigt_outputs,
-            #             batch_size=batch_size,
-            #             action_trajectories=action_trajectories)
-            #         self.calculate_final_rewards(cigt_outputs=cigt_outputs,
-            #                                      batch_size=batch_size,
-            #                                      executed_nodes_array=executed_nodes_array[-1])
+    def compare_q_table_calculation_types(self, dataset):
+        time_profiler = TimeProfiler()
+        times_torch = []
+        times_baseline = []
+        for i, batch in enumerate(dataset):
+            print("Iteration:{0}".format(i))
+            if self.usingPrecalculatedDatasets:
+                cigt_outputs, batch_size = self.get_cigt_outputs(x=batch, y=None)
+                cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
+            else:
+                input_var = torch.autograd.Variable(batch[0]).to(self.device)
+                target_var = torch.autograd.Variable(batch[1]).to(self.device)
+                cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
+
+            time_profiler.start_measurement()
+            q_tables_torch = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
+            time_profiler.end_measurement()
+            times_torch.append(time_profiler.get_time())
+
+            time_profiler.start_measurement()
+            q_tables_baseline = \
+                self.calculate_optimal_q_tables_baseline(cigt_outputs=cigt_outputs, batch_size=batch_size)
+            time_profiler.end_measurement()
+            times_baseline.append(time_profiler.get_time())
+
+            assert len(q_tables_torch) == len(q_tables_baseline)
+            for idx in range(len(q_tables_torch)):
+                q_t = q_tables_torch[idx].detach().cpu().numpy()
+                q_t_b = q_tables_baseline[idx]
+                assert np.allclose(q_t, q_t_b)
+
+        print("times_torch:{0}".format(np.mean(np.array(times_torch))))
+        print("times_baseline:{0}".format(np.mean(np.array(times_baseline))))
 
     def forward_with_policies(self, x, y, greedy_actions=None):
         cigt_outputs, batch_size = self.get_cigt_outputs(x=x, y=y)
         # Calculate optimal Q-Tables
-        self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
+        q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
+        print("X")
 
     def fit_policy_network(self, train_loader, test_loader):
 
