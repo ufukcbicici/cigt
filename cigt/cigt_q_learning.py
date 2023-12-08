@@ -602,6 +602,7 @@ class CigtQLearning(CigtReinforceV2):
 
         print("times_torch:{0}".format(np.mean(np.array(times_torch))))
         print("times_baseline:{0}".format(np.mean(np.array(times_baseline))))
+        print("Test has been successfully completed!!!")
 
     def forward_with_policies(self, x, y, greedy_actions=None):
         cigt_outputs, batch_size = self.get_cigt_outputs(x=x, y=y)

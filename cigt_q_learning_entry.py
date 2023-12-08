@@ -94,7 +94,7 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.paperspace
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
@@ -127,14 +127,16 @@ if __name__ == "__main__":
     # policy_networks_baseline_momentum = 0.99
     # policy_networks_policy_entropy_loss_coeff = 0.0
 
-    # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
-    mac_lambda_list = [0.1]
+    mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
+    # mac_lambda_list = [0.1]
     mac_lambda_list = sorted(mac_lambda_list)
     Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
 
     for mac_lambda in mac_lambda_list:
         run_id = DbLogger.get_run_id()
         Cifar10ResnetCigtConfigs.policy_networks_mac_lambda = mac_lambda
+
+        print("Running run_id:{0}".format(run_id))
 
         model = CigtQLearning(
             configs=Cifar10ResnetCigtConfigs,
@@ -155,9 +157,9 @@ if __name__ == "__main__":
         print("Comparison of optimal q table calculation: Training set")
         model.compare_q_table_calculation_types(dataset=train_loader)
 
-        model.execute_forward_with_random_input()
-        print("Successfully finished!")
-        break
+        # model.execute_forward_with_random_input()
+        # print("Successfully finished!")
+        # break
 
         # model.execute_forward_with_random_input()
         # model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
