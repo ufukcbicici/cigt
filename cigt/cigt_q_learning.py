@@ -446,7 +446,7 @@ class CigtQLearning(CigtReinforceV2):
         q_tables = []
         for t in range(len(action_spaces)):
             q_table_shape = (batch_size, *action_spaces[:(t + 1)])
-            q_table = torch.zeros(size=q_table_shape, dtype=torch.float32)
+            q_table = torch.zeros(size=q_table_shape, dtype=torch.float32, device=self.device)
             q_tables.append(q_table)
         action_trajectory_to_executed_nodes_dict = {}
 
