@@ -94,7 +94,7 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
-    DbLogger.log_db_path = DbLogger.paperspace
+    DbLogger.log_db_path = DbLogger.tetam_cigt_db
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
@@ -127,8 +127,8 @@ if __name__ == "__main__":
     # policy_networks_baseline_momentum = 0.99
     # policy_networks_policy_entropy_loss_coeff = 0.0
 
-    mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
-    # mac_lambda_list = [0.1]
+    # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
+    mac_lambda_list = [0.1]
     mac_lambda_list = sorted(mac_lambda_list)
     Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
 
@@ -147,19 +147,25 @@ if __name__ == "__main__":
             is_debug_mode=False,
             precalculated_datasets_dict={"train_dataset": train_loader, "test_dataset": test_loader})
         model.to(model.device)
+        print("Comparison with the test set.")
+        model.compare_q_net_input_calculation_types(dataset=test_loader)
+        print("Comparison with the training set.")
+        model.compare_q_net_input_calculation_types(dataset=train_loader)
+
+
         # print("Comparison with the test set.")
         # model.compare_trajectory_evaluation_methods(dataset=test_loader, repeat_count=1000)
         # print("Comparison with the training set.")
         # model.compare_trajectory_evaluation_methods(dataset=train_loader, repeat_count=1000)
 
-        print("Comparison of optimal q table calculation: Test set")
-        model.compare_q_table_calculation_types(dataset=test_loader)
-        print("Comparison of optimal q table calculation: Training set")
-        model.compare_q_table_calculation_types(dataset=train_loader)
+        # print("Comparison of optimal q table calculation: Test set")
+        # model.compare_q_table_calculation_types(dataset=test_loader)
+        # print("Comparison of optimal q table calculation: Training set")
+        # model.compare_q_table_calculation_types(dataset=train_loader)
 
-        # model.execute_forward_with_random_input()
-        # print("Successfully finished!")
-        # break
+        model.execute_forward_with_random_input()
+        print("Successfully finished!")
+        break
 
         # model.execute_forward_with_random_input()
         # model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)

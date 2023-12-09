@@ -604,10 +604,168 @@ class CigtQLearning(CigtReinforceV2):
         print("times_baseline:{0}".format(np.mean(np.array(times_baseline))))
         print("Test has been successfully completed!!!")
 
+    def compare_q_net_input_calculation_types(self, dataset):
+        time_profiler = TimeProfiler()
+        times_torch = []
+        times_baseline = []
+        for i, batch in enumerate(dataset):
+            print("Iteration:{0}".format(i))
+            if self.usingPrecalculatedDatasets:
+                cigt_outputs, batch_size = self.get_cigt_outputs(x=batch, y=None)
+                cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
+            else:
+                input_var = torch.autograd.Variable(batch[0]).to(self.device)
+                target_var = torch.autograd.Variable(batch[1]).to(self.device)
+                cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
+
+            q_tables_torch = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
+
+            # time_profiler.start_measurement()
+            # q_tables_baseline = \
+            #     self.calculate_optimal_q_tables_baseline(cigt_outputs=cigt_outputs, batch_size=batch_size)
+            # time_profiler.end_measurement()
+            # times_baseline.append(time_profiler.get_time())
+
+            action_trajectories = self.sample_action_trajectories(optimal_q_tables=q_tables_torch,
+                                                                  batch_size=batch_size)
+            # Calculate the arrays of executed nodes.
+            executed_nodes_array_torch = self.get_executed_nodes_wrt_trajectories(
+                cigt_outputs=cigt_outputs,
+                batch_size=batch_size,
+                action_trajectories=action_trajectories[:, 1:])
+
+            executed_nodes_array_numpy = self.get_executed_nodes_wrt_trajectories_baseline(
+                cigt_outputs=cigt_outputs,
+                batch_size=batch_size,
+                action_trajectories=action_trajectories.detach().cpu().numpy()[:, 1:])
+
+            time_profiler.start_measurement()
+            sparse_inputs_array_torch = self.prepare_q_net_inputs(cigt_outputs=cigt_outputs,
+                                                                  batch_size=batch_size,
+                                                                  executed_nodes_array=executed_nodes_array_torch)
+            time_profiler.end_measurement()
+            times_torch.append(time_profiler.get_time())
+
+            time_profiler.start_measurement()
+            sparse_inputs_array_numpy = self.prepare_q_net_inputs_baseline(
+                cigt_outputs=cigt_outputs,
+                batch_size=batch_size,
+                executed_nodes_array=executed_nodes_array_numpy)
+            time_profiler.end_measurement()
+            times_baseline.append(time_profiler.get_time())
+
+            # Compare sparse input arrays
+            assert len(sparse_inputs_array_torch) == len(self.pathCounts) - 1
+            assert len(sparse_inputs_array_numpy) == len(self.pathCounts) - 1
+
+            for tt in range(len(self.pathCounts) - 1):
+                arr_torch = sparse_inputs_array_torch[tt].detach().cpu().numpy()
+                arr_numpy = sparse_inputs_array_numpy[tt]
+                assert np.allclose(arr_torch, arr_numpy)
+                assert np.array_equal(arr_torch, arr_numpy)
+
+            print("times_torch:{0}".format(np.mean(np.array(times_torch))))
+            print("times_baseline:{0}".format(np.mean(np.array(times_baseline))))
+            print("Test has been successfully completed!!!")
+
+
+
+    def sample_action_trajectories(self, optimal_q_tables, batch_size):
+        action_trajectories = []
+        sample_indices = torch.arange(batch_size).to(self.device)
+        for t, main_q_table in enumerate(optimal_q_tables):
+            index_array = [sample_indices]
+            for a_arr in action_trajectories:
+                index_array.append(a_arr)
+            optimal_q_table = main_q_table[index_array]
+            # Greedy, optimal policy choices
+            greedy_a = torch.argmax(optimal_q_table, dim=1)
+            # Random actions
+            random_q_table = torch.randint_like(input=optimal_q_table, low=0, high=1000, device=self.device)
+            random_a = torch.argmax(random_q_table, dim=1)
+            # Random vector in U[0,1]
+            random_decision_vector = torch.rand(size=(batch_size,))
+            select_random_action = self.epsilonValue >= random_decision_vector
+            final_a = torch.where(select_random_action, random_a, greedy_a)
+            action_trajectories.append(final_a)
+        action_trajectories = torch.stack(action_trajectories, dim=1)
+        return action_trajectories
+
+    def create_index_array_for_q_table(self, batch_size, path_combination):
+        path_trajectories = torch.Tensor(path_combination).to(self.device).to(torch.int64)
+        path_trajectories = torch.unsqueeze(path_trajectories, dim=0)
+        path_trajectories = torch.tile(path_trajectories, dims=(batch_size, 1))
+        index_array = [torch.arange(batch_size, device=self.device)]
+        for t in range(path_trajectories.shape[1]):
+            index_array.append(path_trajectories[:, t])
+        return index_array
+
+    def create_q_net_input_array(self, layer_id, cigt_outputs, batch_size):
+        t = layer_id
+        action_trajectories_for_t = Utilities.create_route_combinations(shape_=self.pathCounts[:(t + 1)])
+        input_array_shapes = set()
+        for path_combination in action_trajectories_for_t:
+            input_array_shapes.add(cigt_outputs["block_outputs_dict"][path_combination].shape)
+        assert len(input_array_shapes) == 1
+        input_array_shape = list(input_array_shapes)[0]
+        assert input_array_shape[0] == batch_size
+        destination_array_shape = (batch_size, *self.pathCounts[:(t + 1)], *input_array_shape[1:])
+        sparse_q_net_input = torch.zeros(size=destination_array_shape, dtype=torch.float32, device=self.device)
+        return sparse_q_net_input
+
+    def prepare_q_net_inputs(self, cigt_outputs, batch_size, executed_nodes_array):
+        sparse_inputs_array = []
+        for t in range(len(self.pathCounts) - 1):
+            action_trajectories_for_t = Utilities.create_route_combinations(shape_=self.pathCounts[:(t + 1)])
+            sparse_q_net_input = self.create_q_net_input_array(layer_id=t,
+                                                               cigt_outputs=cigt_outputs,
+                                                               batch_size=batch_size)
+            for path_combination in action_trajectories_for_t:
+                index_array = self.create_index_array_for_q_table(batch_size=batch_size,
+                                                                  path_combination=path_combination)
+                sparsity_array_for_path_combination = executed_nodes_array[t][index_array]
+                assert sparsity_array_for_path_combination.shape == (batch_size,)
+                output_array_for_path_combination = cigt_outputs["block_outputs_dict"][path_combination]
+                for _ in range(len(output_array_for_path_combination.shape) - 1):
+                    sparsity_array_for_path_combination = torch.unsqueeze(sparsity_array_for_path_combination, dim=-1)
+                partial_sparse_q_net_input = sparsity_array_for_path_combination * output_array_for_path_combination
+                sparse_q_net_input[index_array] = partial_sparse_q_net_input
+            sparse_inputs_array.append(sparse_q_net_input)
+        return sparse_inputs_array
+
+    def prepare_q_net_inputs_baseline(self, cigt_outputs, batch_size, executed_nodes_array):
+        sparse_inputs_array = []
+        for t in range(len(self.pathCounts) - 1):
+            sparse_q_net_input = self.create_q_net_input_array(layer_id=t,
+                                                               cigt_outputs=cigt_outputs,
+                                                               batch_size=batch_size).detach().cpu().numpy()
+            for sample_id in range(batch_size):
+                executed_blocks_set = executed_nodes_array[t][sample_id]
+                for block_id_tpl in executed_blocks_set:
+                    sample_block = cigt_outputs["block_outputs_dict"][block_id_tpl][sample_id].detach().cpu().numpy()
+                    # Place it into the appropriate location in sparse_q_net_input
+                    block_index = (sample_id, *block_id_tpl)
+                    sparse_q_net_input[block_index] = sample_block
+            sparse_inputs_array.append(sparse_q_net_input)
+        return sparse_inputs_array
+
     def forward_with_policies(self, x, y, greedy_actions=None):
         cigt_outputs, batch_size = self.get_cigt_outputs(x=x, y=y)
         # Calculate optimal Q-Tables
-        q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
+        optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
+        # Sample trajectories
+        action_trajectories = self.sample_action_trajectories(optimal_q_tables=optimal_q_tables,
+                                                              batch_size=batch_size)
+        # Calculate the arrays of executed nodes.
+        executed_nodes_array = self.get_executed_nodes_wrt_trajectories(
+            cigt_outputs=cigt_outputs,
+            batch_size=batch_size,
+            action_trajectories=action_trajectories[:, 1:])
+        # Prepare the (possibly) sparse inputs for the q networks, for every layer.
+        sparse_inputs_array = self.prepare_q_net_inputs(cigt_outputs=cigt_outputs,
+                                                        batch_size=batch_size,
+                                                        executed_nodes_array=executed_nodes_array)
+
         print("X")
 
     def fit_policy_network(self, train_loader, test_loader):
