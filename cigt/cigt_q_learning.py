@@ -668,8 +668,6 @@ class CigtQLearning(CigtReinforceV2):
             print("times_baseline:{0}".format(np.mean(np.array(times_baseline))))
             print("Test has been successfully completed!!!")
 
-
-
     def sample_action_trajectories(self, optimal_q_tables, batch_size):
         action_trajectories = []
         sample_indices = torch.arange(batch_size).to(self.device)
@@ -684,7 +682,7 @@ class CigtQLearning(CigtReinforceV2):
             random_q_table = torch.randint_like(input=optimal_q_table, low=0, high=1000, device=self.device)
             random_a = torch.argmax(random_q_table, dim=1)
             # Random vector in U[0,1]
-            random_decision_vector = torch.rand(size=(batch_size,))
+            random_decision_vector = torch.rand(size=(batch_size,), device=self.device)
             select_random_action = self.epsilonValue >= random_decision_vector
             final_a = torch.where(select_random_action, random_a, greedy_a)
             action_trajectories.append(final_a)
