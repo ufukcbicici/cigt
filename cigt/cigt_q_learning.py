@@ -1183,12 +1183,26 @@ class CigtQLearning(CigtReinforceV2):
         self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
 
         print("Device:{0}".format(self.device))
-        # for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
-        #     for i, cigt_outputs in enumerate(train_loader):
-        #         self.train()
-        #         print("*************CIGT Q-Net Training Epoch:{0} Iteration:{1}*************".format(
-        #             epoch_id, self.iteration_id))
-        #         cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
+        for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
+            for i__, batch in enumerate(train_loader):
+                self.train()
+                print("*************CIGT Q-Net Training Epoch:{0} Iteration:{1}*************".format(
+                    epoch_id, self.iteration_id))
+                if self.usingPrecalculatedDatasets:
+                    cigt_outputs, batch_size = self.get_cigt_outputs(x=batch, y=None)
+                    cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
+                else:
+                    input_var = torch.autograd.Variable(batch[0]).to(self.device)
+                    target_var = torch.autograd.Variable(batch[1]).to(self.device)
+                    cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
+
+                optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
+                action_trajectories = self.sample_action_trajectories(q_tables=optimal_q_tables, batch_size=batch_size)
+                result_dict = self.forward_with_actions(cigt_outputs=cigt_outputs, batch_size=batch_size,
+                                                        action_trajectories=action_trajectories)
+
+
+
         #
 
         # for i__, batch in tqdm(enumerate(loader)):

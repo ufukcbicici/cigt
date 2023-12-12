@@ -166,7 +166,7 @@ if __name__ == "__main__":
         # model.compare_q_table_calculation_types(dataset=train_loader)
 
         model.execute_forward_with_random_input()
-        model.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
+        # model.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
         model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
 
         # ig_accuracy, ig_mac, ig_time = \
