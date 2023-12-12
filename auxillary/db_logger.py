@@ -7,6 +7,7 @@ import os
 
 class DbLogger:
     logsTable = "logs_table"
+    logsTableQCigt = "logs_table_q_cigt"
     runKvStore = "run_kv_store"
     runMetaData = "run_meta_data"
     leafInfoTable = "leaf_info_table"

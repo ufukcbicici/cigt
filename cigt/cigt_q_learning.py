@@ -864,7 +864,7 @@ class CigtQLearning(CigtReinforceV2):
         }
         return results_dict
 
-    def validate_with_expectation(self, loader, temperature=None, get_greedy_prediction=True):
+    def validate_with_expectation(self, loader, temperature=None):
         self.eval()
         time_profiler = TimeProfiler()
         # If temperature is None, then it is treated as greedy.
@@ -885,6 +885,9 @@ class CigtQLearning(CigtReinforceV2):
         greedy_correctness_vectors = []
         greedy_mac_vectors = []
         time_spent = []
+        policy_distributions_dict = {}
+        mse_dict = {}
+        r2_dict = {}
 
         print("Device:{0}".format(self.device))
         total_sample_count = 0
@@ -962,28 +965,27 @@ class CigtQLearning(CigtReinforceV2):
                         predicted_q_table_full[index_array] = batch_predicted_q_tables_dict[previous_trajectory]
                     predicted_q_tables_dataset[tt].append(predicted_q_table_full)
 
-                # Prepare the greedy results, if it is wanted.
-                if get_greedy_prediction:
-                    # For debug purposes: Always use the greedy policy for each step: a_t = argmax_x Q_t(s_t,x).
-                    # Compare it with the expectation method where temperature is very small.
-                    # Since tempereture -> 0 means the policy distributions derived from the predicted q tables will
-                    # approach to one-hot vectors, where one entry is the argmax,
-                    # we must obtain the same results. (ONLY FOR VERY SMALL TEMPERATURES!!!)
-                    index_array = [torch.arange(batch_size, device=self.device),
-                                   torch.zeros(size=(batch_size,), dtype=torch.int64, device=self.device)]
-                    for t in range(len(action_space)):
-                        if t == 0:
-                            continue
-                        q_table_t = predicted_q_tables_dataset[t][-1][index_array]
-                        greedy_actions = torch.argmax(q_table_t, dim=1)
-                        index_array.append(greedy_actions)
-                    index_array = torch.stack(index_array, dim=1)
-                    greedy_action_trajectory = index_array[:, 2:]
-                    greedy_results_dict = self.forward_with_actions(cigt_outputs=cigt_outputs,
-                                                                    action_trajectories=greedy_action_trajectory,
-                                                                    batch_size=batch_size)
-                    greedy_correctness_vectors.append(greedy_results_dict["correctness_vector"])
-                    greedy_mac_vectors.append(greedy_results_dict["total_mac_vector"])
+                # Prepare the greedy results:
+                # For debug purposes: Always use the greedy policy for each step: a_t = argmax_x Q_t(s_t,x).
+                # Compare it with the expectation method where temperature is very small.
+                # Since tempereture -> 0 means the policy distributions derived from the predicted q tables will
+                # approach to one-hot vectors, where one entry is the argmax,
+                # we must obtain the same results. (ONLY FOR VERY SMALL TEMPERATURES!!!)
+                index_array = [torch.arange(batch_size, device=self.device),
+                               torch.zeros(size=(batch_size,), dtype=torch.int64, device=self.device)]
+                for t in range(len(action_space)):
+                    if t == 0:
+                        continue
+                    q_table_t = predicted_q_tables_dataset[t][-1][index_array]
+                    greedy_actions = torch.argmax(q_table_t, dim=1)
+                    index_array.append(greedy_actions)
+                index_array = torch.stack(index_array, dim=1)
+                greedy_action_trajectory = index_array[:, 2:]
+                greedy_results_dict = self.forward_with_actions(cigt_outputs=cigt_outputs,
+                                                                action_trajectories=greedy_action_trajectory,
+                                                                batch_size=batch_size)
+                greedy_correctness_vectors.append(greedy_results_dict["correctness_vector"])
+                greedy_mac_vectors.append(greedy_results_dict["total_mac_vector"])
 
             time_profiler.end_measurement()
             time_spent.append(time_profiler.get_time())
@@ -1005,10 +1007,17 @@ class CigtQLearning(CigtReinforceV2):
                 q_partial_pred = q_pred[index_array].cpu().numpy()
                 mse_ = mean_squared_error(y_true=q_partial_true, y_pred=q_partial_pred)
                 r2_ = r2_score(y_true=q_partial_true, y_pred=q_partial_pred)
-                print("Trajectory:{0} MSE:{1} R2:{2}".format(previous_trajectory, mse_, r2_))
+                # Measure the policy distribution as well.
+                policy_distribution = torch.nn.functional.softmax(q_pred[index_array], dim=1)
+                mean_policy_distribution = torch.mean(policy_distribution, dim=0).cpu().numpy()
+                policy_distributions_dict[previous_trajectory] = mean_policy_distribution
+                mse_dict[previous_trajectory] = mse_
+                r2_dict[previous_trajectory] = r2_
+                print("Trajectory:{0} MSE:{1} R2:{2} Mean Policy Distribution:{3}".format(
+                    previous_trajectory, mse_, r2_, mean_policy_distribution))
 
-            # optimal_q_tables_dataset[tt] = q_true
-            # predicted_q_tables_dataset[tt] = q_pred
+            optimal_q_tables_dataset[tt] = q_true
+            predicted_q_tables_dataset[tt] = q_pred
 
         # Concatenate correctness vector and mac vectors from every trajectory. Measure the expected accuracy and mac.
         all_trajectories = Utilities.create_route_combinations(shape_=action_space)
@@ -1033,15 +1042,22 @@ class CigtQLearning(CigtReinforceV2):
         expected_mac = expected_mac.cpu().numpy()
         expected_time = np.mean(np.array(time_spent))
 
-        if get_greedy_prediction:
-            greedy_correctness_vector_full = torch.concat(greedy_correctness_vectors, dim=0)
-            greedy_mac_vector_full = torch.concat(greedy_mac_vectors, dim=0)
-            greedy_accuracy = torch.mean(greedy_correctness_vector_full).cpu().numpy()
-            greedy_mac = torch.mean(greedy_mac_vector_full).cpu().numpy()
-            assert np.allclose(greedy_accuracy, expected_accuracy)
-            assert np.allclose(greedy_mac, expected_mac)
+        # if get_greedy_prediction:
+        greedy_correctness_vector_full = torch.concat(greedy_correctness_vectors, dim=0)
+        greedy_mac_vector_full = torch.concat(greedy_mac_vectors, dim=0)
+        greedy_accuracy = torch.mean(greedy_correctness_vector_full).cpu().numpy()
+        greedy_mac = torch.mean(greedy_mac_vector_full).cpu().numpy()
+        # assert np.allclose(greedy_accuracy, expected_accuracy)
+        # assert np.allclose(greedy_mac, expected_mac)
 
-        return expected_accuracy, expected_mac, expected_time
+        return {"expected_accuracy": expected_accuracy,
+                "expected_mac": expected_mac,
+                "expected_time": expected_time,
+                "greedy_accuracy": greedy_accuracy,
+                "greedy_mac": greedy_mac,
+                "policy_distributions_dict": policy_distributions_dict,
+                "mse_dict": mse_dict,
+                "r2_dict": r2_dict}
 
     def validate_with_single_action_trajectory(self, loader, action_trajectory):
         self.eval()
@@ -1091,6 +1107,59 @@ class CigtQLearning(CigtReinforceV2):
         time_avg = np.mean(np.array(time_spent_arr))
         return accuracy, mac_avg, time_avg
 
+    def evaluate_datasets(self, train_loader, test_loader, epoch):
+        print("************** Epoch:{0} **************".format(epoch))
+        kv_rows = []
+        results_summary = {"Train": {}, "Test": {}}
+        for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
+            results_dict = self.validate_with_expectation(loader=data_loader)
+            print("Expected {0} Accuracy:{1}".format(data_type, results_dict["expected_accuracy"]))
+            print("Expected {0} Mac:{1}".format(data_type, results_dict["expected_mac"]))
+            print("Expected {0} Mean Time:{1}".format(data_type, results_dict["expected_time"]))
+            print("Greedy {0} Accuracy:{1}".format(data_type, results_dict["greedy_accuracy"]))
+            print("Greedy {0} Mac:{1}".format(data_type, results_dict["greedy_mac"]))
+            policy_distributions_dict = results_dict["policy_distributions_dict"]
+            results_summary[data_type]["Accuracy"] = results_dict["expected_accuracy"]
+            results_summary[data_type]["Mac"] = results_dict["expected_mac"]
+            mse_dict = results_dict["mse_dict"]
+            r2_dict = results_dict["r2_dict"]
+            trajectories = set(policy_distributions_dict.keys())
+            assert trajectories == set(mse_dict.keys()) and trajectories == set(r2_dict.keys())
+            for trajectory in trajectories:
+                policy_distribution = policy_distributions_dict[trajectory]
+                mse_ = mse_dict[trajectory]
+                r2_ = r2_dict[trajectory]
+                print("{0} Policy Distribution {1}:{2}".format(data_type, trajectory, policy_distribution))
+                print("{0} Q-Table MSE {1}:{2}".format(data_type, trajectory, mse_))
+                print("{0} Q-Table R2 {1}:{2}".format(data_type, trajectory, r2_))
+
+                kv_rows.append((self.runId,
+                                epoch,
+                                "{0} Policy Distribution {1}".format(data_type, trajectory),
+                                "{0}".format(policy_distribution)))
+                kv_rows.append((self.runId,
+                                epoch,
+                                "{0} Q-Table MSE {1}".format(data_type, trajectory),
+                                "{0}".format(mse_)))
+                kv_rows.append((self.runId,
+                                epoch,
+                                "{0} Q-Table R2 {1}".format(data_type, trajectory),
+                                "{0}".format(r2_)))
+
+        DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+
+        DbLogger.write_into_table(
+            rows=[(self.runId,
+                   self.iteration_id,
+                   epoch,
+                   results_summary["Train"]["Accuracy"].item(),
+                   results_summary["Train"]["Mac"].item(),
+                   results_summary["Test"]["Accuracy"].item(),
+                   results_summary["Test"]["Mac"].item(),
+                   0.0)], table=DbLogger.logsTableQCigt)
+
+        print("************** Epoch:{0} **************".format(epoch))
+
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
         print("Device:{0}".format(self.device))
@@ -1100,6 +1169,27 @@ class CigtQLearning(CigtReinforceV2):
 
         # Run a forward pass first to initialize each LazyXXX layer.
         self.execute_forward_with_random_input()
+
+        test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
+            loader=test_loader, action_trajectory=(0, 0))
+        print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
+            test_ig_accuracy, test_ig_mac, test_ig_time))
+
+        train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
+            loader=train_loader, action_trajectory=(0, 0))
+        print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
+            train_ig_accuracy, train_ig_mac, train_ig_time))
+
+        print("Device:{0}".format(self.device))
+        # for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
+        #     for i, cigt_outputs in enumerate(train_loader):
+        #         self.train()
+        #         print("*************CIGT Q-Net Training Epoch:{0} Iteration:{1}*************".format(
+        #             epoch_id, self.iteration_id))
+        #         cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
+        #
+
+        # for i__, batch in tqdm(enumerate(loader)):
 
         # policy_entropies = []
         # log_probs_trajectory = []

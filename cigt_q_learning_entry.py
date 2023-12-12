@@ -166,24 +166,27 @@ if __name__ == "__main__":
         # model.compare_q_table_calculation_types(dataset=train_loader)
 
         model.execute_forward_with_random_input()
-        ig_accuracy, ig_mac, ig_time = \
-            model.validate_with_single_action_trajectory(loader=test_loader, action_trajectory=(0, 0))
-        print("Ig Accuracy:{0} Ig Mac:{1} Ig Mean Validation Time:{2}".format(
-            ig_accuracy, ig_mac, ig_time))
+        model.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
+        model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
 
-        print("Test set run")
-        expected_accuracy_test, expected_mac_test, expected_time_test = \
-            model.validate_with_expectation(loader=test_loader)
-        print("Test Accuracy:{0} Test Mac:{1} Test Mean Validation Time:{2}".format(
-            expected_accuracy_test, expected_mac_test, expected_time_test))
-
-        print("Training set run")
-        expected_accuracy_training, expected_mac_training, expected_time_training = \
-            model.validate_with_expectation(loader=train_loader)
-        print("Training Accuracy:{0} Training Mac:{1} Training Mean Validation Time:{2}".format(
-            expected_accuracy_training, expected_mac_training, expected_time_training))
-
-        print("Successfully finished!")
+        # ig_accuracy, ig_mac, ig_time = \
+        #     model.validate_with_single_action_trajectory(loader=test_loader, action_trajectory=(0, 0))
+        # print("Ig Accuracy:{0} Ig Mac:{1} Ig Mean Validation Time:{2}".format(
+        #     ig_accuracy, ig_mac, ig_time))
+        #
+        # print("Test set run")
+        # expected_accuracy_test, expected_mac_test, expected_time_test = \
+        #     model.validate_with_expectation(loader=test_loader)
+        # print("Test Accuracy:{0} Test Mac:{1} Test Mean Validation Time:{2}".format(
+        #     expected_accuracy_test, expected_mac_test, expected_time_test))
+        #
+        # print("Training set run")
+        # expected_accuracy_training, expected_mac_training, expected_time_training = \
+        #     model.validate_with_expectation(loader=train_loader)
+        # print("Training Accuracy:{0} Training Mac:{1} Training Mean Validation Time:{2}".format(
+        #     expected_accuracy_training, expected_mac_training, expected_time_training))
+        #
+        # print("Successfully finished!")
 
         # model.execute_forward_with_random_input()
         # model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
