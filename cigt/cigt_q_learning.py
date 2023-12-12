@@ -1088,16 +1088,16 @@ class CigtQLearning(CigtReinforceV2):
             action_trajectories = torch.tile(action_trajectory_torch, dims=(batch_size, 1))
             result_dict = self.forward_with_actions(cigt_outputs=cigt_outputs, batch_size=batch_size,
                                                     action_trajectories=action_trajectories)
-            for idx, q_arr in enumerate(result_dict["q_net_outputs"]):
-                all_q_net_outputs[idx].append(q_arr)
+            # for idx, q_arr in enumerate(result_dict["q_net_outputs"]):
+            #     all_q_net_outputs[idx].append(q_arr)
             all_correctness_vectors.append(result_dict["correctness_vector"])
             # all_expert_probs.append(result_dict["expert_probs"])
             all_total_mac_vectors.append(result_dict["total_mac_vector"])
             time_profiler.end_measurement()
             time_spent_arr.append(time_profiler.get_time())
 
-        for idx in range(len(all_q_net_outputs)):
-            all_q_net_outputs[idx] = torch.concat(all_q_net_outputs[idx], dim=0)
+        # for idx in range(len(all_q_net_outputs)):
+        #     all_q_net_outputs[idx] = torch.concat(all_q_net_outputs[idx], dim=0)
         all_correctness_vectors = torch.concat(all_correctness_vectors, dim=0)
         # all_expert_probs = torch.concat(all_expert_probs, dim=0)
         all_total_mac_vectors = torch.concat(all_total_mac_vectors, dim=0)
