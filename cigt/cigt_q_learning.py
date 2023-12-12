@@ -1001,8 +1001,8 @@ class CigtQLearning(CigtReinforceV2):
                 index_array = \
                     self.create_index_array_for_q_table(batch_size=q_true.shape[0],
                                                         path_combination=previous_trajectory)
-                q_partial_true = q_true[index_array].numpy()
-                q_partial_pred = q_pred[index_array].numpy()
+                q_partial_true = q_true[index_array].cpu().numpy()
+                q_partial_pred = q_pred[index_array].cpu().numpy()
                 mse_ = mean_squared_error(y_true=q_partial_true, y_pred=q_partial_pred)
                 r2_ = r2_score(y_true=q_partial_true, y_pred=q_partial_pred)
                 print("Trajectory:{0} MSE:{1} R2:{2}".format(previous_trajectory, mse_, r2_))
@@ -1029,15 +1029,15 @@ class CigtQLearning(CigtReinforceV2):
         assert torch.allclose(sum_prob, torch.ones_like(sum_prob))
         expected_accuracy = torch.mean(torch.sum(action_probabilities_matrix * correctness_vectors_matrix, dim=1))
         expected_mac = torch.mean(torch.sum(action_probabilities_matrix * mac_vectors_matrix, dim=1))
-        expected_accuracy = expected_accuracy.numpy()
-        expected_mac = expected_mac.numpy()
+        expected_accuracy = expected_accuracy.cpu().numpy()
+        expected_mac = expected_mac.cpu().numpy()
         expected_time = np.mean(np.array(time_spent))
 
         if get_greedy_prediction:
             greedy_correctness_vector_full = torch.concat(greedy_correctness_vectors, dim=0)
             greedy_mac_vector_full = torch.concat(greedy_mac_vectors, dim=0)
-            greedy_accuracy = torch.mean(greedy_correctness_vector_full).numpy()
-            greedy_mac = torch.mean(greedy_mac_vector_full).numpy()
+            greedy_accuracy = torch.mean(greedy_correctness_vector_full).cpu().numpy()
+            greedy_mac = torch.mean(greedy_mac_vector_full).cpu().numpy()
             assert np.allclose(greedy_accuracy, expected_accuracy)
             assert np.allclose(greedy_mac, expected_mac)
 
