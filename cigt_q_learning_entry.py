@@ -127,8 +127,8 @@ if __name__ == "__main__":
     # policy_networks_baseline_momentum = 0.99
     # policy_networks_policy_entropy_loss_coeff = 0.0
 
-    mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
-    # mac_lambda_list = [0.1]
+    # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
+    mac_lambda_list = [0.05]
     mac_lambda_list = sorted(mac_lambda_list)
     Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
 
@@ -149,10 +149,10 @@ if __name__ == "__main__":
             is_debug_mode=False,
             precalculated_datasets_dict={"train_dataset": train_loader, "test_dataset": test_loader})
         model.to(model.device)
-        print("compare_q_net_input_calculation_types - Comparison with the test set.")
-        model.compare_q_net_input_calculation_types(dataset=test_loader)
-        print("compare_q_net_input_calculation_types - Comparison with the training set.")
-        model.compare_q_net_input_calculation_types(dataset=train_loader)
+        # print("compare_q_net_input_calculation_types - Comparison with the test set.")
+        # model.compare_q_net_input_calculation_types(dataset=test_loader)
+        # print("compare_q_net_input_calculation_types - Comparison with the training set.")
+        # model.compare_q_net_input_calculation_types(dataset=train_loader)
 
 
         # print("Comparison with the test set.")
@@ -165,8 +165,25 @@ if __name__ == "__main__":
         # print("Comparison of optimal q table calculation: Training set")
         # model.compare_q_table_calculation_types(dataset=train_loader)
 
-        # model.execute_forward_with_random_input()
-        # print("Successfully finished!")
+        model.execute_forward_with_random_input()
+        ig_accuracy, ig_mac, ig_time = \
+            model.validate_with_single_action_trajectory(loader=test_loader, action_trajectory=(0, 0))
+        print("Ig Accuracy:{0} Ig Mac:{1} Ig Mean Validation Time:{2}".format(
+            ig_accuracy, ig_mac, ig_time))
+
+        print("Test set run")
+        expected_accuracy_test, expected_mac_test, expected_time_test = \
+            model.validate_with_expectation(loader=test_loader)
+        print("Test Accuracy:{0} Test Mac:{1} Test Mean Validation Time:{2}".format(
+            expected_accuracy_test, expected_mac_test, expected_time_test))
+
+        print("Training set run")
+        expected_accuracy_training, expected_mac_training, expected_time_training = \
+            model.validate_with_expectation(loader=train_loader)
+        print("Training Accuracy:{0} Training Mac:{1} Training Mean Validation Time:{2}".format(
+            expected_accuracy_training, expected_mac_training, expected_time_training))
+
+        print("Successfully finished!")
 
         # model.execute_forward_with_random_input()
         # model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)

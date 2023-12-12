@@ -150,6 +150,7 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_policy_entropy_loss_coeff = 0.0
     policy_networks_epsilon_decay_coeff = 1.0
     policy_networks_last_eval_start = 5
+    policy_networks_train_only_action_heads = True
 
 
 
