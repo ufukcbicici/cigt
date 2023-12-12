@@ -825,7 +825,9 @@ class CigtQLearning(CigtReinforceV2):
         return q_net_outputs
 
     def calculate_regression_loss(self, q_net_outputs, optimal_q_tables, action_trajectories):
-        pass
+        assert action_trajectories.shape[1] == len(self.actionSpaces)
+        if self.policyNetworksTrainOnlyActionHeads:
+            pass
 
     def forward_with_actions(self, cigt_outputs, batch_size, action_trajectories):
         # cigt_outputs, batch_size = self.get_cigt_outputs(x=x, y=y)
@@ -1199,7 +1201,7 @@ class CigtQLearning(CigtReinforceV2):
                 optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
                 action_trajectories = self.sample_action_trajectories(q_tables=optimal_q_tables, batch_size=batch_size)
                 result_dict = self.forward_with_actions(cigt_outputs=cigt_outputs, batch_size=batch_size,
-                                                        action_trajectories=action_trajectories)
+                                                        action_trajectories=action_trajectories[:, 1:])
 
 
 
