@@ -970,7 +970,7 @@ class CigtQLearning(CigtReinforceV2):
                     # approach to one-hot vectors, where one entry is the argmax,
                     # we must obtain the same results. (ONLY FOR VERY SMALL TEMPERATURES!!!)
                     index_array = [torch.arange(batch_size, device=self.device),
-                                   torch.zeros(size=(batch_size,), dtype=torch.int64)]
+                                   torch.zeros(size=(batch_size,), dtype=torch.int64, device=self.device)]
                     for t in range(len(action_space)):
                         if t == 0:
                             continue
