@@ -1180,6 +1180,8 @@ class CigtQLearning(CigtReinforceV2):
         print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
             train_ig_accuracy, train_ig_mac, train_ig_time))
 
+        self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
+
         print("Device:{0}".format(self.device))
         # for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
         #     for i, cigt_outputs in enumerate(train_loader):
