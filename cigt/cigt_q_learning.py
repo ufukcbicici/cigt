@@ -1186,7 +1186,6 @@ class CigtQLearning(CigtReinforceV2):
                 self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
                                                      num_of_total_iterations=num_of_total_iterations)
                 # Print learning rates
-                print("Policy Network Lr:{0}".format(self.qNetOptimizer.param_groups[0]["lr"]))
                 self.qNetOptimizer.zero_grad()
                 with torch.set_grad_enabled(True):
                     optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
@@ -1203,6 +1202,7 @@ class CigtQLearning(CigtReinforceV2):
                     self.epsilonValue = self.epsilonValue * self.policyNetworksEpsilonDecayCoeff
                     loss_buffer.append(regression_loss.detach().cpu().numpy())
                     if len(loss_buffer) >= 10:
+                        print("Policy Network Lr:{0}".format(self.qNetOptimizer.param_groups[0]["lr"]))
                         print("Epoch:{0} Iteration:{1} MSE:{2}".format(
                             epoch_id,
                             self.iteration_id,
