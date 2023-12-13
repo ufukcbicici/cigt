@@ -155,6 +155,15 @@ if __name__ == "__main__":
             is_debug_mode=False,
             precalculated_datasets_dict={"train_dataset": train_loader, "test_dataset": test_loader})
         model.to(model.device)
+
+        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_paperspace
+        explanation = model.get_explanation_string()
+        DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
+        model.execute_forward_with_random_input()
+        model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
+
+
         # print("compare_q_net_input_calculation_types - Comparison with the test set.")
         # model.compare_q_net_input_calculation_types(dataset=test_loader)
         # print("compare_q_net_input_calculation_types - Comparison with the training set.")
@@ -171,9 +180,7 @@ if __name__ == "__main__":
         # print("Comparison of optimal q table calculation: Training set")
         # model.compare_q_table_calculation_types(dataset=train_loader)
 
-        model.execute_forward_with_random_input()
-        # model.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
-        model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
+
 
         # ig_accuracy, ig_mac, ig_time = \
         #     model.validate_with_single_action_trajectory(loader=test_loader, action_trajectory=(0, 0))
