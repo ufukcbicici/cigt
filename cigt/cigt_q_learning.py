@@ -1148,17 +1148,17 @@ class CigtQLearning(CigtReinforceV2):
         # Run a forward pass first to initialize each LazyXXX layer.
         self.execute_forward_with_random_input()
 
-        # test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
-        #     loader=test_loader, action_trajectory=(0, 0))
-        # print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
-        #     test_ig_accuracy, test_ig_mac, test_ig_time))
-        #
-        # train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
-        #     loader=train_loader, action_trajectory=(0, 0))
-        # print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
-        #     train_ig_accuracy, train_ig_mac, train_ig_time))
-        #
-        # self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
+        test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
+            loader=test_loader, action_trajectory=(0, 0))
+        print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
+            test_ig_accuracy, test_ig_mac, test_ig_time))
+
+        train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
+            loader=train_loader, action_trajectory=(0, 0))
+        print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
+            train_ig_accuracy, train_ig_mac, train_ig_time))
+
+        self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
 
         # Create the model optimizer, we should have every parameter initialized right now.
         self.qNetOptimizer = self.create_optimizer()
