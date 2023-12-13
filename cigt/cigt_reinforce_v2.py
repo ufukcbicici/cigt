@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import optim
 from torch.distributions import Categorical
+from torch.nn.parameter import UninitializedParameter
 
 from auxillary.db_logger import DbLogger
 from auxillary.average_meter import AverageMeter
@@ -430,6 +431,8 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         policy_networks_parameters = []
         # Value Networks parameters.
         value_networks_parameters = []
+        policy_network_parameter_names = []
+        shared_parameter_names = []
 
         for name, param in self.named_parameters():
             assert not (("cigtLayers" in name and "policyNetworks" in name) or
@@ -444,11 +447,13 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
             elif "policyNetworks" in name:
                 assert "cigtLayers" not in name and "valueNetworks" not in name
                 policy_networks_parameters.append(param)
+                policy_network_parameter_names.append(name)
             elif "valueNetworks" in name:
                 assert "cigtLayers" not in name and "policyNetworks" not in name
                 value_networks_parameters.append(param)
             else:
                 shared_parameters.append(param)
+                shared_parameter_names.append(name)
 
         num_shared_parameters = len(shared_parameters)
         num_policy_network_parameters = len(policy_networks_parameters)

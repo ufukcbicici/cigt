@@ -5,6 +5,7 @@ from torchvision import datasets
 from torchvision.transforms import transforms
 
 from auxillary.db_logger import DbLogger
+from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cigt_output_dataset import CigtOutputDataset
@@ -127,18 +128,23 @@ if __name__ == "__main__":
     # policy_networks_baseline_momentum = 0.99
     # policy_networks_policy_entropy_loss_coeff = 0.0
 
-    # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1] * 5
-    mac_lambda_list = [0.05]
+    mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15]
+    wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 10
     mac_lambda_list = sorted(mac_lambda_list)
+    wd_list = sorted(wd_list)
+    param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list, wd_list])
     Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
 
-    for mac_lambda in mac_lambda_list:
+    for params in param_grid:
         run_id = DbLogger.get_run_id()
+        mac_lambda = params[0]
+        wd_coeff = params[1]
         Cifar10ResnetCigtConfigs.policy_networks_mac_lambda = mac_lambda
+        Cifar10ResnetCigtConfigs.policy_networks_wd = wd_coeff
 
         print("Running run_id:{0}".format(run_id))
-
-        print("Running with id:{0}".format(run_id))
+        print("Running with mac_lambda:{0}".format(Cifar10ResnetCigtConfigs.policy_networks_mac_lambda))
+        print("Running with wd_coeff:{0}".format(Cifar10ResnetCigtConfigs.policy_networks_wd))
 
         model = CigtQLearning(
             configs=Cifar10ResnetCigtConfigs,

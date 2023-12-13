@@ -55,26 +55,27 @@ class CigtQLearning(CigtReinforceV2):
         self.policyNetworksTrainOnlyActionHeads = configs.policy_networks_train_only_action_heads
 
         super().__init__(configs, run_id, model_definition, num_classes, model_mac_info, is_debug_mode)
-        self.policyNetworkQNetRegressionLayers = nn.ModuleList()
+        self.policyNetworksQNetRegressionLayers = nn.ModuleList()
 
         if self.policyGradientsUseLstm:
             assert len(set([dim for dim in self.decisionDimensions])) == 1
             self.lstmInputDimension = self.decisionDimensions[0]
-            self.lstm = nn.LSTM(input_size=self.lstmInputDimension,
-                                hidden_size=self.policyNetworksLstmDimension,
-                                num_layers=self.policyNetworksLstmNumLayers,
-                                batch_first=True,
-                                bidirectional=self.policyNetworksLstmBidirectional)
+            self.policyNetworksLstm = nn.LSTM(input_size=self.lstmInputDimension,
+                                              hidden_size=self.policyNetworksLstmDimension,
+                                              num_layers=self.policyNetworksLstmNumLayers,
+                                              batch_first=True,
+                                              bidirectional=self.policyNetworksLstmBidirectional)
             for layer_id, path_count in enumerate(self.pathCounts[1:]):
                 action_space_size = path_count
                 loss_layer = nn.Linear(in_features=self.decisionDimensions[layer_id],
                                        out_features=action_space_size)
-                self.policyNetworkQNetRegressionLayers.append(loss_layer)
+                self.policyNetworksQNetRegressionLayers.append(loss_layer)
         else:
-            self.lstm = None
+            self.policyNetworksLstm = None
 
         self.epsilonValue = 1.0
         self.actionSpaces = self.pathCounts[1:]
+        self.qNetOptimizer = None
 
     def create_policy_networks(self):
         for layer_id, path_count in enumerate(self.pathCounts[1:]):
@@ -157,61 +158,6 @@ class CigtQLearning(CigtReinforceV2):
         #         print("Key:{0} Device:{1}".format(k, v.device))
 
         return cigt_outputs, batch_size
-
-    def create_optimizer(self):
-        paths = []
-        for pc in self.pathCounts:
-            paths.append([i_ for i_ in range(pc)])
-        path_variaties = Utilities.get_cartesian_product(list_of_lists=paths)
-
-        # for idx in range(len(self.pathCounts)):
-        #     cnt = len([tpl for tpl in path_variaties if tpl[idx] == 0])
-        #     self.layerCoefficients.append(len(path_variaties) / cnt)
-        #
-        # # Create parameter groups per CIGT layer and shared parameters
-        # shared_parameters = []
-        # parameters_per_cigt_layers = []
-        # for idx in range(len(self.pathCounts)):
-        #     parameters_per_cigt_layers.append([])
-        # # Policy Network parameters.
-        # policy_networks_parameters = []
-        # # Value Networks parameters.
-        # value_networks_parameters = []
-        #
-        # for name, param in self.named_parameters():
-        #     assert not (("cigtLayers" in name and "policyNetworks" in name) or
-        #                 ("cigtLayers" in name and "valueNetworks" in name) or
-        #                 ("policyNetworks" in name and "valueNetworks" in name))
-        #     if "cigtLayers" in name:
-        #         assert "policyNetworks" not in name and "valueNetworks" not in name
-        #         param_name_splitted = name.split(".")
-        #         layer_id = int(param_name_splitted[1])
-        #         assert 0 <= layer_id <= len(self.pathCounts) - 1
-        #         parameters_per_cigt_layers[layer_id].append(param)
-        #     elif "policyNetworks" in name:
-        #         assert "cigtLayers" not in name and "valueNetworks" not in name
-        #         policy_networks_parameters.append(param)
-        #     elif "valueNetworks" in name:
-        #         assert "cigtLayers" not in name and "policyNetworks" not in name
-        #         value_networks_parameters.append(param)
-        #     else:
-        #         shared_parameters.append(param)
-        #
-        # num_shared_parameters = len(shared_parameters)
-        # num_policy_network_parameters = len(policy_networks_parameters)
-        # num_value_networks_parameters = len(value_networks_parameters)
-        # num_cigt_layer_parameters = sum([len(arr) for arr in parameters_per_cigt_layers])
-        # num_all_parameters = len([tpl for tpl in self.named_parameters()])
-        # assert num_shared_parameters + num_policy_network_parameters + \
-        #        num_value_networks_parameters + num_cigt_layer_parameters == num_all_parameters
-        #
-        # # Create a separate optimizer that only optimizes the policy networks.
-        # policy_networks_optimizer = optim.AdamW(
-        #     [{'params': policy_networks_parameters,
-        #       'lr': self.policyNetworkInitialLr,
-        #       'weight_decay': self.policyNetworkWd}])
-        #
-        # return policy_networks_optimizer
 
     def execute_forward_with_random_input(self):
         # max_batch_size = np.prod(self.pathCounts) * self.batchSize
@@ -815,19 +761,43 @@ class CigtQLearning(CigtReinforceV2):
             output_arr = self.policyNetworks[layer_id](sparse_input)
             q_network_outputs.append(output_arr)
         q_network_outputs = torch.stack(q_network_outputs, dim=1)
-        lstm_outputs = self.lstm(q_network_outputs)[0]
+        lstm_outputs = self.policyNetworksLstm(q_network_outputs)[0]
         lstm_outputs = torch.transpose_copy(lstm_outputs, dim0=0, dim1=1)
         q_net_outputs = []
         for layer_id in range(len(self.pathCounts) - 1):
             q_features = lstm_outputs[layer_id]
-            q_net_output = self.policyNetworkQNetRegressionLayers[layer_id](q_features)
+            q_net_output = self.policyNetworksQNetRegressionLayers[layer_id](q_features)
             q_net_outputs.append(q_net_output)
         return q_net_outputs
 
-    def calculate_regression_loss(self, q_net_outputs, optimal_q_tables, action_trajectories):
+    def calculate_regression_loss(self, batch_size, q_net_outputs, optimal_q_tables, action_trajectories):
         assert action_trajectories.shape[1] == len(self.actionSpaces)
+        sample_indices = torch.arange(batch_size, device=self.device)
+        index_array = [torch.arange(batch_size, device=self.device),
+                       torch.zeros(size=(batch_size,), dtype=torch.int64, device=self.device)]
+
         if self.policyNetworksTrainOnlyActionHeads:
-            pass
+            losses_arr = []
+            for t in range(len(self.actionSpaces)):
+                a_t = action_trajectories[:, t]
+                index_array.append(a_t)
+                q_pred = q_net_outputs[t][sample_indices, a_t]
+                q_truth = optimal_q_tables[t + 1][index_array]
+                mse_t = torch.nn.functional.mse_loss(input=q_pred, target=q_truth)
+                losses_arr.append(mse_t)
+            total_loss = sum(losses_arr)
+            return total_loss
+        else:
+            losses_arr = []
+            for t in range(len(self.actionSpaces)):
+                q_pred = q_net_outputs[t]
+                q_truth = optimal_q_tables[t + 1][index_array]
+                mse_t = torch.nn.functional.mse_loss(input=q_pred, target=q_truth)
+                a_t = action_trajectories[:, t]
+                index_array.append(a_t)
+                losses_arr.append(mse_t)
+            total_loss = sum(losses_arr)
+            return total_loss
 
     def forward_with_actions(self, cigt_outputs, batch_size, action_trajectories):
         # cigt_outputs, batch_size = self.get_cigt_outputs(x=x, y=y)
@@ -1162,6 +1132,12 @@ class CigtQLearning(CigtReinforceV2):
 
         print("************** Epoch:{0} **************".format(epoch))
 
+    def adjust_learning_rate_polynomial(self, iteration, num_of_total_iterations):
+        lr = self.policyNetworkInitialLr
+        where = np.clip(iteration / num_of_total_iterations, a_min=0.0, a_max=1.0)
+        modified_lr = lr * (1 - where) ** self.policyNetworkPolynomialSchedulerPower
+        self.qNetOptimizer.param_groups[0]['lr'] = modified_lr
+
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
         print("Device:{0}".format(self.device))
@@ -1184,6 +1160,12 @@ class CigtQLearning(CigtReinforceV2):
 
         self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
 
+        # Create the model optimizer, we should have every parameter initialized right now.
+        self.qNetOptimizer = self.create_optimizer()
+
+        self.isInWarmUp = False
+        self.routingRandomizationRatio = -1.0
+
         print("Device:{0}".format(self.device))
         for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
             for i__, batch in enumerate(train_loader):
@@ -1198,62 +1180,31 @@ class CigtQLearning(CigtReinforceV2):
                     target_var = torch.autograd.Variable(batch[1]).to(self.device)
                     cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
 
-                optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
-                action_trajectories = self.sample_action_trajectories(q_tables=optimal_q_tables, batch_size=batch_size)
-                result_dict = self.forward_with_actions(cigt_outputs=cigt_outputs, batch_size=batch_size,
-                                                        action_trajectories=action_trajectories[:, 1:])
-
-
-
-        #
-
-        # for i__, batch in tqdm(enumerate(loader)):
-
-        # policy_entropies = []
-        # log_probs_trajectory = []
-        # probs_trajectory = []
-        # actions_trajectory = []
-        # full_action_probs_trajectory = []
-        # correctness_vec = None
-        # mac_vec = None
-        # reward_array = None
-        # paths_history = [{idx: {(0,)} for idx in range(batch_size)}]
-        #
-        # for layer_id in range(len(self.pathCounts)):
-        #     if layer_id < len(self.pathCounts) - 1:
-        #         # Get sparse input arrays for the policy networks
-        #         pg_sparse_input = self.prepare_policy_network_input_f(
-        #             batch_size=batch_size,
-        #             layer_id=layer_id,
-        #             current_paths_dict=paths_history[layer_id],
-        #             cigt_outputs=cigt_outputs
-        #         )
-        #         # Execute this layers policy network, get log action probs, actions and policy entropies.
-        #         mean_policy_entropy, log_probs_selected, probs_selected, action_probs, actions = \
-        #             self.run_policy_networks(layer_id=layer_id, pn_input=pg_sparse_input)
-        #         policy_entropies.append(mean_policy_entropy)
-        #         log_probs_trajectory.append(log_probs_selected)
-        #         probs_trajectory.append(probs_selected)
-        #         actions_trajectory.append(actions)
-        #         full_action_probs_trajectory.append(action_probs)
-        #
-        #         # Extend the trajectories for each sample based on the actions selected.
-        #         new_paths_dict = self.extend_sample_trajectories_wrt_actions(actions=actions,
-        #                                                                      cigt_outputs=cigt_outputs,
-        #                                                                      current_paths_dict=paths_history[layer_id],
-        #                                                                      layer_id=layer_id)
-        #         paths_history.append(new_paths_dict)
-        #     else:
-        #         reward_array, correctness_vec, mac_vec = \
-        #             self.calculate_rewards(cigt_outputs=cigt_outputs, complete_path_history=paths_history)
-        #
-        # return {
-        #     "policy_entropies": policy_entropies,
-        #     "log_probs_trajectory": log_probs_trajectory,
-        #     "probs_trajectory": probs_trajectory,
-        #     "actions_trajectory": actions_trajectory,
-        #     "paths_history": paths_history,
-        #     "reward_array": reward_array,
-        #     "correctness_vec": correctness_vec,
-        #     "mac_vec": mac_vec,
-        #     "full_action_probs_trajectory": full_action_probs_trajectory}
+                # Adjust the learning rate
+                self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
+                                                     num_of_total_iterations=num_of_total_iterations)
+                # Print learning rates
+                print("Policy Network Lr:{0}".format(self.qNetOptimizer.param_groups[0]["lr"]))
+                self.qNetOptimizer.zero_grad()
+                with torch.set_grad_enabled(True):
+                    optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
+                    action_trajectories = self.sample_action_trajectories(q_tables=optimal_q_tables,
+                                                                          batch_size=batch_size)
+                    result_dict = self.forward_with_actions(cigt_outputs=cigt_outputs, batch_size=batch_size,
+                                                            action_trajectories=action_trajectories[:, 1:])
+                    regression_loss = self.calculate_regression_loss(batch_size=batch_size,
+                                                                     optimal_q_tables=optimal_q_tables,
+                                                                     q_net_outputs=result_dict["q_net_outputs"],
+                                                                     action_trajectories=action_trajectories[:, 1:])
+                    regression_loss.backward()
+                    self.qNetOptimizer.step()
+                    self.epsilonValue = self.epsilonValue * self.policyNetworksEpsilonDecayCoeff
+                    print("Epoch:{0} Iteration:{1} MSE:{2}".format(
+                        epoch_id,
+                        self.iteration_id,
+                        regression_loss.detach().cpu().numpy()))
+                self.iteration_id += 1
+                # Validation
+                if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
+                        epoch_id >= (self.policyNetworkTotalNumOfEpochs - self.policyNetworksLastEvalStart):
+                    self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=epoch_id)
