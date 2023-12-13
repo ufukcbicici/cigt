@@ -1166,6 +1166,8 @@ class CigtQLearning(CigtReinforceV2):
         self.isInWarmUp = False
         self.routingRandomizationRatio = -1.0
 
+        loss_buffer = []
+
         print("Device:{0}".format(self.device))
         for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
             for i__, batch in enumerate(train_loader):
@@ -1199,10 +1201,13 @@ class CigtQLearning(CigtReinforceV2):
                     regression_loss.backward()
                     self.qNetOptimizer.step()
                     self.epsilonValue = self.epsilonValue * self.policyNetworksEpsilonDecayCoeff
-                    print("Epoch:{0} Iteration:{1} MSE:{2}".format(
-                        epoch_id,
-                        self.iteration_id,
-                        regression_loss.detach().cpu().numpy()))
+                    loss_buffer.append(regression_loss.detach().cpu().numpy())
+                    if len(loss_buffer) >= 10:
+                        print("Epoch:{0} Iteration:{1} MSE:{2}".format(
+                            epoch_id,
+                            self.iteration_id,
+                            np.mean(np.array(loss_buffer))))
+                        loss_buffer = []
                 self.iteration_id += 1
             # Validation
             if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
