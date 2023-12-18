@@ -16,7 +16,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.home_asus
+    DbLogger.log_db_path = DbLogger.jr_cigt
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 10 * [0.0004]
     weight_decay = sorted(weight_decay)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
             ])
 
         # Cifar 10 Dataset
-        kwargs = {'num_workers': 2, 'pin_memory': True}
+        kwargs = {'num_workers': 0, 'pin_memory': True}
         train_loader = torch.utils.data.DataLoader(
             datasets.CIFAR10('../data', train=True, download=True, transform=transform_train),
             batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
@@ -159,10 +159,10 @@ if __name__ == "__main__":
 
         # model = CigtIdealRouting()
 
-        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_asus
+        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_jr
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        model.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
+        # model.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
         model.validate(loader=test_loader, data_kind="test", epoch=0, temperature=0.1)
         # model.fit(train_loader=train_loader, test_loader=test_loader)

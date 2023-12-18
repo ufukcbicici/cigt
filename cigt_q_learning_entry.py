@@ -135,6 +135,17 @@ if __name__ == "__main__":
     param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list, wd_list])
     Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
 
+    # Skip already processed parameter combinations
+
+    # worked_ids = DbLogger.read_query(query=
+    #                                  "SELECT RunId FROM run_meta_data WHERE Explanation LIKE \"%Q Learning CIGT%\"")
+    # worked_ids_str = "(" + ",".join([str(tpl[0]) for tpl in worked_ids]) + ")"
+    # res2 = DbLogger.read_query(query="SELECT RunId FROM run_kv_store "
+    #                                  "WHERE Key == \"Training Status\" "
+    #                                  "AND Value == \"Training Finished!!!\" "
+    #                                  "AND RunID In {0}".format(worked_ids_str))
+    # print("X")
+
     for params in param_grid:
         run_id = DbLogger.get_run_id()
         mac_lambda = params[0]
@@ -162,6 +173,14 @@ if __name__ == "__main__":
 
         model.execute_forward_with_random_input()
         model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
+
+        kv_rows = [(run_id,
+                    model.policyNetworkTotalNumOfEpochs,
+                    "Training Status",
+                    "Training Finished!!!")]
+        DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+
+
 
 
         # print("compare_q_net_input_calculation_types - Comparison with the test set.")

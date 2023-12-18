@@ -46,7 +46,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         # Parameters for the Policy Network Solver
         self.policyNetworkInitialLr = configs.policy_networks_initial_lr
         self.policyNetworkPolynomialSchedulerPower = configs.policy_networks_polynomial_scheduler_power
-        self.policyNetworkWd = configs.policy_networks_wd
+        self.policyNetworksWd = configs.policy_networks_wd
 
         # General Parameters for Training
         self.policyNetworkTotalNumOfEpochs = configs.policy_networks_total_num_of_epochs
@@ -467,7 +467,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         policy_networks_optimizer = optim.AdamW(
             [{'params': policy_networks_parameters,
               'lr': self.policyNetworkInitialLr,
-              'weight_decay': self.policyNetworkWd}])
+              'weight_decay': self.policyNetworksWd}])
 
         return policy_networks_optimizer
 
