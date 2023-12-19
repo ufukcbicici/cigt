@@ -165,6 +165,7 @@ if __name__ == "__main__":
         Cifar10ResnetCigtConfigs.policy_networks_wd = wd_coeff
 
         print("Running run_id:{0}".format(run_id))
+        print("Writing into DB:{0}".format(DbLogger.log_db_path))
         print("Running with mac_lambda:{0}".format(Cifar10ResnetCigtConfigs.policy_networks_mac_lambda))
         print("Running with wd_coeff:{0}".format(Cifar10ResnetCigtConfigs.policy_networks_wd))
 
