@@ -23,8 +23,27 @@ from cigt.multipath_inference_cross_entropy import MultipathInferenceCrossEntrop
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 from configs.cifar10_resnet_cigt_configs import Cifar10ResnetCigtConfigs
 
+
 # random.seed(53)
 # np.random.seed(61)
+
+def get_parameters_histogram(parameters_used):
+    parameters_used = sorted(parameters_used)
+    detection_histogram = {}
+    worked_ids = DbLogger.read_query(query=
+                                     "SELECT RunId FROM run_meta_data WHERE Explanation LIKE \"%Q Learning CIGT%\"")
+    worked_ids_str = "(" + ",".join([str(tpl[0]) for tpl in worked_ids]) + ")"
+    completed_runs = DbLogger.read_query(query="SELECT RunId FROM run_kv_store "
+                                               "WHERE Key == \"Training Status\" "
+                                               "AND Value == \"Training Finished!!!\" "
+                                               "AND RunID In {0}".format(worked_ids_str))
+    parameters_str = "(" + ",".join(["'{0}'".format(str_) for str_ in parameters_used]) + ")"
+    completed_ids_str = "(" + ",".join([str(tpl[0]) for tpl in completed_runs]) + ")"
+    parameters_queried = DbLogger.read_query(query="SELECT RunId, Parameter, Value FROM run_parameters "
+                                                   "WHERE Parameter In {0}"
+                                                   "AND RunId In {1}".format(parameters_str, completed_ids_str))
+    print("X")
+
 
 if __name__ == "__main__":
     print("X")
@@ -136,15 +155,7 @@ if __name__ == "__main__":
     Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
 
     # Skip already processed parameter combinations
-
-    # worked_ids = DbLogger.read_query(query=
-    #                                  "SELECT RunId FROM run_meta_data WHERE Explanation LIKE \"%Q Learning CIGT%\"")
-    # worked_ids_str = "(" + ",".join([str(tpl[0]) for tpl in worked_ids]) + ")"
-    # res2 = DbLogger.read_query(query="SELECT RunId FROM run_kv_store "
-    #                                  "WHERE Key == \"Training Status\" "
-    #                                  "AND Value == \"Training Finished!!!\" "
-    #                                  "AND RunID In {0}".format(worked_ids_str))
-    # print("X")
+    # get_parameters_histogram(parameters_used=["policyNetworksWd", "policyNetworksMacLambda"])
 
     for params in param_grid:
         run_id = DbLogger.get_run_id()
@@ -180,14 +191,10 @@ if __name__ == "__main__":
                     "Training Finished!!!")]
         DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
 
-
-
-
         # print("compare_q_net_input_calculation_types - Comparison with the test set.")
         # model.compare_q_net_input_calculation_types(dataset=test_loader)
         # print("compare_q_net_input_calculation_types - Comparison with the training set.")
         # model.compare_q_net_input_calculation_types(dataset=train_loader)
-
 
         # print("Comparison with the test set.")
         # model.compare_trajectory_evaluation_methods(dataset=test_loader, repeat_count=1000)
@@ -198,8 +205,6 @@ if __name__ == "__main__":
         # model.compare_q_table_calculation_types(dataset=test_loader)
         # print("Comparison of optimal q table calculation: Training set")
         # model.compare_q_table_calculation_types(dataset=train_loader)
-
-
 
         # ig_accuracy, ig_mac, ig_time = \
         #     model.validate_with_single_action_trajectory(loader=test_loader, action_trajectory=(0, 0))
