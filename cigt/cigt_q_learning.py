@@ -1084,7 +1084,7 @@ class CigtQLearning(CigtReinforceV2):
         kv_rows = []
         results_summary = {"Train": {}, "Test": {}}
         for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
-            results_dict = self.validate_with_expectation(loader=data_loader, temperature=10.0)
+            results_dict = self.validate_with_expectation(loader=data_loader, temperature=None)
             print("Expected {0} Accuracy:{1}".format(data_type, results_dict["expected_accuracy"]))
             print("Expected {0} Mac:{1}".format(data_type, results_dict["expected_mac"]))
             print("Expected {0} Mean Time:{1}".format(data_type, results_dict["expected_time"]))
