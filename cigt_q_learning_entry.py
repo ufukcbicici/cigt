@@ -148,7 +148,7 @@ if __name__ == "__main__":
     # policy_networks_policy_entropy_loss_coeff = 0.0
 
     mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15]
-    wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 10
+    wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
     mac_lambda_list = sorted(mac_lambda_list)
     wd_list = sorted(wd_list)
     param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list, wd_list])
