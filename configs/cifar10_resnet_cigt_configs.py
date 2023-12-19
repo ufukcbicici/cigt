@@ -152,6 +152,7 @@ class Cifar10ResnetCigtConfigs:
     policy_networks_epsilon_decay_coeff = 1.0
     policy_networks_last_eval_start = 5
     policy_networks_train_only_action_heads = False
+    policy_networks_no_improvement_stop_count = 20
 
 
 

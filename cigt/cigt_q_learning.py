@@ -1131,6 +1131,15 @@ class CigtQLearning(CigtReinforceV2):
                    0.0)], table=DbLogger.logsTableQCigt)
 
         print("************** Epoch:{0} **************".format(epoch))
+        results = {
+            "train_accuracy": results_summary["Train"]["Accuracy"].item(),
+            "train_mac": results_summary["Train"]["Mac"].item(),
+            "test_accuracy": results_summary["Test"]["Accuracy"].item(),
+            "test_mac": results_summary["Test"]["Mac"].item(),
+            "greedy_accuracy": results_dict["greedy_accuracy"],
+            "greedy_mac": results_dict["greedy_mac"]
+        }
+        return results
 
     def adjust_learning_rate_polynomial(self, iteration, num_of_total_iterations):
         lr = self.policyNetworkInitialLr
@@ -1167,6 +1176,9 @@ class CigtQLearning(CigtReinforceV2):
         self.routingRandomizationRatio = -1.0
 
         loss_buffer = []
+        best_accuracy = 0.0
+        best_mac = 0.0
+        epochs_without_improvement = 0
 
         print("Device:{0}".format(self.device))
         for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
@@ -1212,4 +1224,17 @@ class CigtQLearning(CigtReinforceV2):
             # Validation
             if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
                     epoch_id >= (self.policyNetworkTotalNumOfEpochs - self.policyNetworksLastEvalStart):
-                self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=epoch_id)
+                results_dict = \
+                    self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=epoch_id)
+                if results_dict["test_accuracy"] > best_accuracy:
+                    best_accuracy = results_dict["test_accuracy"]
+                    best_mac = results_dict["test_mac"]
+                    epochs_without_improvement = 0
+                    print("BEST ACCURACY SO FAR: {0} MAC: {1}".format(best_accuracy, best_mac))
+                else:
+                    epochs_without_improvement += 1
+                if epochs_without_improvement >= self.policyNetworksNoImprovementStopCount:
+                    print("NO IMPROVEMENTS FOR {0} EPOCHS, STOPPING.".format(epochs_without_improvement))
+                    break
+
+

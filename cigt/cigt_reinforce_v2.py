@@ -40,6 +40,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         self.policyNetworksBaselineMomentum = configs.policy_networks_baseline_momentum
         self.policyNetworksEntropyLossCoeff = configs.policy_networks_policy_entropy_loss_coeff
         self.policyNetworksLastEvalStart = configs.policy_networks_last_eval_start
+        self.policyNetworksNoImprovementStopCount = configs.policy_networks_no_improvement_stop_count
 
         # Inputs to the policy networks, per layer.
 

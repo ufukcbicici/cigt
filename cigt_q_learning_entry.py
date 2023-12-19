@@ -114,7 +114,7 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
-    DbLogger.log_db_path = DbLogger.paperspace
+    DbLogger.log_db_path = DbLogger.hpc_docker1
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     mac_lambda_list = sorted(mac_lambda_list)
     wd_list = sorted(wd_list)
     param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list, wd_list])
-    Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
+    Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 1
 
     # Skip already processed parameter combinations
     # get_parameters_histogram(parameters_used=["policyNetworksWd", "policyNetworksMacLambda"])
@@ -178,7 +178,7 @@ if __name__ == "__main__":
             precalculated_datasets_dict={"train_dataset": train_loader, "test_dataset": test_loader})
         model.to(model.device)
 
-        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_paperspace
+        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_hpc_docker
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
