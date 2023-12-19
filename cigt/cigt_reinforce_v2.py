@@ -476,7 +476,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         kv_rows = []
         explanation = super().get_explanation_string()
         for elem in inspect.getmembers(self):
-            if elem[0].startswith("policyNetworks") and \
+            if (elem[0].startswith("policyNetworks") or elem[0].startswith("policyNetwork")) and \
                     (isinstance(elem[1], bool) or
                      isinstance(elem[1], float) or
                      isinstance(elem[1], int) or
