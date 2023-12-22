@@ -612,9 +612,14 @@ class CigtIgGatherScatterImplementation(CigtIgHardRoutingX):
                 target_var = torch.autograd.Variable(target).to(self.device)
                 batch_size = input_var.size(0)
                 # Cigt Classification Loss and Accuracy Calculation
-                block_outputs_dict, routing_matrices_soft_dict, \
-                    routing_matrices_hard_dict, routing_activations_dict, logits_dict, labels_dict = \
-                    self.forward_v2(input_var, target_var, temperature)
+                forward_v2_results = self.forward_v2(input_var, target_var, temperature)
+                block_outputs_dict = forward_v2_results["block_outputs_dict"]
+                routing_matrices_soft_dict = forward_v2_results["routing_matrices_soft_dict"]
+                routing_matrices_hard_dict = forward_v2_results["routing_matrices_hard_dict"]
+                routing_activations_dict = forward_v2_results["routing_activations_dict"]
+                logits_dict = forward_v2_results["logits_dict"]
+                labels_dict = forward_v2_results["labels_dict"]
+
                 Utilities.append_to_dictionary(destination_dictionary=block_outputs_complete,
                                                source_dictionary=block_outputs_dict)
                 Utilities.append_to_dictionary(destination_dictionary=routing_matrices_soft_complete,

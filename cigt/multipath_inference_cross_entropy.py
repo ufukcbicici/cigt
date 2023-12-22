@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from auxillary.bayesian_optimizer import BayesianOptimizer
 from auxillary.db_logger import DbLogger
 from auxillary.softmax_temperature_optimizer import SoftmaxTemperatureOptimizer
+from auxillary.time_profiler import TimeProfiler
 from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.multipath_evaluator import MultipathEvaluator
@@ -84,6 +85,9 @@ class MultipathInferenceCrossEntropy(object):
         best_train_scores = {}
         best_test_scores = {}
         best_objective_scores = {}
+        times_spent_train = []
+        times_spent_test = []
+        time_profiler = TimeProfiler()
 
         print("********* Process {0} is starting. *********".format(process_id))
         sample_counts = set([threshold_array.shape[0] for threshold_array in sampled_thresholds.values()])
@@ -95,16 +99,25 @@ class MultipathInferenceCrossEntropy(object):
                 threshold_sample.append([])
                 for pid in range(path_counts[lid + 1]):
                     threshold_sample[-1].append(sampled_thresholds[(lid, pid)][sample_id])
+
+            time_profiler.start_measurement()
             accuracy_train, mac_cost_train = MultipathEvaluator.evaluate_thresholds_static(
                 thresholds=threshold_sample,
                 outputs=model_outputs_train,
                 mac_counts_per_block=mac_values,
                 path_counts=path_counts)
+            time_profiler.end_measurement()
+            times_spent_train.append(time_profiler.get_time())
+
+            time_profiler.start_measurement()
             accuracy_test, mac_cost_test = MultipathEvaluator.evaluate_thresholds_static(
                 thresholds=threshold_sample,
                 outputs=model_outputs_test,
                 mac_counts_per_block=mac_values,
                 path_counts=path_counts)
+            time_profiler.end_measurement()
+            times_spent_test.append(time_profiler.get_time())
+
             score = mac_lambda * accuracy_train - (1.0 - mac_lambda) * (mac_cost_train - 1.0)
             results_dict["accuracy_train"].append(accuracy_train)
             results_dict["mac_cost_train"].append(mac_cost_train)
@@ -148,6 +161,11 @@ class MultipathInferenceCrossEntropy(object):
 
                 print("Best Objective Score Stats:")
                 print(best_objective_scores)
+
+                print("times_spent_train:{0}".format(np.mean(np.array(times_spent_train))))
+                print("times_spent_test:{0}".format(np.mean(np.array(times_spent_test))))
+                times_spent_train = []
+                times_spent_test = []
 
         df = pd.DataFrame(results_dict)
         csv_file_path = "results_process_{0}_iteration_{1}.csv".format(process_id, iteration_id)

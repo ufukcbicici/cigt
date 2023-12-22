@@ -5,6 +5,7 @@ from torchvision import datasets
 from torchvision.transforms import transforms
 
 from auxillary.db_logger import DbLogger
+from auxillary.utilities import Utilities
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cutout_augmentation import CutoutPIL
@@ -14,6 +15,7 @@ from cigt.multipath_inference_bayesian import MultiplePathBayesianOptimizer
 import torch
 
 from cigt.multipath_inference_cross_entropy import MultipathInferenceCrossEntropy
+from cigt.multipath_inference_cross_entropy_v2 import MultipathInferenceCrossEntropyV2
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 from configs.cifar10_resnet_cigt_configs import Cifar10ResnetCigtConfigs
 
@@ -99,7 +101,7 @@ if __name__ == "__main__":
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.paperspace
 
     run_id = DbLogger.get_run_id()
     model = CigtIgGatherScatterImplementation(
@@ -139,30 +141,40 @@ if __name__ == "__main__":
         train_dataset_repeat_count=1
     )
 
-    # mp_bayesian_optimizer = MultiplePathBayesianOptimizer(
-    #     data_root_path=data_path,
-    #     init_points=250,
-    #     mac_lambda=0.9975,
-    #     max_probabilities=[0.5, 0.25],
-    #     model=model,
-    #     multipath_evaluator=multipath_evaluator,
-    #     n_iter=750
-    # )
-    #
-    # mp_bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-    #                           log_file_name="Multipath_CIFAR10")
+    mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25]
+    max_probabilities_list = [[0.5, 0.25], [1.0, 1.0]]
+    n_components_list = [1, 2, 3, 5]
+    covariance_types_list = ["diag", "full"]
+    covariance_types_list = sorted(covariance_types_list)
+    single_threshold_for_each_layer_list = [True] * 5
+    single_threshold_for_each_layer_list = sorted(single_threshold_for_each_layer_list)
 
-    mp_cross_entropy_optimizer = MultipathInferenceCrossEntropy(
-        data_root_path=data_path,
-        distribution_type="Gaussian",
-        mac_lambda=1.0,
-        max_probabilities=[0.5, 0.25],
-        model=model,
-        multipath_evaluator=multipath_evaluator,
-        n_iter=100,
-        quantile=0.05,
-        num_of_components=1,
-        num_samples_each_iteration=10000,
-        num_jobs=1)
+    param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list,
+                                                                max_probabilities_list,
+                                                                n_components_list,
+                                                                covariance_types_list,
+                                                                single_threshold_for_each_layer_list])
+    for params in param_grid:
+        mac_lambda = params[0]
+        max_probabilities = params[1]
+        num_of_components = params[2]
+        covariance_type = params[3]
+        single_threshold_for_each_layer = params[4]
 
-    mp_cross_entropy_optimizer.fit()
+        run_id = DbLogger.get_run_id()
+
+        mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyV2(
+            run_id=run_id,
+            mac_lambda=mac_lambda,
+            max_probabilities=max_probabilities,
+            multipath_evaluator=multipath_evaluator,
+            n_iter=100,
+            quantile=0.05,
+            num_of_components=num_of_components,
+            single_threshold_for_each_layer=single_threshold_for_each_layer,
+            num_samples_each_iteration=10000,
+            num_jobs=1,
+            covariance_type=covariance_type,
+            path_counts=model.pathCounts)
+
+        mp_cross_entropy_optimizer.fit()

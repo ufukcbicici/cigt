@@ -15,8 +15,48 @@ class NetworkOutput(object):
         self.routingActivationMatrices = []
         self.logits = []
         self.labels = []
+        self.routingProbabilities = []
+        self.softmaxProbabilities = []
         self.optimalTemperatures = []
         self.igAccuracy = None
+
+    def move_to_torch(self, device):
+        device_output = NetworkOutput()
+
+        # Optimal temperatures
+        for idx in range(len(self.optimalTemperatures)):
+            device_output.optimalTemperatures.append(torch.from_numpy(self.optimalTemperatures[idx]).to(device))
+
+        # Activations array
+        for idx in range(len(self.routingActivationMatrices)):
+            device_output.routingActivationMatrices.append(
+                torch.from_numpy(self.routingActivationMatrices[idx]).to(device))
+
+        # Routing probabilities with temperature tempering
+        for idx in range(len(self.routingActivationMatrices)):
+            route_combinations = Utilities.create_route_combinations(
+                shape_=self.routingActivationMatrices[idx].shape[:(idx + 1)])
+            route_probabilities_complete_arr = torch.zeros_like(torch.from_numpy(
+                self.routingActivationMatrices[idx])).to(device)
+            for route_combination in route_combinations:
+                routing_activations = self.routingActivationMatrices[idx][route_combination]
+                temperature = device_output.optimalTemperatures[idx][route_combination]
+                routing_activations_tempered = routing_activations / temperature
+                routing_probabilities = torch.nn.functional.softmax(routing_activations_tempered, dim=1)
+                route_probabilities_complete_arr[route_combination] = routing_probabilities
+            device_output.routingProbabilities.append(route_probabilities_complete_arr.to(device))
+
+        # Logits and softmax probabilities and labels
+        assert len(self.logits) == 1 and len(self.labels) == 1
+        device_output.logits = torch.from_numpy(self.logits[0]).to(device)
+        device_output.labels = torch.from_numpy(self.labels[0]).to(device)
+        device_output.softmaxProbabilities = torch.zeros_like(device_output.logits).to(device)
+        route_combinations = Utilities.create_route_combinations(shape_=device_output.logits.shape[:-2])
+        for route_combination in route_combinations:
+            device_output.softmaxProbabilities[route_combination] = torch.nn.functional.softmax(
+                device_output.logits[route_combination], dim=1)
+
+        return device_output
 
 
 class MultipathEvaluator(object):
@@ -569,3 +609,92 @@ class MultipathEvaluator(object):
                 mac_costs_list = mac_costs_list / single_path_mac_cost
                 mac_cost_final = np.mean(mac_costs_list)
                 return accuracy, mac_cost_final
+
+    @staticmethod
+    def evaluate_thresholds_static_v2(path_counts, thresholds, outputs, mac_counts_per_block, device):
+        data_size = outputs.logits.shape[-2]
+        execution_vectors_dict = {(0,): torch.ones(size=(data_size,), dtype=torch.float32).to(device)}
+        path_history_dict = {}
+        assert isinstance(thresholds, dict)
+
+        # Single path mac cost
+        single_path_mac_cost = sum([sum(d_.values()) for d_ in mac_counts_per_block])
+        # Calculate the routing behavior and get a execution dictionary for all routing combinations given these
+        # thresholds.
+        for layer_id in range(len(path_counts) - 1):
+            route_combinations = Utilities.create_route_combinations(shape_=path_counts[:(layer_id + 1)])
+            for route_combination in route_combinations:
+                layer_thresholds = []
+                for child_id in range(path_counts[layer_id + 1]):
+                    child_route_tuple = (*route_combination, child_id)
+                    layer_thresholds.append(thresholds[child_route_tuple])
+                layer_thresholds = torch.from_numpy(np.array(layer_thresholds)).to(device)
+                assert route_combination in execution_vectors_dict
+                current_execution_vector = execution_vectors_dict[route_combination]
+                routing_probabilities = outputs.routingProbabilities[layer_id][route_combination]
+                # Calculate the IG routing matrix
+                ig_indices = torch.argmax(routing_probabilities, dim=1)
+                ig_routing_matrix = torch.zeros_like(routing_probabilities)
+                ig_routing_matrix[torch.arange(ig_routing_matrix.shape[0]), ig_indices] = 1.0
+                # Calculate the routing matrix based on probability thresholds
+                threshold_routing_matrix = routing_probabilities >= torch.unsqueeze(layer_thresholds, dim=0)
+                # Apply logical or to both ig_routing_matrix and threshold_routing_matrix,
+                # so that routing is always done through the ig path plus the routes where threshold values are
+                # below the routing probabilities.
+                final_routing_matrix = torch.logical_or(ig_routing_matrix.to(torch.bool),
+                                                        threshold_routing_matrix.to(torch.bool))
+                final_routing_matrix = final_routing_matrix.to(torch.float32)
+                assert path_counts[layer_id + 1] == final_routing_matrix.shape[1]
+                # Set the routing vectors in all possible child node combinations.
+                for child_id in range(final_routing_matrix.shape[1]):
+                    child_activation_vector = final_routing_matrix[:, child_id]
+                    child_execution_vector = current_execution_vector * child_activation_vector
+                    child_route_combination = (*route_combination, child_id)
+                    execution_vectors_dict[child_route_combination] = child_execution_vector
+
+        # Calculate the accuracy and extra MAC based on the routing decisions.
+        route_combinations = Utilities.create_route_combinations(shape_=path_counts)
+        selections_arr = []
+        weighted_posteriors_arr = []
+        labels_arr = []
+        for route_combination in route_combinations:
+            assert route_combination in execution_vectors_dict
+            labels = outputs.labels[route_combination]
+            posteriors = outputs.softmaxProbabilities[route_combination]
+            execution_vector = execution_vectors_dict[route_combination]
+            selections_arr.append(execution_vector)
+            weighted_posteriors_arr.append(torch.unsqueeze(execution_vector, dim=-1) * posteriors)
+            labels_arr.append(labels)
+        selections_arr = torch.stack(selections_arr, dim=-1)
+        weighted_posteriors_arr = torch.stack(weighted_posteriors_arr, dim=-1)
+        labels_arr = torch.stack(labels_arr, dim=-1)
+
+        number_of_experts = torch.sum(selections_arr, dim=-1)
+        assert torch.equal(torch.sum(number_of_experts < 1), torch.Tensor([0])[0].to(device))
+        ensemble_posteriors = torch.sum(weighted_posteriors_arr, dim=-1)
+        ensemble_posteriors = ensemble_posteriors * torch.unsqueeze(torch.reciprocal(number_of_experts), dim=-1)
+        ensemble_posteriors_sum = torch.sum(ensemble_posteriors, dim=-1)
+        assert torch.allclose(ensemble_posteriors_sum, torch.ones_like(ensemble_posteriors_sum))
+        for idx in range(labels_arr.shape[-1] - 1):
+            A_ = labels_arr[:, idx]
+            B_ = labels_arr[:, idx + 1]
+            assert torch.equal(A_, B_)
+
+        predicted_labels = torch.argmax(ensemble_posteriors, dim=-1)
+        gt_labels = labels_arr[:, 0]
+        accuracy = torch.mean((predicted_labels == gt_labels).to(torch.float32))
+
+        # Calculate the MAC by tracing the execution history
+        mac_costs_list = []
+        for lid in range(len(path_counts)):
+            route_combinations = Utilities.create_route_combinations(shape_=path_counts[:(lid + 1)])
+            unit_mac_cost_layer = sum(mac_counts_per_block[lid].values())
+            execution_matrix_for_layer = torch.stack([execution_vectors_dict[tpl] for tpl in route_combinations],
+                                                     dim=-1)
+            layer_execution_counts_vector = torch.sum(execution_matrix_for_layer, dim=-1)
+            layer_costs_vector = unit_mac_cost_layer * layer_execution_counts_vector
+            mac_costs_list.append(layer_costs_vector)
+        total_mac_costs_vector = torch.sum(torch.stack(mac_costs_list, dim=-1), dim=-1)
+        relative_mac_costs_vector = total_mac_costs_vector / single_path_mac_cost
+        mac_cost_final = torch.mean(relative_mac_costs_vector)
+        return accuracy, mac_cost_final
