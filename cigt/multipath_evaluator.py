@@ -36,8 +36,8 @@ class NetworkOutput(object):
         for idx in range(len(device_output.routingActivationMatrices)):
             route_combinations = Utilities.create_route_combinations(
                 shape_=device_output.routingActivationMatrices[idx].shape[:(idx + 1)])
-            route_probabilities_complete_arr = torch.zeros_like(torch.from_numpy(
-                device_output.routingActivationMatrices[idx])).to(device)
+            route_probabilities_complete_arr = torch.zeros_like(device_output.routingActivationMatrices[idx]
+                                                                ).to(device)
             for route_combination in route_combinations:
                 routing_activations = device_output.routingActivationMatrices[idx][route_combination]
                 temperature = device_output.optimalTemperatures[idx][route_combination]
