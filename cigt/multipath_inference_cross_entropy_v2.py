@@ -178,8 +178,8 @@ class MultipathInferenceCrossEntropyV2(object):
                 time_profiler.end_measurement()
                 method_2_time += time_profiler.get_time()
 
-                assert np.allclose(np.array(train_res1), np.array(train_res2))
-                assert np.allclose(np.array(test_res1), np.array(test_res2))
+                assert np.allclose(np.array(train_res1), np.array(torch.Tensor(train_res2).cpu().numpy()))
+                assert np.allclose(np.array(test_res1), np.array(torch.Tensor(test_res2).cpu().numpy()))
                 desc = "method_1_time:{0} method_2_time:{1}".format(method_1_time, method_2_time)
                 t_counter.set_description(desc)
 
