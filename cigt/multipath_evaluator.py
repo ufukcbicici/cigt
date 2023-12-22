@@ -33,13 +33,13 @@ class NetworkOutput(object):
                 torch.from_numpy(self.routingActivationMatrices[idx]).to(device))
 
         # Routing probabilities with temperature tempering
-        for idx in range(len(self.routingActivationMatrices)):
+        for idx in range(len(device_output.routingActivationMatrices)):
             route_combinations = Utilities.create_route_combinations(
-                shape_=self.routingActivationMatrices[idx].shape[:(idx + 1)])
+                shape_=device_output.routingActivationMatrices[idx].shape[:(idx + 1)])
             route_probabilities_complete_arr = torch.zeros_like(torch.from_numpy(
-                self.routingActivationMatrices[idx])).to(device)
+                device_output.routingActivationMatrices[idx])).to(device)
             for route_combination in route_combinations:
-                routing_activations = self.routingActivationMatrices[idx][route_combination]
+                routing_activations = device_output.routingActivationMatrices[idx][route_combination]
                 temperature = device_output.optimalTemperatures[idx][route_combination]
                 routing_activations_tempered = routing_activations / temperature
                 routing_probabilities = torch.nn.functional.softmax(routing_activations_tempered, dim=1)
