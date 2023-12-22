@@ -108,32 +108,14 @@ class MultipathInferenceCrossEntropyV2(object):
         DbLogger.write_into_table(rows=kv_rows, table="run_parameters")
         return explanation
 
-    def evaluate_thresholds(self, thresholds, train_outputs, test_outputs):
-        eval_times = []
-        t_counter = tqdm(range(thresholds.shape[0]))
-        # Call each process with their own set of thresholds
-        for tid in t_counter:
-            threshs = thresholds[tid]
-
-
-
-    # time_profiler.start_measurement()
-    #     threshs_dict = {tpl: threshs[dim_id] for tpl, dim_id in self.thresholdMappingDict.items()}
-    #     train_res2 = MultipathEvaluator.evaluate_thresholds_static_v2(
-    #         mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
-    #         thresholds=threshs_dict,
-    #         outputs=train_outputs_cuda,
-    #         path_counts=self.parameterPathCounts,
-    #         device=self.device)
-    #     test_res2 = MultipathEvaluator.evaluate_thresholds_static_v2(
-    #         mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
-    #         thresholds=threshs_dict,
-    #         outputs=test_outputs_cuda,
-    #         path_counts=self.parameterPathCounts,
-    #         device=self.device)
-    #     time_profiler.end_measurement()
-    #     method_2_time += time_profiler.get_time()
-
+    # def generate_sample(self, num_samples):
+    #     thresholds = {}
+    #     thresholds = self.distribution.sample(num_of_samples=num_samples)
+    #     # for lid in range(len(self.model.pathCounts) - 1):
+    #     #     for pid in range(self.model.pathCounts[lid + 1]):
+    #     #         sample_threshold = self.distributions[(lid, pid)].sample(num_of_samples=num_samples)
+    #     #         thresholds[(lid, pid)] = sample_threshold
+    #     # return thresholds
 
     def fit(self):
         explanation = self.get_explanation_string()
@@ -145,90 +127,62 @@ class MultipathInferenceCrossEntropyV2(object):
         for iteration_id in range(self.parameterNumOfIterations):
             # Generate samples with the current distributions
             thresholds = self.distribution.sample(num_of_samples=self.parameterNumOfSamples)
+            # Distribute sampled thresholds to processes
+            sample_indices = np.arange(self.parameterNumOfSamples)
+            sample_index_chunks = Utilities.divide_array_into_chunks(arr=sample_indices, count=self.numJobs)
+            thresholds_per_process = {}
+            for process_id in range(self.numJobs):
+                index_chunk = sample_index_chunks[process_id]
+                thresholds_per_process[process_id] = thresholds[index_chunk]
+            assert np.array_equal(thresholds,
+                                  np.concatenate([thresholds_per_process[pid]
+                                                  for pid in range(self.numJobs)], axis=0))
+            method_1_time = 0.0
+            method_2_time = 0.0
+            t_counter = tqdm(range(thresholds.shape[0]))
+            # Call each process with their own set of thresholds
+            for tid in t_counter:
+                threshs = thresholds[tid]
+                # self.multipathEvaluator.trainOutputs,
+                # self.multipathEvaluator.testOutputs,
 
+                time_profiler = TimeProfiler()
+                time_profiler.start_measurement()
+                train_res1 = MultipathEvaluator.evaluate_thresholds_static(
+                    mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
+                    thresholds=[threshs[0:2], threshs[2:6]],
+                    outputs=self.multipathEvaluator.trainOutputs,
+                    path_counts=self.parameterPathCounts)
+                test_res1 = MultipathEvaluator.evaluate_thresholds_static(
+                    mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
+                    thresholds=[threshs[0:2], threshs[2:6]],
+                    outputs=self.multipathEvaluator.testOutputs,
+                    path_counts=self.parameterPathCounts)
+                time_profiler.end_measurement()
+                method_1_time += time_profiler.get_time()
 
+                time_profiler.start_measurement()
+                threshs_dict = {tpl: threshs[dim_id] for tpl, dim_id in self.thresholdMappingDict.items()}
+                train_res2 = MultipathEvaluator.evaluate_thresholds_static_v2(
+                    mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
+                    thresholds=threshs_dict,
+                    outputs=train_outputs_cuda,
+                    path_counts=self.parameterPathCounts,
+                    device=self.device)
+                test_res2 = MultipathEvaluator.evaluate_thresholds_static_v2(
+                    mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
+                    thresholds=threshs_dict,
+                    outputs=test_outputs_cuda,
+                    path_counts=self.parameterPathCounts,
+                    device=self.device)
+                time_profiler.end_measurement()
+                method_2_time += time_profiler.get_time()
 
+                assert np.allclose(np.array(train_res1), np.array(train_res2))
+                assert np.allclose(np.array(test_res1), np.array(test_res2))
+                desc = "method_1_time:{0} method_2_time:{1}".format(method_1_time, method_2_time)
+                t_counter.set_description(desc)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            # # Distribute sampled thresholds to processes
-            # sample_indices = np.arange(self.parameterNumOfSamples)
-            # sample_index_chunks = Utilities.divide_array_into_chunks(arr=sample_indices, count=self.numJobs)
-            # thresholds_per_process = {}
-            # for process_id in range(self.numJobs):
-            #     index_chunk = sample_index_chunks[process_id]
-            #     thresholds_per_process[process_id] = thresholds[index_chunk]
-            # assert np.array_equal(thresholds,
-            #                       np.concatenate([thresholds_per_process[pid]
-            #                                       for pid in range(self.numJobs)], axis=0))
-
-            # ******************* FOR TEST *******************
-            # method_1_time = 0.0
-            # method_2_time = 0.0
-            # t_counter = tqdm(range(thresholds.shape[0]))
-            # # Call each process with their own set of thresholds
-            # for tid in t_counter:
-            #     threshs = thresholds[tid]
-            #     # self.multipathEvaluator.trainOutputs,
-            #     # self.multipathEvaluator.testOutputs,
-            #
-            #     time_profiler = TimeProfiler()
-            #     time_profiler.start_measurement()
-            #     train_res1 = MultipathEvaluator.evaluate_thresholds_static(
-            #         mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
-            #         thresholds=[threshs[0:2], threshs[2:6]],
-            #         outputs=self.multipathEvaluator.trainOutputs,
-            #         path_counts=self.parameterPathCounts)
-            #     test_res1 = MultipathEvaluator.evaluate_thresholds_static(
-            #         mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
-            #         thresholds=[threshs[0:2], threshs[2:6]],
-            #         outputs=self.multipathEvaluator.testOutputs,
-            #         path_counts=self.parameterPathCounts)
-            #     time_profiler.end_measurement()
-            #     method_1_time += time_profiler.get_time()
-            #
-            #     time_profiler.start_measurement()
-            #     threshs_dict = {tpl: threshs[dim_id] for tpl, dim_id in self.thresholdMappingDict.items()}
-            #     train_res2 = MultipathEvaluator.evaluate_thresholds_static_v2(
-            #         mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
-            #         thresholds=threshs_dict,
-            #         outputs=train_outputs_cuda,
-            #         path_counts=self.parameterPathCounts,
-            #         device=self.device)
-            #     test_res2 = MultipathEvaluator.evaluate_thresholds_static_v2(
-            #         mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
-            #         thresholds=threshs_dict,
-            #         outputs=test_outputs_cuda,
-            #         path_counts=self.parameterPathCounts,
-            #         device=self.device)
-            #     time_profiler.end_measurement()
-            #     method_2_time += time_profiler.get_time()
-            #
-            #     assert np.allclose(np.array(train_res1), np.array(train_res2))
-            #     assert np.allclose(np.array(test_res1), np.array(test_res2))
-            #     desc = "method_1_time:{0} method_2_time:{1}".format(method_1_time, method_2_time)
-            #     t_counter.set_description(desc)
-            # ******************* FOR TEST *******************
 
 
 
