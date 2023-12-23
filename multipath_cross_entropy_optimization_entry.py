@@ -177,4 +177,4 @@ if __name__ == "__main__":
             covariance_type=covariance_type,
             path_counts=model.pathCounts)
 
-        mp_cross_entropy_optimizer.fit()
+        mp_cross_entropy_optimizer.fit_test()

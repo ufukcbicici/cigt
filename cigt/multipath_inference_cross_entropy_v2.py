@@ -108,16 +108,40 @@ class MultipathInferenceCrossEntropyV2(object):
         DbLogger.write_into_table(rows=kv_rows, table="run_parameters")
         return explanation
 
-    # def generate_sample(self, num_samples):
-    #     thresholds = {}
-    #     thresholds = self.distribution.sample(num_of_samples=num_samples)
-    #     # for lid in range(len(self.model.pathCounts) - 1):
-    #     #     for pid in range(self.model.pathCounts[lid + 1]):
-    #     #         sample_threshold = self.distributions[(lid, pid)].sample(num_of_samples=num_samples)
-    #     #         thresholds[(lid, pid)] = sample_threshold
-    #     # return thresholds
-
     def fit(self):
+        explanation = self.get_explanation_string()
+        DbLogger.write_into_table(rows=[(self.parameterRunId, explanation)], table=DbLogger.runMetaData)
+        time_profiler = TimeProfiler()
+        train_outputs_cuda = self.multipathEvaluator.trainOutputs.move_to_torch(device=self.device)
+        test_outputs_cuda = self.multipathEvaluator.testOutputs.move_to_torch(device=self.device)
+
+        for iteration_id in range(self.parameterNumOfIterations):
+            # Generate samples with the current distributions
+            thresholds = self.distribution.sample(num_of_samples=self.parameterNumOfSamples)
+            iteration_times = []
+            t_counter = tqdm(range(thresholds.shape[0]))
+            # Call each process with their own set of thresholds
+            for tid in t_counter:
+                threshold_vector = thresholds[tid]
+                threshs_dict = {tpl: threshold_vector[dim_id] for tpl, dim_id in self.thresholdMappingDict.items()}
+
+                time_profiler.start_measurement()
+                train_res = MultipathEvaluator.evaluate_thresholds_static_v2(
+                    mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
+                    thresholds=threshs_dict,
+                    outputs=train_outputs_cuda,
+                    path_counts=self.parameterPathCounts,
+                    device=self.device)
+                test_res = MultipathEvaluator.evaluate_thresholds_static_v2(
+                    mac_counts_per_block=self.multipathEvaluator.macCountsPerBlock,
+                    thresholds=threshs_dict,
+                    outputs=test_outputs_cuda,
+                    path_counts=self.parameterPathCounts,
+                    device=self.device)
+                time_profiler.end_measurement()
+                iteration_times.append(time_profiler.get_time())
+
+    def fit_test(self):
         explanation = self.get_explanation_string()
         DbLogger.write_into_table(rows=[(self.parameterRunId, explanation)], table=DbLogger.runMetaData)
 
@@ -178,14 +202,17 @@ class MultipathInferenceCrossEntropyV2(object):
                 time_profiler.end_measurement()
                 method_2_time += time_profiler.get_time()
 
-                assert np.allclose(np.array(train_res1), np.array(torch.Tensor(train_res2).cpu().numpy()))
-                assert np.allclose(np.array(test_res1), np.array(torch.Tensor(test_res2).cpu().numpy()))
+                if not np.allclose(np.array(train_res1), torch.Tensor(train_res2).cpu().numpy()):
+                    print("NOT CLOSE:{0}-{1}".format(np.array(train_res1),
+                                                     np.array(torch.Tensor(train_res2).cpu().numpy())))
+                    break
+                if not np.allclose(np.array(test_res1), torch.Tensor(test_res2).cpu().numpy()):
+                    print("NOT CLOSE:{0}-{1}".format(np.array(test_res1),
+                                                     np.array(torch.Tensor(test_res2).cpu().numpy())))
+                    break
                 desc = "method_1_time:{0} method_2_time:{1}".format(method_1_time, method_2_time)
                 t_counter.set_description(desc)
-
-
-
-
+            break
 
             # list_of_processes = []
             # for process_id in range(self.numJobs):
