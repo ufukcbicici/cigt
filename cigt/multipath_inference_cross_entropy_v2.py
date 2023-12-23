@@ -204,11 +204,11 @@ class MultipathInferenceCrossEntropyV2(object):
 
                 if not np.allclose(np.array(train_res1), torch.Tensor(train_res2).cpu().numpy()):
                     print("NOT CLOSE:{0}-{1}".format(np.array(train_res1),
-                                                     np.array(torch.Tensor(train_res2).cpu().numpy())))
+                                                     torch.Tensor(train_res2).cpu().numpy()))
                     break
                 if not np.allclose(np.array(test_res1), torch.Tensor(test_res2).cpu().numpy()):
                     print("NOT CLOSE:{0}-{1}".format(np.array(test_res1),
-                                                     np.array(torch.Tensor(test_res2).cpu().numpy())))
+                                                     torch.Tensor(test_res2).cpu().numpy()))
                     break
                 desc = "method_1_time:{0} method_2_time:{1}".format(method_1_time, method_2_time)
                 t_counter.set_description(desc)
