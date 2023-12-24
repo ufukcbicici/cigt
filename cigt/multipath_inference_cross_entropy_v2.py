@@ -369,7 +369,7 @@ class MultipathInferenceCrossEntropyV2(object):
 
         return raw_results_dict
 
-    def histogram_analysis(self, path_to_saved_output, repeat_count):
+    def histogram_analysis(self, path_to_saved_output, repeat_count, bin_size):
         if not os.path.isfile(path_to_saved_output):
             train_outputs_cuda = self.multipathEvaluator.trainOutputs.move_to_torch(device=self.device)
             test_outputs_cuda = self.multipathEvaluator.testOutputs.move_to_torch(device=self.device)
@@ -394,7 +394,31 @@ class MultipathInferenceCrossEntropyV2(object):
             Utilities.pickle_save_to_file(path=path_to_saved_output, file_content=sorted_all_results_df)
 
         all_results_df = Utilities.pickle_load_from_file(path=path_to_saved_output)
+        # Reorganize with respect to new mac measure.
+        train_acc = all_results_df["accuracy_train"]
+        train_mac = all_results_df["mac_cost_train"]
+        score_vector = (1.0 - self.parameterMacLambda) * train_acc - self.parameterMacLambda * (train_mac - 1.0)
+        all_results_df["score"] = score_vector
+
         sorted_all_results_df = all_results_df.sort_values(by=["score"], inplace=False, ascending=False)
-        print("X")
+
+        largest_test_score = 0.0
+        for bin_id in range(0, sorted_all_results_df.shape[0], bin_size):
+            bin_start = bin_id
+            bin_end = bin_start + bin_size
+            bin_df = sorted_all_results_df.iloc[bin_start: bin_end]
+            mean_score = bin_df["score"].mean()
+            max_score = bin_df["score"].max()
+            min_score = bin_df["score"].min()
+            mean_test_accuracy = bin_df["accuracy_test"].mean()
+            mean_test_mac = bin_df["mac_cost_test"].mean()
+            if mean_test_accuracy > largest_test_score:
+                largest_test_score = mean_test_accuracy
+            print("Bin({0},{1}) Mean Score:{2} Mean Test Accuracy:{3} Mean Test Mac:{4} "
+                  "Max Score:{4} Min Score:{5}".format(bin_start, bin_end,
+                                                       mean_score, mean_test_accuracy,
+                                                       mean_test_mac, max_score, min_score))
+
+        print(largest_test_score)
 
 
