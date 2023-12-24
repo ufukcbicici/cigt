@@ -156,7 +156,7 @@ if __name__ == "__main__":
         path_counts=model.pathCounts,
         maximum_iterations_without_improvement=25)
     mp_cross_entropy_optimizer.histogram_analysis(path_to_saved_output="cross_entropy_histogram_analysis.sav",
-                                                  repeat_count=1000)
+                                                  repeat_count=100)
 
     # FOR GRID SEARCH
     # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25]
