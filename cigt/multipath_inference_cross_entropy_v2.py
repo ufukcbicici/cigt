@@ -275,6 +275,10 @@ class MultipathInferenceCrossEntropyV2(object):
                 t_counter.set_description(desc)
             break
 
+    def calculate_score(self, accuracy, mac_cost):
+        score = (1.0 - self.parameterMacLambda) * accuracy - self.parameterMacLambda * (mac_cost - 1.0)
+        return score
+
     def analyze_thresholds(self, thresholds, train_outputs, test_outputs,
                            best_train_accuracies, best_test_accuracies, best_objective_scores,
                            verbose, iteration_id):
@@ -315,8 +319,7 @@ class MultipathInferenceCrossEntropyV2(object):
             mac_cost_train = train_res[1].cpu().numpy().item()
             accuracy_test = test_res[0].cpu().numpy().item()
             mac_cost_test = test_res[1].cpu().numpy().item()
-            score = (1.0 - self.parameterMacLambda) * accuracy_train - \
-                    self.parameterMacLambda * (mac_cost_train - 1.0)
+            score = self.calculate_score(accuracy=accuracy_train, mac_cost=mac_cost_train)
 
             raw_results_dict["accuracy_train"].append(accuracy_train)
             raw_results_dict["mac_cost_train"].append(mac_cost_train)
@@ -401,6 +404,9 @@ class MultipathInferenceCrossEntropyV2(object):
         all_results_df["score"] = score_vector
 
         sorted_all_results_df = all_results_df.sort_values(by=["score"], inplace=False, ascending=False)
+        db_engine = create_engine(url="sqlite:///" + DbLogger.log_db_path, echo=False)
+        with db_engine.connect() as connection:
+            sorted_all_results_df.to_sql("random_thresholds", con=connection, if_exists='append', index=False)
 
         largest_test_score = 0.0
         for bin_id in range(0, sorted_all_results_df.shape[0], bin_size):
@@ -415,7 +421,7 @@ class MultipathInferenceCrossEntropyV2(object):
             if mean_test_accuracy > largest_test_score:
                 largest_test_score = mean_test_accuracy
             print("Bin({0},{1}) Mean Score:{2} Mean Test Accuracy:{3} Mean Test Mac:{4} "
-                  "Max Score:{4} Min Score:{5}".format(bin_start, bin_end,
+                  "Max Score:{5} Min Score:{6}".format(bin_start, bin_end,
                                                        mean_score, mean_test_accuracy,
                                                        mean_test_mac, max_score, min_score))
 
