@@ -204,8 +204,8 @@ if __name__ == "__main__":
     #     mp_cross_entropy_optimizer.fit()
 
     # FOR GRID SEARCH Method 2
-    accuracy_target_list = [0.5]
-    mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25]
+    accuracy_target_list = [0.5, 0.25]
+    mac_lambda_list = [0.25] #[0.0, 0.001, 0.01, 0.1, 0.25, 0.5, 0.75]
     max_probabilities_list = [[0.5, 0.25], [1.0, 1.0]]
     quantile_intervals_list = [(0.0, 0.05)]
     n_components_list = [1, 2, 3, 5]
@@ -250,4 +250,3 @@ if __name__ == "__main__":
             path_to_saved_output="cross_entropy_histogram_analysis.sav")
 
         mp_cross_entropy_optimizer.fit()
-        break
