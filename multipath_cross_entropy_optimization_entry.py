@@ -167,7 +167,7 @@ if __name__ == "__main__":
         maximum_iterations_without_improvement=25)
     mp_cross_entropy_optimizer.histogram_analysis(
         path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"),
-        repeat_count=10,
+        repeat_count=100,
         bin_size=10000)
 
     # FOR GRID SEARCH Method 1
