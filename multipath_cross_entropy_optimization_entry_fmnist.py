@@ -80,7 +80,7 @@ if __name__ == "__main__":
     FashionLenetCigtConfigs.batch_norm_type = "BatchNorm"
     FashionLenetCigtConfigs.data_parallelism = False
 
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.paperspace
 
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_160_epoch145.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_160_epoch145")
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     kwargs = {'num_workers': 0, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
         # transforms.Resize((32, 32)),
-        CutoutPILGray(cutout_factor=0.225),
+        CutoutPILGray(cutout_factor=0.25),
         # RandAugment(),
         transforms.ToTensor(),
     ])
