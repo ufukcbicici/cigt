@@ -99,8 +99,11 @@ if __name__ == "__main__":
         datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
         batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
-    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
-    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
+    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575_data")
+
+    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger2_94_epoch1390.pth")
+    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
     DbLogger.log_db_path = DbLogger.paperspace
 
@@ -137,28 +140,29 @@ if __name__ == "__main__":
         train_dataset=train_loader_hard,
         test_dataset=test_loader_light,
         mac_counts_per_block=mac_counts_per_block,
-        evaluate_network_first=False,
+        evaluate_network_first=True,
         train_dataset_repeat_count=1
     )
 
-    # run_id = DbLogger.get_run_id()
-    # mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyV2(
-    #     run_id=run_id,
-    #     mac_lambda=0.0,
-    #     max_probabilities=[0.5, 0.25],
-    #     multipath_evaluator=multipath_evaluator,
-    #     n_iter=100,
-    #     quantile_interval=(0.0, 0.05),
-    #     num_of_components=1,
-    #     single_threshold_for_each_layer=False,
-    #     num_samples_each_iteration=10000,
-    #     num_jobs=1,
-    #     covariance_type="diag",
-    #     path_counts=model.pathCounts,
-    #     maximum_iterations_without_improvement=25)
-    # mp_cross_entropy_optimizer.histogram_analysis(path_to_saved_output="cross_entropy_histogram_analysis.sav",
-    #                                               repeat_count=3,
-    #                                               bin_size=1000)
+    run_id = DbLogger.get_run_id()
+    mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyV2(
+        run_id=run_id,
+        mac_lambda=0.0,
+        max_probabilities=[0.5, 0.25],
+        multipath_evaluator=multipath_evaluator,
+        n_iter=100,
+        quantile_interval=(0.0, 0.05),
+        num_of_components=1,
+        single_threshold_for_each_layer=False,
+        num_samples_each_iteration=10000,
+        num_jobs=1,
+        covariance_type="diag",
+        path_counts=model.pathCounts,
+        maximum_iterations_without_improvement=25)
+    mp_cross_entropy_optimizer.histogram_analysis(
+        path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"),
+        repeat_count=100,
+        bin_size=10000)
 
     # FOR GRID SEARCH Method 1
     # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25]
@@ -204,49 +208,49 @@ if __name__ == "__main__":
     #     mp_cross_entropy_optimizer.fit()
 
     # FOR GRID SEARCH Method 2
-    accuracy_target_list = [0.5, 0.25]
-    mac_lambda_list = [0.25] #[0.0, 0.001, 0.01, 0.1, 0.25, 0.5, 0.75]
-    max_probabilities_list = [[0.5, 0.25], [1.0, 1.0]]
-    quantile_intervals_list = [(0.0, 0.05)]
-    n_components_list = [1, 2, 3, 5]
-    covariance_types_list = ["diag", "full"]
-    covariance_types_list = sorted(covariance_types_list)
-    single_threshold_for_each_layer_list = [False] * 3
-    single_threshold_for_each_layer_list = sorted(single_threshold_for_each_layer_list)
-
-    param_grid = Utilities.get_cartesian_product(list_of_lists=[accuracy_target_list,
-                                                                mac_lambda_list,
-                                                                max_probabilities_list,
-                                                                quantile_intervals_list,
-                                                                n_components_list,
-                                                                covariance_types_list,
-                                                                single_threshold_for_each_layer_list])
-    for params in param_grid:
-        accuracy_target = params[0]
-        mac_lambda = params[1]
-        max_probabilities = params[2]
-        quantile_interval = params[3]
-        num_of_components = params[4]
-        covariance_type = params[5]
-        single_threshold_for_each_layer = params[6]
-
-        run_id = DbLogger.get_run_id()
-
-        mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyFreeTarget(
-            run_id=run_id,
-            mac_lambda=mac_lambda,
-            max_probabilities=max_probabilities,
-            multipath_evaluator=multipath_evaluator,
-            n_iter=100,
-            quantile_interval=quantile_interval,
-            num_of_components=num_of_components,
-            single_threshold_for_each_layer=single_threshold_for_each_layer,
-            num_samples_each_iteration=10000,
-            num_jobs=1,
-            covariance_type=covariance_type,
-            path_counts=model.pathCounts,
-            maximum_iterations_without_improvement=25,
-            accuracy_target_normalized=accuracy_target,
-            path_to_saved_output="cross_entropy_histogram_analysis.sav")
-
-        mp_cross_entropy_optimizer.fit()
+    # accuracy_target_list = [0.5, 0.25]
+    # mac_lambda_list = [0.0, 0.001, 0.01, 0.1, 0.25, 0.5, 0.75]
+    # max_probabilities_list = [[0.5, 0.25], [1.0, 1.0]]
+    # quantile_intervals_list = [(0.0, 0.05)]
+    # n_components_list = [1, 2, 3, 5]
+    # covariance_types_list = ["diag", "full"]
+    # covariance_types_list = sorted(covariance_types_list)
+    # single_threshold_for_each_layer_list = [False] * 3
+    # single_threshold_for_each_layer_list = sorted(single_threshold_for_each_layer_list)
+    #
+    # param_grid = Utilities.get_cartesian_product(list_of_lists=[accuracy_target_list,
+    #                                                             mac_lambda_list,
+    #                                                             max_probabilities_list,
+    #                                                             quantile_intervals_list,
+    #                                                             n_components_list,
+    #                                                             covariance_types_list,
+    #                                                             single_threshold_for_each_layer_list])
+    # for params in param_grid:
+    #     accuracy_target = params[0]
+    #     mac_lambda = params[1]
+    #     max_probabilities = params[2]
+    #     quantile_interval = params[3]
+    #     num_of_components = params[4]
+    #     covariance_type = params[5]
+    #     single_threshold_for_each_layer = params[6]
+    #
+    #     run_id = DbLogger.get_run_id()
+    #
+    #     mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyFreeTarget(
+    #         run_id=run_id,
+    #         mac_lambda=mac_lambda,
+    #         max_probabilities=max_probabilities,
+    #         multipath_evaluator=multipath_evaluator,
+    #         n_iter=100,
+    #         quantile_interval=quantile_interval,
+    #         num_of_components=num_of_components,
+    #         single_threshold_for_each_layer=single_threshold_for_each_layer,
+    #         num_samples_each_iteration=10000,
+    #         num_jobs=1,
+    #         covariance_type=covariance_type,
+    #         path_counts=model.pathCounts,
+    #         maximum_iterations_without_improvement=25,
+    #         accuracy_target_normalized=accuracy_target,
+    #         path_to_saved_output="cross_entropy_histogram_analysis.sav")
+    #
+    #     mp_cross_entropy_optimizer.fit()

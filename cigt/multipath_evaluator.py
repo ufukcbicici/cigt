@@ -90,7 +90,8 @@ class MultipathEvaluator(object):
         data_kind = "test" if not dataloader.dataset.train else "train"
         for epoch_id in range(repeat_count):
             print("Processing Data:{0} Epoch:{1}".format(data_kind, epoch_id))
-            raw_outputs_file_path = "{0}_{1}_raw_outputs_dict.sav".format(data_kind, epoch_id)
+            raw_outputs_file_path = os.path.join(self.dataRootPath,
+                                                 "{0}_{1}_raw_outputs_dict.sav".format(data_kind, epoch_id))
             if not os.path.isfile(raw_outputs_file_path):
                 # Get outputs from multiple path execution (Type 1)
                 self.model.toggle_all_paths_routing(enable=True)
