@@ -418,11 +418,13 @@ class MultipathInferenceCrossEntropyV2(object):
             min_score = bin_df["score"].min()
             mean_test_accuracy = bin_df["accuracy_test"].mean()
             mean_test_mac = bin_df["mac_cost_test"].mean()
+            mean_test_mac2 = bin_df.sort_values(by=["accuracy_test"], inplace=False, ascending=False).head(
+                int(bin_size / 2))["accuracy_test"].mean()
             if mean_test_accuracy > largest_test_score:
                 largest_test_score = mean_test_accuracy
-            print("Bin({0},{1}) Mean Score:{2} Mean Test Accuracy:{3} Mean Test Mac:{4} "
-                  "Max Score:{5} Min Score:{6}".format(bin_start, bin_end,
-                                                       mean_score, mean_test_accuracy,
+            print("Bin({0},{1}) Mean Score:{2} Mean Test Accuracy:{3} Mean Test Accuracy2:{4} Mean Test Mac:{5} "
+                  "Max Score:{6} Min Score:{7}".format(bin_start, bin_end,
+                                                       mean_score, mean_test_accuracy, mean_test_mac2,
                                                        mean_test_mac, max_score, min_score))
 
         print(largest_test_score)

@@ -18,6 +18,7 @@ from cigt.multipath_inference_cross_entropy import MultipathInferenceCrossEntrop
 from cigt.multipath_inference_cross_entropy_v2 import MultipathInferenceCrossEntropyV2
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 from configs.cifar10_resnet_cigt_configs import Cifar10ResnetCigtConfigs
+from multipath_cross_entropy_optimization_with_validation_scoring import MultipathInferenceCrossEntropyValidationScoring
 from multipath_inference_cross_entropy_free_target import MultipathInferenceCrossEntropyFreeTarget
 
 # random.seed(53)
@@ -111,7 +112,7 @@ if __name__ == "__main__":
     if not os.path.isdir(data_path):
         os.mkdir(data_path)
 
-    DbLogger.log_db_path = DbLogger.paperspace
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     model = CigtIgGatherScatterImplementation(
         run_id=-2,
@@ -146,12 +147,12 @@ if __name__ == "__main__":
         train_dataset=train_loader_hard,
         test_dataset=test_loader_light,
         mac_counts_per_block=mac_counts_per_block,
-        evaluate_network_first=True,
+        evaluate_network_first=False,
         train_dataset_repeat_count=1
     )
 
     run_id = DbLogger.get_run_id()
-    mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyV2(
+    mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyValidationScoring(
         run_id=run_id,
         mac_lambda=0.0,
         max_probabilities=[0.5, 0.25],
@@ -160,11 +161,13 @@ if __name__ == "__main__":
         quantile_interval=(0.0, 0.05),
         num_of_components=1,
         single_threshold_for_each_layer=False,
-        num_samples_each_iteration=10000,
+        num_samples_each_iteration=1000,
         num_jobs=1,
         covariance_type="diag",
         path_counts=model.pathCounts,
-        maximum_iterations_without_improvement=25)
+        maximum_iterations_without_improvement=25,
+        validation_ratio=0.2)
+
     mp_cross_entropy_optimizer.histogram_analysis(
         path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"),
         repeat_count=100,

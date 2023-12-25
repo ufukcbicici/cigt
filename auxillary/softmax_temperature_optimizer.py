@@ -22,7 +22,7 @@ class SoftmaxTemperatureOptimizer(object):
         grad_history = deque(maxlen=10000)
         eps = 1e-30
 
-        for iteration_id in range(1000000):
+        for iteration_id in range(1000):
             routing_arrs_for_block_tempered = A_ / temperature
             routing_probs = torch.softmax(routing_arrs_for_block_tempered, dim=1)
             log_prob = torch.log(routing_probs + eps)

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from tqdm import tqdm
+from sklearn.model_selection import train_test_split
 
 from auxillary.softmax_temperature_optimizer import SoftmaxTemperatureOptimizer
 from auxillary.utilities import Utilities
@@ -57,6 +58,118 @@ class NetworkOutput(object):
                 device_output.logits[route_combination], dim=1)
 
         return device_output
+
+    def separate_into_validation_set(self, ratio):
+        train_outputs = NetworkOutput()
+        test_outputs = NetworkOutput()
+        data_size = self.labels[0].shape[-1]
+        train_indices, val_indices = train_test_split(np.arange(data_size), test_size=ratio, shuffle=True)
+
+        # Routing activations
+        for idx in range(len(self.routingActivationMatrices)):
+            route_combinations = Utilities.create_route_combinations(
+                shape_=self.routingActivationMatrices[idx].shape[:(idx + 1)])
+            train_array_shape = (*self.routingActivationMatrices[idx].shape[:(idx + 1)],
+                                 len(train_indices),
+                                 self.routingActivationMatrices[idx].shape[-1])
+            val_array_shape = (*self.routingActivationMatrices[idx].shape[:(idx + 1)],
+                               len(val_indices),
+                               self.routingActivationMatrices[idx].shape[-1])
+            train_array = np.zeros(shape=train_array_shape, dtype=self.routingActivationMatrices[idx].dtype)
+            val_array = np.zeros(shape=val_array_shape, dtype=self.routingActivationMatrices[idx].dtype)
+
+            for route_combination in route_combinations:
+                routing_activations = self.routingActivationMatrices[idx][route_combination]
+                train_routing_activations = routing_activations[train_indices]
+                val_routing_activations = routing_activations[val_indices]
+                train_array[route_combination] = train_routing_activations
+                val_array[route_combination] = val_routing_activations
+
+            transpose_axes = ((idx + 1),
+                              *(ii for ii in range(idx + 1)),
+                              len(self.routingActivationMatrices[idx].shape) - 1)
+            back_transpose_axes = (*(ii + 1 for ii in range(idx + 1)),
+                                   0,
+                                   len(self.routingActivationMatrices[idx].shape) - 1)
+            transposed_arr = np.transpose(self.routingActivationMatrices[idx], axes=transpose_axes)
+            train_array2 = transposed_arr[train_indices]
+            val_array2 = transposed_arr[val_indices]
+            train_array2 = np.transpose(train_array2, axes=back_transpose_axes)
+            val_array2 = np.transpose(val_array2, axes=back_transpose_axes)
+            assert np.array_equal(train_array, train_array2)
+            assert np.array_equal(val_array, val_array2)
+            train_outputs.routingActivationMatrices.append(train_array)
+            test_outputs.routingActivationMatrices.append(val_array)
+
+        # Logits
+        idx = len(self.routingActivationMatrices)
+        route_combinations = Utilities.create_route_combinations(
+            shape_=self.logits[0].shape[:(idx + 1)])
+        train_array_shape = (*self.logits[0].shape[:(idx + 1)],
+                             len(train_indices),
+                             self.logits[0].shape[-1])
+        val_array_shape = (*self.logits[0].shape[:(idx + 1)],
+                           len(val_indices),
+                           self.logits[0].shape[-1])
+        train_array = np.zeros(shape=train_array_shape, dtype=self.logits[0].dtype)
+        val_array = np.zeros(shape=val_array_shape, dtype=self.logits[0].dtype)
+
+        for route_combination in route_combinations:
+            routing_activations = self.logits[0][route_combination]
+            train_routing_activations = routing_activations[train_indices]
+            val_routing_activations = routing_activations[val_indices]
+            train_array[route_combination] = train_routing_activations
+            val_array[route_combination] = val_routing_activations
+
+        transpose_axes = ((idx + 1),
+                          *(ii for ii in range(idx + 1)),
+                          len(self.logits[0].shape) - 1)
+        back_transpose_axes = (*(ii + 1 for ii in range(idx + 1)),
+                               0,
+                               len(self.logits[0].shape) - 1)
+        transposed_arr = np.transpose(self.logits[0], axes=transpose_axes)
+        train_array2 = transposed_arr[train_indices]
+        val_array2 = transposed_arr[val_indices]
+        train_array2 = np.transpose(train_array2, axes=back_transpose_axes)
+        val_array2 = np.transpose(val_array2, axes=back_transpose_axes)
+        assert np.array_equal(train_array, train_array2)
+        assert np.array_equal(val_array, val_array2)
+        train_outputs.logits.append(train_array)
+        test_outputs.logits.append(val_array)
+
+        # Labels
+        idx = len(self.routingActivationMatrices)
+        route_combinations = Utilities.create_route_combinations(
+            shape_=self.labels[0].shape[:(idx + 1)])
+        train_array_shape = (*self.labels[0].shape[:(idx + 1)],
+                             len(train_indices))
+        val_array_shape = (*self.labels[0].shape[:(idx + 1)],
+                           len(val_indices))
+        train_array = np.zeros(shape=train_array_shape, dtype=self.labels[0].dtype)
+        val_array = np.zeros(shape=val_array_shape, dtype=self.labels[0].dtype)
+
+        for route_combination in route_combinations:
+            routing_activations = self.labels[0][route_combination]
+            train_routing_activations = routing_activations[train_indices]
+            val_routing_activations = routing_activations[val_indices]
+            train_array[route_combination] = train_routing_activations
+            val_array[route_combination] = val_routing_activations
+
+        transpose_axes = ((idx + 1),
+                          *(ii for ii in range(idx + 1)))
+        back_transpose_axes = (*(ii + 1 for ii in range(idx + 1)),
+                               0)
+        transposed_arr = np.transpose(self.labels[0], axes=transpose_axes)
+        train_array2 = transposed_arr[train_indices]
+        val_array2 = transposed_arr[val_indices]
+        train_array2 = np.transpose(train_array2, axes=back_transpose_axes)
+        val_array2 = np.transpose(val_array2, axes=back_transpose_axes)
+        assert np.array_equal(train_array, train_array2)
+        assert np.array_equal(val_array, val_array2)
+        train_outputs.labels.append(train_array)
+        test_outputs.labels.append(val_array)
+
+        return train_outputs, test_outputs
 
 
 class MultipathEvaluator(object):
