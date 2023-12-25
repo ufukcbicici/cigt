@@ -72,8 +72,11 @@ class MultipathEvaluator(object):
         self.maxEntropies = []
         self.calculate_max_entropies()
         if evaluate_network_first:
+            train_acc = self.model.validate(data_kind="test", epoch=0, loader=self.trainDataset, temperature=0.1,
+                                            verbose=True)
             test_acc = self.model.validate(data_kind="test", epoch=0, loader=self.testDataset, temperature=0.1,
                                            verbose=True)
+            print("Standard train accuracy:{0}".format(train_acc))
             print("Standard test accuracy:{0}".format(test_acc))
 
         # self.assert_gather_scatter_model_output_correctness(dataloader=self.testDataset, repeat_count=1)
