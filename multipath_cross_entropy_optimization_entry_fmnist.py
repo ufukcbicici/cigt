@@ -91,7 +91,7 @@ if __name__ == "__main__":
     kwargs = {'num_workers': 0, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
         # transforms.Resize((32, 32)),
-        CutoutPILGray(cutout_factor=0.25),
+        # CutoutPILGray(cutout_factor=0.25),
         # RandAugment(),
         transforms.ToTensor(),
     ])
@@ -153,7 +153,7 @@ if __name__ == "__main__":
         quantile_interval=(0.0, 0.05),
         num_of_components=1,
         single_threshold_for_each_layer=False,
-        num_samples_each_iteration=1000,
+        num_samples_each_iteration=10000,
         num_jobs=1,
         covariance_type="diag",
         path_counts=model.pathCounts,
@@ -162,4 +162,4 @@ if __name__ == "__main__":
     mp_cross_entropy_optimizer.histogram_analysis(
         path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"),
         repeat_count=10,
-        bin_size=10000)
+        bin_size=250)
