@@ -102,8 +102,14 @@ if __name__ == "__main__":
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
     # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575_data")
 
-    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger2_94_epoch1390.pth")
-    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger2_94_epoch1390.pth")
+    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
+
+    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_73_epoch1660.pth")
+    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_73_epoch1660_data")
+
+    if not os.path.isdir(data_path):
+        os.mkdir(data_path)
 
     DbLogger.log_db_path = DbLogger.paperspace
 

@@ -404,9 +404,9 @@ class MultipathInferenceCrossEntropyV2(object):
         all_results_df["score"] = score_vector
 
         sorted_all_results_df = all_results_df.sort_values(by=["score"], inplace=False, ascending=False)
-        db_engine = create_engine(url="sqlite:///" + DbLogger.log_db_path, echo=False)
-        with db_engine.connect() as connection:
-            sorted_all_results_df.to_sql("random_thresholds", con=connection, if_exists='append', index=False)
+        # db_engine = create_engine(url="sqlite:///" + DbLogger.log_db_path, echo=False)
+        # with db_engine.connect() as connection:
+        #     sorted_all_results_df.to_sql("random_thresholds", con=connection, if_exists='append', index=False)
 
         largest_test_score = 0.0
         for bin_id in range(0, sorted_all_results_df.shape[0], bin_size):
