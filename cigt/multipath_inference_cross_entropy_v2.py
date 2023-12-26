@@ -373,6 +373,10 @@ class MultipathInferenceCrossEntropyV2(object):
         return raw_results_dict
 
     def histogram_analysis(self, path_to_saved_output, repeat_count, bin_size):
+        db_engine = create_engine(url="sqlite:///" + DbLogger.log_db_path, echo=False)
+        best_train_accuracies = {}
+        best_test_accuracies = {}
+        best_scores = {}
         if not os.path.isfile(path_to_saved_output):
             train_outputs_cuda = self.multipathEvaluator.trainOutputs.move_to_torch(device=self.device)
             test_outputs_cuda = self.multipathEvaluator.testOutputs.move_to_torch(device=self.device)
@@ -384,13 +388,17 @@ class MultipathInferenceCrossEntropyV2(object):
                 raw_results_dict = self.analyze_thresholds(thresholds=thresholds,
                                                            train_outputs=train_outputs_cuda,
                                                            test_outputs=test_outputs_cuda,
-                                                           best_objective_scores=None,
-                                                           best_test_accuracies=None,
-                                                           best_train_accuracies=None,
+                                                           best_objective_scores=best_scores,
+                                                           best_test_accuracies=best_test_accuracies,
+                                                           best_train_accuracies=best_train_accuracies,
                                                            iteration_id=None,
-                                                           verbose=False)
+                                                           verbose=True)
                 raw_results_df = pd.DataFrame(raw_results_dict)
                 raw_results_df = raw_results_df[[col for col in raw_results_df.columns if col != "threshold_vector"]]
+                raw_results_df["run_id"] = self.parameterRunId
+                with db_engine.connect() as connection:
+                    raw_results_df.to_sql("histogram_analysis_cross_entropy",
+                                          con=connection, if_exists='append', index=False)
                 data_frames.append(raw_results_df)
             all_results_df = pd.concat(data_frames, axis=0)
             sorted_all_results_df = all_results_df.sort_values(by=["score"], inplace=False, ascending=False)
@@ -404,10 +412,6 @@ class MultipathInferenceCrossEntropyV2(object):
         all_results_df["score"] = score_vector
 
         sorted_all_results_df = all_results_df.sort_values(by=["score"], inplace=False, ascending=False)
-        # db_engine = create_engine(url="sqlite:///" + DbLogger.log_db_path, echo=False)
-        # with db_engine.connect() as connection:
-        #     sorted_all_results_df.to_sql("random_thresholds", con=connection, if_exists='append', index=False)
-
         largest_test_score = 0.0
         for bin_id in range(0, sorted_all_results_df.shape[0], bin_size):
             bin_start = bin_id

@@ -91,7 +91,7 @@ if __name__ == "__main__":
     kwargs = {'num_workers': 0, 'pin_memory': True}
     heavyweight_augmentation = transforms.Compose([
         # transforms.Resize((32, 32)),
-        # CutoutPILGray(cutout_factor=0.25),
+        CutoutPILGray(cutout_factor=0.25),
         # RandAugment(),
         transforms.ToTensor(),
     ])
@@ -161,5 +161,5 @@ if __name__ == "__main__":
 
     mp_cross_entropy_optimizer.histogram_analysis(
         path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"),
-        repeat_count=10,
-        bin_size=250)
+        repeat_count=100,
+        bin_size=1000)
