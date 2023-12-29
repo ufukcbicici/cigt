@@ -372,6 +372,15 @@ class MultipathInferenceCrossEntropyV2(object):
 
         return raw_results_dict
 
+    def dump_histogram_to_db(self, path_to_saved_output):
+        db_engine = create_engine(url="sqlite:///" + DbLogger.log_db_path, echo=False)
+        assert os.path.isfile(path_to_saved_output)
+        raw_results_df = Utilities.pickle_load_from_file(path=path_to_saved_output)
+        raw_results_df["run_id"] = self.parameterRunId
+        with db_engine.connect() as connection:
+            raw_results_df.to_sql("histogram_analysis_cross_entropy",
+                                  con=connection, if_exists='append', index=False)
+
     def histogram_analysis(self, path_to_saved_output, repeat_count, bin_size):
         db_engine = create_engine(url="sqlite:///" + DbLogger.log_db_path, echo=False)
         best_train_accuracies = {}
@@ -432,5 +441,3 @@ class MultipathInferenceCrossEntropyV2(object):
                                                        mean_test_mac, max_score, min_score))
 
         print(largest_test_score)
-
-

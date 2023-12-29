@@ -1,22 +1,15 @@
 import os
 
+# from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
+import torch
 from randaugment import RandAugment
 from torchvision import datasets
 from torchvision.transforms import transforms
 
 from auxillary.db_logger import DbLogger
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
-from cigt.cigt_ig_refactored import CigtIgHardRoutingX
 from cigt.cigt_output_dataset import CigtOutputDataset
-from cigt.cigt_reinforce_multipath import CigtReinforceMultipath
-from cigt.cigt_reinforce_v2 import CigtReinforceV2
 from cigt.cutout_augmentation import CutoutPIL
-from cigt.multipath_evaluator import MultipathEvaluator
-from cigt.multipath_inference_bayesian import MultiplePathBayesianOptimizer
-# from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
-import torch
-
-from cigt.multipath_inference_cross_entropy import MultipathInferenceCrossEntropy
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
 from configs.cifar10_resnet_cigt_configs import Cifar10ResnetCigtConfigs
 
@@ -99,7 +92,7 @@ if __name__ == "__main__":
         datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
         batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
-    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
+    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "../checkpoints/cigtlogger2_75_epoch1575.pth")
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger_331_epoch11.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575")
 
@@ -116,7 +109,8 @@ if __name__ == "__main__":
     checkpoint = torch.load(chck_path, map_location=model.device)
     load_result = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
 
-    test_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
+    test_cigt_output_dataset = CigtOutputDataset(
+        input_reduction_factor=Cifar10ResnetCigtConfigs.policy_networks_cbam_layer_input_reduction_ratio)
     # test_cigt_output_dataset.load_from_file(file_path="test_cigt_dataset.sav")
     test_cigt_output_dataset.load_from_model(model=model, data_loader=test_loader_light, repeat_count=1,
                                              list_of_fields=["block_outputs_dict", "routing_matrices_soft_dict",
@@ -124,7 +118,8 @@ if __name__ == "__main__":
     test_cigt_output_dataset.save(file_path="test_cigt_dataset.sav")
 
     for repeat_count in [3, 10]:
-        train_cigt_output_dataset = CigtOutputDataset(configs=Cifar10ResnetCigtConfigs)
+        train_cigt_output_dataset = CigtOutputDataset(
+            input_reduction_factor=Cifar10ResnetCigtConfigs.policy_networks_cbam_layer_input_reduction_ratio)
         # train_cigt_output_dataset.load_from_file(file_path="train_cigt_dataset.sav")
         train_cigt_output_dataset.load_from_model(model=model, data_loader=train_loader_hard, repeat_count=repeat_count,
                                                   list_of_fields=["block_outputs_dict", "routing_matrices_soft_dict",

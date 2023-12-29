@@ -446,22 +446,36 @@ class MultipathEvaluator(object):
                     = Utilities.calculate_entropy_from_activations(activations=routing_activations,
                                                                    temperature=temperature * 3.0)
                 fig, ax = plt.subplots(3, 1)
-                ax[0].set_title("Entropies [{0},{1}] with temperature 1.0".format(layer_id, route_combination))
+                ax[0].set_title("Entropies [Layer {0}, F{1}] with temperature 1.0".format(layer_id, route_combination))
                 ax[0].hist(entropies_before_low, density=False, histtype='stepfilled',
                            alpha=1.0, bins=100, range=(0, self.maxEntropies[layer_id]))
                 ax[0].legend(loc='best', frameon=False)
 
-                ax[1].set_title("Entropies [{0},{1}] with temperature {2}".format(layer_id, route_combination,
-                                                                                  temperature))
+                ax[1].set_title("Entropies [Layer {0}, F{1}] with temperature {2}".format(layer_id, route_combination,
+                                                                                          temperature))
                 ax[1].hist(entropies_after, density=False, histtype='stepfilled',
                            alpha=1.0, bins=100, range=(0, self.maxEntropies[layer_id]))
                 ax[1].legend(loc='best', frameon=False)
 
-                ax[2].set_title("Entropies [{0},{1}] with temperature {2}".format(layer_id, route_combination,
-                                                                                  temperature * 3.0))
-                ax[2].hist(entropies_before_high, density=False, histtype='stepfilled',
-                           alpha=1.0, bins=100, range=(0, self.maxEntropies[layer_id]))
+                # Distribution of activations
+                routing_activations_flattened = np.reshape(a=routing_activations,
+                                                           newshape=(np.prod(routing_activations.shape),))
+                min_interval = np.min(routing_activations_flattened)
+                max_interval = np.max(routing_activations_flattened)
+                interval_length = max_interval - min_interval
+                int_min = min_interval - 0.25 * interval_length
+                int_max = max_interval + 0.25 * interval_length
+
+                ax[2].set_title("Histogram of raw activations [{0},{1}]".format(layer_id, route_combination))
+                ax[2].hist(routing_activations_flattened, density=False, histtype='stepfilled',
+                           alpha=1.0, bins=500, range=(int_min, int_max))
                 ax[2].legend(loc='best', frameon=False)
+
+                # ax[2].set_title("Entropies [{0},{1}] with temperature {2}".format(layer_id, route_combination,
+                #                                                                   temperature * 3.0))
+                # ax[2].hist(entropies_before_high, density=False, histtype='stepfilled',
+                #            alpha=1.0, bins=100, range=(0, self.maxEntropies[layer_id]))
+                # ax[2].legend(loc='best', frameon=False)
 
                 plt.tight_layout()
                 plt.show()

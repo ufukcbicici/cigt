@@ -106,8 +106,8 @@ if __name__ == "__main__":
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger2_94_epoch1390.pth")
     # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_73_epoch1660.pth")
-    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_73_epoch1660_data")
+    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "../checkpoints/cigtlogger2_73_epoch1660.pth")
+    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "../cigtlogger2_73_epoch1660_data")
 
     if not os.path.isdir(data_path):
         os.mkdir(data_path)
@@ -135,6 +135,7 @@ if __name__ == "__main__":
     checkpoint = torch.load(chck_path, map_location=model.device)
     model_load_results = model.load_state_dict(state_dict=checkpoint["model_state_dict"])
     model_load_results_mac = model_mac.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    param_count = model.get_total_parameter_count()
 
     # total_parameter_count = model.get_total_parameter_count()
     mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model_mac)
@@ -150,9 +151,11 @@ if __name__ == "__main__":
         evaluate_network_first=False,
         train_dataset_repeat_count=1
     )
+    multipath_evaluator.optimize_routing_temperatures(complete_output=multipath_evaluator.testOutputs)
+
 
     run_id = DbLogger.get_run_id()
-    mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyValidationScoring(
+    mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyV2(
         run_id=run_id,
         mac_lambda=0.0,
         max_probabilities=[0.5, 0.25],
@@ -165,13 +168,20 @@ if __name__ == "__main__":
         num_jobs=1,
         covariance_type="diag",
         path_counts=model.pathCounts,
-        maximum_iterations_without_improvement=25,
-        validation_ratio=0.2)
+        maximum_iterations_without_improvement=25)
 
-    mp_cross_entropy_optimizer.histogram_analysis(
-        path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"),
-        repeat_count=100,
-        bin_size=10000)
+    explanation = mp_cross_entropy_optimizer.get_explanation_string()
+    DbLogger.write_into_table(rows=[(mp_cross_entropy_optimizer.parameterRunId, explanation)],
+                              table=DbLogger.runMetaData)
+
+    mp_cross_entropy_optimizer.dump_histogram_to_db(
+        path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"))
+
+
+    # mp_cross_entropy_optimizer.histogram_analysis(
+    #     path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"),
+    #     repeat_count=100,
+    #     bin_size=10000)
 
     # FOR GRID SEARCH Method 1
     # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25]

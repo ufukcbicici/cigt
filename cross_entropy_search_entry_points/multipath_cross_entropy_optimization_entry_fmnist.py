@@ -80,13 +80,13 @@ if __name__ == "__main__":
     FashionLenetCigtConfigs.batch_norm_type = "BatchNorm"
     FashionLenetCigtConfigs.data_parallelism = False
 
-    DbLogger.log_db_path = DbLogger.paperspace
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
-    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_160_epoch145.pth")
-    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_160_epoch145_data")
+    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "../checkpoints/cigtlogger2_160_epoch145.pth")
+    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "../cigtlogger2_160_epoch145_data")
 
-    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_170_epoch141.pth")
-    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_170_epoch141_data")
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_170_epoch141.pth")
+    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_170_epoch141_data")
 
     if not os.path.isdir(data_path):
         os.mkdir(data_path)
@@ -145,6 +145,7 @@ if __name__ == "__main__":
         evaluate_network_first=False,
         train_dataset_repeat_count=1
     )
+    multipath_evaluator.optimize_routing_temperatures(complete_output=multipath_evaluator.testOutputs)
 
     run_id = DbLogger.get_run_id()
     mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyV2(
@@ -161,8 +162,14 @@ if __name__ == "__main__":
         covariance_type="diag",
         path_counts=model.pathCounts,
         maximum_iterations_without_improvement=25)
+    explanation = mp_cross_entropy_optimizer.get_explanation_string()
+    DbLogger.write_into_table(rows=[(mp_cross_entropy_optimizer.parameterRunId, explanation)],
+                              table=DbLogger.runMetaData)
 
-    mp_cross_entropy_optimizer.histogram_analysis(
-        path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"),
-        repeat_count=100,
-        bin_size=1000)
+    mp_cross_entropy_optimizer.dump_histogram_to_db(
+        path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"))
+
+    # mp_cross_entropy_optimizer.histogram_analysis(
+    #     path_to_saved_output=os.path.join(data_path, "cross_entropy_histogram_analysis.sav"),
+    #     repeat_count=100,
+    #     bin_size=1000)

@@ -77,12 +77,19 @@ class FashionLenetCigtConfigs:
         (adjust_to_batch_size(original_value=95, target_batch_size=batch_size) + warm_up_period, 0.025)]
     loss_calculation_kind = "MultipleLogitsMultipleLosses"
 
+    # model_file_root_path_hpc = "/clusterusers/can.bicici@boun.edu.tr/cigt"
+    # model_file_root_path_asus = "C://Users//asus//Desktop//ConvAig//convnet-aig//checkpoints"
+    # model_file_root_path_tetam = "/cta/users/ucbicici/cigt"
+    # model_file_root_path_tetam_tuna = "/cta/users/hmeral/cigt"
+    # model_file_root_path_jr = "/"
+
     model_file_root_path_hpc = "/clusterusers/can.bicici@boun.edu.tr/cigt"
     model_file_root_path_asus = "C://Users//asus//Desktop//ConvAig//convnet-aig//checkpoints"
     model_file_root_path_tetam = "/cta/users/ucbicici/cigt"
     model_file_root_path_tetam_tuna = "/cta/users/hmeral/cigt"
-    model_file_root_path_jr = "/"
-
+    model_file_root_path_jr = "C://Users//ufuk.bicici//PycharmProjects//cigt"
+    model_file_root_path_paperspace = "/notebooks/cigt"
+    model_file_root_path_hpc_docker = "/home/cigt/experiment_outputs"
 
 
     # Resnet110 Thick Baseline
@@ -136,3 +143,30 @@ class FashionLenetCigtConfigs:
     use_kd_for_routing = False
     kd_teacher_temperature = 6.0
     kd_loss_alpha = 0.5
+
+    # Policy Gradients Multipath Routing Parameters
+    policy_networks_cbam_layer_count = 3
+    policy_networks_cbam_feature_map_count = 32
+    policy_networks_cbam_reduction_ratio = 4
+    policy_networks_cbam_layer_input_reduction_ratio = 4
+    policy_networks_cbam_end_avg_pool_strode = 2
+    policy_networks_use_lstm = True
+    policy_networks_lstm_dimension = 128
+    policy_networks_lstm_num_layers = 1
+    policy_networks_lstm_bidirectional = False
+    policy_networks_total_num_of_epochs = 250
+    policy_networks_initial_lr = 0.001
+    policy_networks_polynomial_scheduler_power = 1.0
+    policy_networks_wd = 0.0001
+    policy_networks_mac_lambda = 0.05
+    policy_networks_discount_factor = 0.99
+    policy_networks_logit_temperature = 1.0
+    policy_networks_apply_reward_whitening = False
+    policy_networks_evaluation_period = 5
+    policy_networks_use_moving_average_baseline = True
+    policy_networks_baseline_momentum = 0.99
+    policy_networks_policy_entropy_loss_coeff = 0.0
+    policy_networks_epsilon_decay_coeff = 1.0
+    policy_networks_last_eval_start = 5
+    policy_networks_train_only_action_heads = False
+    policy_networks_no_improvement_stop_count = 20

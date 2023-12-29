@@ -9,11 +9,12 @@ from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplem
 
 
 class CigtOutputDataset(Dataset):
-    def __init__(self, configs):
+    def __init__(self, input_reduction_factor=0):
         self.listOfFields = []
         self.dataArrays = {}
         self.dataLength = None
-        self.inputReductionFactor = configs.policy_networks_cbam_layer_input_reduction_ratio
+        self.inputReductionFactor = input_reduction_factor
+        # self.inputReductionFactor = configs.policy_networks_cbam_layer_input_reduction_ratio
 
     def load_from_model(self, model, data_loader, repeat_count, list_of_fields):
         self.listOfFields = list_of_fields
