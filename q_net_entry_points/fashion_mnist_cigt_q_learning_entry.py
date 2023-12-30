@@ -51,7 +51,7 @@ if __name__ == "__main__":
                              "checkpoints/cigtlogger2_160_epoch145.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
                              "cigtlogger2_160_epoch145_data")
-    DbLogger.log_db_path = DbLogger.paperspace
+    DbLogger.log_db_path = DbLogger.hpc_docker1
 
     FashionLenetCigtConfigs.batch_size = 1024
     FashionLenetCigtConfigs.policy_networks_cbam_layer_input_reduction_ratio = 2
@@ -71,16 +71,18 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=FashionLenetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
-
     print("Start!")
     # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15]
     # wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
-    mac_lambda_list = [0.0]
-    wd_list = [0.0]
+    mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15]
+    wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
     mac_lambda_list = sorted(mac_lambda_list)
     wd_list = sorted(wd_list)
     param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list, wd_list])
+    FashionLenetCigtConfigs.policy_networks_initial_lr = 0.00001
     FashionLenetCigtConfigs.policy_networks_evaluation_period = 1
+    FashionLenetCigtConfigs.policy_networks_cbam_layer_count = 1
+    FashionLenetCigtConfigs.policy_networks_lstm_dimension = 64
 
     for params in param_grid:
         run_id = DbLogger.get_run_id()
@@ -104,7 +106,7 @@ if __name__ == "__main__":
             precalculated_datasets_dict={"train_dataset": train_loader, "test_dataset": test_loader})
         model.to(model.device)
 
-        model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_jr
+        model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_hpc_docker
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
