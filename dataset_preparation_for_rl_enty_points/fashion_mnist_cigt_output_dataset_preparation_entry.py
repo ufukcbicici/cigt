@@ -21,7 +21,7 @@ from load_trained_models.load_trained_fmnist_model import load_trained_fmnist_mo
 
 if __name__ == "__main__":
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
-                             "checkpoints/cigtlogger2_170_epoch141_data.pth")
+                             "checkpoints/cigtlogger2_170_epoch141.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
                              "cigtlogger2_170_epoch141_data")
     DbLogger.log_db_path = DbLogger.hpc_docker2
