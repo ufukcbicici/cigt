@@ -85,7 +85,7 @@ if __name__ == "__main__":
     mac_lambda_list = sorted(mac_lambda_list)
     wd_list = sorted(wd_list)
     param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list, wd_list])
-    FashionLenetCigtConfigs.policy_networks_initial_lr = 0.00001
+    FashionLenetCigtConfigs.policy_networks_initial_lr = 0.0001
     FashionLenetCigtConfigs.policy_networks_evaluation_period = 1
     FashionLenetCigtConfigs.policy_networks_cbam_layer_count = 1
     FashionLenetCigtConfigs.policy_networks_lstm_dimension = 128
