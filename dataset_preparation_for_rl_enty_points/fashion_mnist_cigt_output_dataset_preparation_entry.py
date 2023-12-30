@@ -26,6 +26,10 @@ if __name__ == "__main__":
                              "cigtlogger2_160_epoch145_data")
     DbLogger.log_db_path = DbLogger.hpc_docker1
 
+    print("DB FILES")
+    print(os.path.isfile(DbLogger.hpc_docker1))
+    print(os.path.isfile(DbLogger.hpc_docker2))
+
     fmnist_model, mac_counts_per_block = load_trained_fmnist_model(checkpoint_path=chck_path)
 
     # Load datasets
