@@ -47,17 +47,17 @@ def get_parameters_histogram(parameters_used):
 
 
 if __name__ == "__main__":
-    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
-    #                          "checkpoints/cigtlogger2_160_epoch145.pth")
-    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
-    #                          "cigtlogger2_160_epoch145_data")
-    # DbLogger.log_db_path = DbLogger.hpc_docker1
-
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
-                             "checkpoints/cigtlogger2_170_epoch141.pth")
+                             "checkpoints/cigtlogger2_160_epoch145.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
-                             "cigtlogger2_170_epoch141_data")
-    DbLogger.log_db_path = DbLogger.hpc_docker2
+                             "cigtlogger2_160_epoch145_data")
+    DbLogger.log_db_path = DbLogger.paperspace
+
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
+    #                          "checkpoints/cigtlogger2_170_epoch141.pth")
+    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
+    #                          "cigtlogger2_170_epoch141_data")
+    # DbLogger.log_db_path = DbLogger.hpc_docker2
 
     FashionLenetCigtConfigs.batch_size = 1024
     FashionLenetCigtConfigs.policy_networks_cbam_layer_input_reduction_ratio = 2
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15]
     # wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
     mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15]
-    wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
+    wd_list = [0.00005]
     mac_lambda_list = sorted(mac_lambda_list)
     wd_list = sorted(wd_list)
     param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list, wd_list])
