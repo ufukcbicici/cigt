@@ -47,10 +47,16 @@ def get_parameters_histogram(parameters_used):
 
 
 if __name__ == "__main__":
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
+    #                          "checkpoints/cigtlogger2_160_epoch145.pth")
+    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
+    #                          "cigtlogger2_160_epoch145_data")
+
     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
-                             "checkpoints/cigtlogger2_160_epoch145.pth")
+                             "checkpoints/cigtlogger2_170_epoch141.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
-                             "cigtlogger2_160_epoch145_data")
+                             "cigtlogger2_170_epoch141_data")
+
     DbLogger.log_db_path = DbLogger.hpc_docker1
 
     FashionLenetCigtConfigs.batch_size = 1024
