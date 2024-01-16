@@ -100,14 +100,14 @@ if __name__ == "__main__":
         datasets.CIFAR10('../data', download=True, train=False, transform=lightweight_augmentation),
         batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
-    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
-    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575_data")
+    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/cigtlogger2_75_epoch1575.pth")
+    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "cigtlogger2_75_epoch1575_data")
 
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "checkpoints/dblogger2_94_epoch1390.pth")
     # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
-    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "../checkpoints/cigtlogger2_73_epoch1660.pth")
-    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "../cigtlogger2_73_epoch1660_data")
+    # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "../checkpoints/cigtlogger2_73_epoch1660.pth")
+    # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "../cigtlogger2_73_epoch1660_data")
 
     if not os.path.isdir(data_path):
         os.mkdir(data_path)
@@ -184,47 +184,47 @@ if __name__ == "__main__":
     #     bin_size=10000)
 
     # FOR GRID SEARCH Method 1
-    # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25]
-    # max_probabilities_list = [[0.5, 0.25], [1.0, 1.0]]
-    # quantile_intervals_list = [(0.0, 0.05)]
-    # n_components_list = [1, 2, 3, 5]
-    # covariance_types_list = ["diag", "full"]
-    # covariance_types_list = sorted(covariance_types_list)
-    # single_threshold_for_each_layer_list = [False] * 3
-    # single_threshold_for_each_layer_list = sorted(single_threshold_for_each_layer_list)
-    #
-    # param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list,
-    #                                                             max_probabilities_list,
-    #                                                             quantile_intervals_list,
-    #                                                             n_components_list,
-    #                                                             covariance_types_list,
-    #                                                             single_threshold_for_each_layer_list])
-    # for params in param_grid:
-    #     mac_lambda = params[0]
-    #     max_probabilities = params[1]
-    #     quantile_interval = params[2]
-    #     num_of_components = params[3]
-    #     covariance_type = params[4]
-    #     single_threshold_for_each_layer = params[5]
-    #
-    #     run_id = DbLogger.get_run_id()
-    #
-    #     mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyV2(
-    #         run_id=run_id,
-    #         mac_lambda=mac_lambda,
-    #         max_probabilities=max_probabilities,
-    #         multipath_evaluator=multipath_evaluator,
-    #         n_iter=100,
-    #         quantile_interval=quantile_interval,
-    #         num_of_components=num_of_components,
-    #         single_threshold_for_each_layer=single_threshold_for_each_layer,
-    #         num_samples_each_iteration=10000,
-    #         num_jobs=1,
-    #         covariance_type=covariance_type,
-    #         path_counts=model.pathCounts,
-    #         maximum_iterations_without_improvement=25)
-    #
-    #     mp_cross_entropy_optimizer.fit()
+    mac_lambda_list = [0.0, 0.01,  0.1]
+    max_probabilities_list = [[0.5, 0.25], [1.0, 1.0]]
+    quantile_intervals_list = [(0.0, 0.05)]
+    n_components_list = [1, 2, 3, 5]
+    covariance_types_list = ["diag", "full"]
+    covariance_types_list = sorted(covariance_types_list)
+    single_threshold_for_each_layer_list = [False] * 3
+    single_threshold_for_each_layer_list = sorted(single_threshold_for_each_layer_list)
+
+    param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list,
+                                                                max_probabilities_list,
+                                                                quantile_intervals_list,
+                                                                n_components_list,
+                                                                covariance_types_list,
+                                                                single_threshold_for_each_layer_list])
+    for params in param_grid:
+        mac_lambda = params[0]
+        max_probabilities = params[1]
+        quantile_interval = params[2]
+        num_of_components = params[3]
+        covariance_type = params[4]
+        single_threshold_for_each_layer = params[5]
+
+        run_id = DbLogger.get_run_id()
+
+        mp_cross_entropy_optimizer = MultipathInferenceCrossEntropyV2(
+            run_id=run_id,
+            mac_lambda=mac_lambda,
+            max_probabilities=max_probabilities,
+            multipath_evaluator=multipath_evaluator,
+            n_iter=100,
+            quantile_interval=quantile_interval,
+            num_of_components=num_of_components,
+            single_threshold_for_each_layer=single_threshold_for_each_layer,
+            num_samples_each_iteration=10000,
+            num_jobs=1,
+            covariance_type=covariance_type,
+            path_counts=model.pathCounts,
+            maximum_iterations_without_improvement=25)
+
+        mp_cross_entropy_optimizer.fit()
 
     # FOR GRID SEARCH Method 2
     # accuracy_target_list = [0.5, 0.25]

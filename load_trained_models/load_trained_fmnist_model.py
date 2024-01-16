@@ -92,6 +92,7 @@ def load_trained_fmnist_model(checkpoint_path, run_id=-1):
 
     checkpoint = torch.load(checkpoint_path, map_location=model.device)
     model_load_results = model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+    param_count = model.get_total_parameter_count()
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,

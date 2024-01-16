@@ -156,6 +156,9 @@ if __name__ == "__main__":
                                  "checkpoints/cigtlogger2_75_epoch1575.pth")
         checkpoint = torch.load(chck_path, map_location=model.device)
         model.load_state_dict(state_dict=checkpoint["model_state_dict"])
+        model.execute_forward_with_random_input()
+        total_params = model.get_total_parameter_count()
+        mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
 
         # model = CigtIdealRouting()
 

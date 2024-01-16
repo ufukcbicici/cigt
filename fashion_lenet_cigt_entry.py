@@ -19,7 +19,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db
+    DbLogger.log_db_path = DbLogger.jr_cigt
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     p_dropout = 10 * [0.3]
     p_dropout = sorted(p_dropout)
@@ -75,6 +75,7 @@ if __name__ == "__main__":
             decay_min_limit=FashionLenetCigtConfigs.softmax_decay_min_limit)
 
         # The rest can be left like they are
+        FashionLenetCigtConfigs.decision_average_pooling_strides = [14, 7]
         FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
         FashionLenetCigtConfigs.after_warmup_routing_algorithm_kind = "InformationGainRoutingWithRandomization"
         FashionLenetCigtConfigs.warmup_routing_algorithm_kind = "RandomRoutingButInformationGainOptimizationEnabled"
@@ -110,6 +111,7 @@ if __name__ == "__main__":
         #                          "checkpoints/dblogger2_94_epoch1390.pth")
         # data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "dblogger2_94_epoch1390_data")
 
+
         run_id = DbLogger.get_run_id()
         model = CigtIgGatherScatterImplementation(
             configs=FashionLenetCigtConfigs,
@@ -120,7 +122,9 @@ if __name__ == "__main__":
 
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
-        # model.execute_forward_with_random_input()
+        model.execute_forward_with_random_input()
+        total_parameter_count = model.get_total_parameter_count()
+        mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
 
         model.fit(train_loader=train_loader, test_loader=test_loader)
 

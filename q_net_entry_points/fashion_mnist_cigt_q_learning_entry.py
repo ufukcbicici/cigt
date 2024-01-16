@@ -51,7 +51,7 @@ if __name__ == "__main__":
                              "checkpoints/cigtlogger2_160_epoch145.pth")
     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
                              "cigtlogger2_160_epoch145_data")
-    DbLogger.log_db_path = DbLogger.paperspace
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     # chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
     #                          "checkpoints/cigtlogger2_170_epoch141.pth")
