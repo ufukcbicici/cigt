@@ -110,7 +110,7 @@ class CigtQlearningEnd2End(CigtQLearning):
             input_var = torch.autograd.Variable(batch[0]).to(self.device)
             target_var = torch.autograd.Variable(batch[1]).to(self.device)
             cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var, temperature=1.0)
-            actions_array = torch.zeros(size=(batch_size, len(self.pathCounts) - 1), dtype=torch.int64)
+            actions_array = torch.zeros(size=(batch_size, len(self.pathCounts) - 1), dtype=torch.int64).to(self.device)
             optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
             for tt, optimal_q_table in enumerate(optimal_q_tables):
                 optimal_q_tables_dataset[tt].append(optimal_q_table.detach().cpu().numpy())
