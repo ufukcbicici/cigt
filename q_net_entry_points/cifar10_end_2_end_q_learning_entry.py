@@ -71,6 +71,7 @@ if __name__ == "__main__":
 
     Cifar10ResnetCigtConfigs.backbone = "ResNet"
     Cifar10ResnetCigtConfigs.input_dims = (3, 32, 32)
+    Cifar10ResnetCigtConfigs.batch_size = 800
 
     # Thin Baseline
     # CigtConstants.layer_config_list = [
