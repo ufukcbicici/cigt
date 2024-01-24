@@ -298,7 +298,7 @@ class CigtReinforceV2(CigtIgGatherScatterImplementation):
         reward_array = (1.0 - self.policyNetworksMacLambda) * correctness_vec + self.policyNetworksMacLambda * mac_vec
         return reward_array, correctness_vec, mac_vec
 
-    def get_cigt_outputs(self, x, y):
+    def get_cigt_outputs(self, x, y, **kwargs):
         training_state = self.training
         self.eval()
         cigt_outputs = self.forward_v2(x=x, labels=y, temperature=1.0)

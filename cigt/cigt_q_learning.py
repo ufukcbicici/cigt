@@ -122,7 +122,7 @@ class CigtQLearning(CigtReinforceV2):
             policy_gradient_network_backbone = nn.Sequential(layers)
             self.policyNetworks.append(policy_gradient_network_backbone)
 
-    def get_cigt_outputs(self, x, y):
+    def get_cigt_outputs(self, x, y, **kwargs):
         if not self.usingPrecalculatedDatasets:
             training_state = self.training
             self.eval()
@@ -872,7 +872,7 @@ class CigtQLearning(CigtReinforceV2):
                 else:
                     input_var = torch.autograd.Variable(batch[0]).to(self.device)
                     target_var = torch.autograd.Variable(batch[1]).to(self.device)
-                    cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
+                    cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var, temperature=1.0)
 
                 # Calculate the optimal q tables. Add to the dataset-wide lists at every layer.
                 optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
@@ -1029,7 +1029,9 @@ class CigtQLearning(CigtReinforceV2):
                 "greedy_mac": greedy_mac,
                 "policy_distributions_dict": policy_distributions_dict,
                 "mse_dict": mse_dict,
-                "r2_dict": r2_dict}
+                "r2_dict": r2_dict,
+                "optimal_q_tables_dataset": optimal_q_tables_dataset,
+                "predicted_q_tables_dataset": predicted_q_tables_dataset}
 
     def validate_with_single_action_trajectory(self, loader, action_trajectory):
         self.eval()
@@ -1055,7 +1057,7 @@ class CigtQLearning(CigtReinforceV2):
             else:
                 input_var = torch.autograd.Variable(batch[0]).to(self.device)
                 target_var = torch.autograd.Variable(batch[1]).to(self.device)
-                cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
+                cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var, temperature=1.0)
 
             action_trajectories = torch.tile(action_trajectory_torch, dims=(batch_size, 1))
             result_dict = self.forward_with_actions(cigt_outputs=cigt_outputs, batch_size=batch_size,
