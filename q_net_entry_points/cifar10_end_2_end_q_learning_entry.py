@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     Cifar10ResnetCigtConfigs.backbone = "ResNet"
     Cifar10ResnetCigtConfigs.input_dims = (3, 32, 32)
-    Cifar10ResnetCigtConfigs.batch_size = 800
+    Cifar10ResnetCigtConfigs.batch_size = 1024
 
     # Thin Baseline
     # CigtConstants.layer_config_list = [
@@ -116,7 +116,7 @@ if __name__ == "__main__":
         decay_min_limit=Cifar10ResnetCigtConfigs.softmax_decay_min_limit)
 
     train_loader, test_loader = get_cifar_datasets()
-    DbLogger.log_db_path = DbLogger.paperspace
+    DbLogger.log_db_path = DbLogger.hpc_docker1
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
@@ -169,7 +169,7 @@ if __name__ == "__main__":
         assert all([elem.startswith("policyNetworks") for elem in model_load_results.missing_keys])
         model.to(model.device)
 
-        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_paperspace
+        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_hpc_docker
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
