@@ -115,7 +115,7 @@ if __name__ == "__main__":
         decay_min_limit=Cifar10ResnetCigtConfigs.softmax_decay_min_limit)
 
     train_loader, test_loader = get_cifar_datasets()
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.paperspace
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
@@ -168,7 +168,7 @@ if __name__ == "__main__":
         assert all([elem.startswith("policyNetworks") for elem in model_load_results.missing_keys])
         model.to(model.device)
 
-        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_jr
+        model.modelFilesRootPath = Cifar10ResnetCigtConfigs.model_file_root_path_paperspace
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
