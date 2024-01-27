@@ -12,7 +12,7 @@ from cigt.cigt_output_dataset import CigtOutputDataset
 from cigt.cigt_qlearning_end2end import CigtQlearningEnd2End
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
-from configs.cifar10_resnet_cigt_configs import Cifar10ResnetCigtConfigs
+from configs.cifar10_resnet_cigt_configs import Cifar10ResnetCigtConfigs, adjust_to_batch_size
 
 
 # random.seed(53)
@@ -69,25 +69,40 @@ if __name__ == "__main__":
         {"path_count": 4,
          "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
 
+    Cifar10ResnetCigtConfigs.policy_networks_cbam_layer_count = 3
+    Cifar10ResnetCigtConfigs.policy_networks_cbam_feature_map_count = 32
+    Cifar10ResnetCigtConfigs.policy_networks_cbam_reduction_ratio = 4
+    Cifar10ResnetCigtConfigs.policy_networks_cbam_layer_input_reduction_ratio = 4
+    Cifar10ResnetCigtConfigs.policy_networks_cbam_end_avg_pool_strode = 2
+    Cifar10ResnetCigtConfigs.policy_networks_use_lstm = True
+    Cifar10ResnetCigtConfigs.policy_networks_lstm_dimension = 128
+    Cifar10ResnetCigtConfigs.policy_networks_lstm_num_layers = 1
+    Cifar10ResnetCigtConfigs.policy_networks_lstm_bidirectional = False
+    Cifar10ResnetCigtConfigs.policy_networks_total_num_of_epochs = 250
+    Cifar10ResnetCigtConfigs.policy_networks_initial_lr = 0.0001
+    Cifar10ResnetCigtConfigs.policy_networks_backbone_lr_coefficient = 0.1
+    Cifar10ResnetCigtConfigs.policy_networks_polynomial_scheduler_power = 1.0
+    Cifar10ResnetCigtConfigs.policy_networks_wd = 0.0001
+    Cifar10ResnetCigtConfigs.policy_networks_mac_lambda = 0.05
+    Cifar10ResnetCigtConfigs.policy_networks_discount_factor = 0.99
+    Cifar10ResnetCigtConfigs.policy_networks_logit_temperature = 1.0
+    Cifar10ResnetCigtConfigs.policy_networks_apply_reward_whitening = False
+    Cifar10ResnetCigtConfigs.policy_networks_evaluation_period = 5
+    Cifar10ResnetCigtConfigs.policy_networks_use_moving_average_baseline = True
+    Cifar10ResnetCigtConfigs.policy_networks_baseline_momentum = 0.99
+    Cifar10ResnetCigtConfigs.policy_networks_policy_entropy_loss_coeff = 0.0
+    Cifar10ResnetCigtConfigs.policy_networks_epsilon_decay_coeff = 1.0
+    Cifar10ResnetCigtConfigs.policy_networks_last_eval_start = 5
+    Cifar10ResnetCigtConfigs.policy_networks_train_only_action_heads = False
+    Cifar10ResnetCigtConfigs.policy_networks_no_improvement_stop_count = 20
+
     Cifar10ResnetCigtConfigs.backbone = "ResNet"
     Cifar10ResnetCigtConfigs.input_dims = (3, 32, 32)
     Cifar10ResnetCigtConfigs.batch_size = 1024
-
-    # Thin Baseline
-    # CigtConstants.layer_config_list = [
-    #     {"path_count": 1,
-    #      "layer_structure": [{"layer_count": 9, "feature_map_count": 16},
-    #                          {"layer_count": 9, "feature_map_count": 12},
-    #                          {"layer_count": 18, "feature_map_count": 16},
-    #                          {"layer_count": 18, "feature_map_count": 16}]}]
-
-    # Thick Baseline
-    # CigtConstants.layer_config_list = [
-    #     {"path_count": 1,
-    #      "layer_structure": [{"layer_count": 18, "feature_map_count": 16},
-    #                          {"layer_count": 18, "feature_map_count": 32},
-    #                          {"layer_count": 18, "feature_map_count": 64}]}]
-
+    Cifar10ResnetCigtConfigs.policy_networks_initial_lr = 0.0001
+    Cifar10ResnetCigtConfigs.policy_networks_backbone_lr_coefficient = 0.1
+    Cifar10ResnetCigtConfigs.learning_schedule = [
+        (adjust_to_batch_size(original_value=150, target_batch_size=Cifar10ResnetCigtConfigs.batch_size), 0.1)]
     Cifar10ResnetCigtConfigs.classification_wd = 0.0005
     Cifar10ResnetCigtConfigs.information_gain_balance_coeff_list = [5.0, 5.0]
     Cifar10ResnetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"

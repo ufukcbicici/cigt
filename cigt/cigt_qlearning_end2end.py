@@ -42,6 +42,8 @@ class CigtQlearningEnd2End(CigtQLearning):
                  num_classes, model_mac_info, is_debug_mode, precalculated_datasets_dict):
         super().__init__(configs, run_id, model_definition, num_classes, model_mac_info, is_debug_mode,
                          precalculated_datasets_dict)
+        self.policyNetworkInitialLr = configs.policy_networks_initial_lr
+        self.policyNetworkBackboneLrCoefficient = configs.policy_networks_backbone_lr_coefficient
 
     def get_cigt_outputs(self, x, y, **kwargs):
         assert "temperature" in kwargs
@@ -153,6 +155,7 @@ class CigtQlearningEnd2End(CigtQLearning):
                 "predicted_q_tables_dataset": predicted_q_tables_dataset,
                 "greedy_actions": greedy_actions}
 
+    # TODO: Test and complete this
     def evaluate_datasets(self, train_loader, test_loader, epoch):
         print("************** Epoch:{0} **************".format(epoch))
         kv_rows = []
@@ -171,9 +174,6 @@ class CigtQlearningEnd2End(CigtQLearning):
                 assert np.allclose(a_greedy, a_expected)
                 action_indices.append(greedy_actions[:, idx])
             print("Test with {0} is complete! No errors found.".format(data_type))
-
-
-
 
             # assert results_dict["expected_accuracy"] == results_dict_greedy["accuracy"]
             # assert results_dict["mac_avg"] == results_dict_greedy["mac_avg"]
@@ -235,6 +235,129 @@ class CigtQlearningEnd2End(CigtQLearning):
         # }
         # return results
 
+    def create_optimizer(self):
+        paths = []
+        for pc in self.pathCounts:
+            paths.append([i_ for i_ in range(pc)])
+        path_variaties = Utilities.get_cartesian_product(list_of_lists=paths)
+
+        for idx in range(len(self.pathCounts)):
+            cnt = len([tpl for tpl in path_variaties if tpl[idx] == 0])
+            self.layerCoefficients.append(len(path_variaties) / cnt)
+
+        # Create parameter groups per CIGT layer and shared parameters
+        shared_parameters = []
+        parameters_per_cigt_layers = []
+        for idx in range(len(self.pathCounts)):
+            parameters_per_cigt_layers.append([])
+        # Policy Network parameters.
+        policy_networks_parameters = []
+        # Value Networks parameters.
+        value_networks_parameters = []
+        policy_network_parameter_names = []
+        shared_parameter_names = []
+
+        for name, param in self.named_parameters():
+            assert not (("cigtLayers" in name and "policyNetworks" in name) or
+                        ("cigtLayers" in name and "valueNetworks" in name) or
+                        ("policyNetworks" in name and "valueNetworks" in name))
+            if "cigtLayers" in name:
+                assert "policyNetworks" not in name and "valueNetworks" not in name
+                param_name_splitted = name.split(".")
+                layer_id = int(param_name_splitted[1])
+                assert 0 <= layer_id <= len(self.pathCounts) - 1
+                parameters_per_cigt_layers[layer_id].append(param)
+            elif "policyNetworks" in name:
+                assert "cigtLayers" not in name and "valueNetworks" not in name
+                policy_networks_parameters.append(param)
+                policy_network_parameter_names.append(name)
+            elif "valueNetworks" in name:
+                assert "cigtLayers" not in name and "policyNetworks" not in name
+                value_networks_parameters.append(param)
+            else:
+                shared_parameters.append(param)
+                shared_parameter_names.append(name)
+
+        num_shared_parameters = len(shared_parameters)
+        num_policy_network_parameters = len(policy_networks_parameters)
+        num_value_networks_parameters = len(value_networks_parameters)
+        num_cigt_layer_parameters = sum([len(arr) for arr in parameters_per_cigt_layers])
+        num_all_parameters = len([tpl for tpl in self.named_parameters()])
+        assert num_shared_parameters + num_policy_network_parameters + \
+               num_value_networks_parameters + num_cigt_layer_parameters == num_all_parameters
+
+        # Include all backbone parameters, except the routing networks, into the same set.
+        back_bone_parameters = []
+        for idx in range(len(parameters_per_cigt_layers)):
+            back_bone_parameters.extend(parameters_per_cigt_layers[idx])
+        for name, param in self.named_parameters():
+            if name in set(shared_parameter_names) and "blockEndLayers" not in name:
+                back_bone_parameters.append(param)
+        print("X")
+
+        # # Create a separate optimizer that only optimizes the policy networks.
+        # policy_networks_optimizer = optim.AdamW(
+        #     [{'params': policy_networks_parameters,
+        #       'lr': self.policyNetworkInitialLr,
+        #       'weight_decay': self.policyNetworksWd}])
+        #
+        # parameter_groups = []
+        # # Add parameter groups with respect to their cigt layers
+        # for layer_id in range(len(self.pathCounts)):
+        #     parameter_groups.append(
+        #         {'params': parameters_per_cigt_layers[layer_id],
+        #          # 'lr': self.initialLr * self.layerCoefficients[layer_id],
+        #          'lr': self.initialLr,
+        #          'weight_decay': self.classificationWd})
+        #
+        # # Shared parameters, always the group
+        # parameter_groups.append(
+        #     {'params': shared_parameters,
+        #      'lr': self.initialLr,
+        #      'weight_decay': self.classificationWd})
+        #
+        # if self.optimizerType == "SGD":
+        #     model_optimizer = optim.SGD(parameter_groups, momentum=0.9)
+
+        return policy_networks_optimizer
+
+    def adjust_learning_rate_stepwise(self, epoch):
+        """Sets the learning rate to the initial LR decayed by 10 after 150 and 250 epochs"""
+        # Calculate base learning rate
+        lower_bounds = [0]
+        lower_bounds.extend([tpl[0] for tpl in self.learningRateSchedule])
+        upper_bounds = [tpl[0] for tpl in self.learningRateSchedule]
+        upper_bounds.append(np.inf)
+        bounds = np.stack([lower_bounds, upper_bounds], axis=1)
+        lr_coeffs = [1.0]
+        lr_coeffs.extend([tpl[1] for tpl in self.learningRateSchedule])
+        lower_comparison = bounds[:, 0] <= epoch
+        upper_comparison = epoch < bounds[:, 1]
+        bounds_binary = np.stack([lower_comparison, upper_comparison], axis=1)
+        res = np.all(bounds_binary, axis=1)
+        idx = np.argmax(res)
+        lr_coeff = lr_coeffs[idx]
+
+        # Update learning rates for the backbone and the policy networks accordingly
+
+        # base_lr = lr * lr_coeff
+        #
+        # assert len(self.modelOptimizer.param_groups) == len(self.pathCounts) + 1
+        #
+        # # Cigt layers with boosted lrs.
+        # for layer_id in range(len(self.pathCounts)):
+        #     if self.boostLearningRatesLayerWise:
+        #         self.modelOptimizer.param_groups[layer_id]['lr'] = self.layerCoefficients[layer_id] * base_lr
+        #     else:
+        #         self.modelOptimizer.param_groups[layer_id]['lr'] = base_lr
+        # assert len(self.pathCounts) == len(self.modelOptimizer.param_groups) - 1
+        # # Shared parameters
+        # self.modelOptimizer.param_groups[-1]['lr'] = base_lr
+        #
+        # if not self.boostLearningRatesLayerWise:
+        #     for p_group in self.modelOptimizer.param_groups:
+        #         assert p_group["lr"] == base_lr
+
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
         print("Device:{0}".format(self.device))
@@ -252,14 +375,14 @@ class CigtQlearningEnd2End(CigtQLearning):
         print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
             test_ig_accuracy, test_ig_mac, test_ig_time))
 
-        # train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
-        #     loader=train_loader, action_trajectory=(0, 0))
-        # print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
-        #     train_ig_accuracy, train_ig_mac, train_ig_time))
+        train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
+            loader=train_loader, action_trajectory=(0, 0))
+        print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
+            train_ig_accuracy, train_ig_mac, train_ig_time))
 
         self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
-        #
-        # # Create the model optimizer, we should have every parameter initialized right now.
+
+        # Create the model optimizer, we should have every parameter initialized right now.
         # self.qNetOptimizer = self.create_optimizer()
         #
         # self.isInWarmUp = False
