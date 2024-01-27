@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from collections import Counter
 
+import random
 import torch
 import time
 import inspect
@@ -161,8 +162,10 @@ class CigtQlearningEnd2End(CigtQLearning):
         kv_rows = []
         results_summary = {"Train": {}, "Test": {}}
         for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
+            random.seed(42)
             np.random.seed(42)
             results_dict_greedy = self.evaluate_greedy(data_loader=data_loader)
+            random.seed(42)
             np.random.seed(42)
             results_dict = self.validate_with_expectation(loader=data_loader, temperature=None)
             greedy_actions = results_dict_greedy["greedy_actions"]
