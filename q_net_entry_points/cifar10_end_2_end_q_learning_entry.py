@@ -26,8 +26,8 @@ def get_cifar_datasets():
     if not Cifar10ResnetCigtConfigs.advanced_augmentation:
         print("WILL BE USING ONLY CROP AND HORIZONTAL FLIP AUGMENTATION")
         transform_train = transforms.Compose([
-            # transforms.RandomCrop(32, padding=4),
-            # transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
         ])
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     Cifar10ResnetCigtConfigs.apply_relu_dropout_to_decision_layer = False
     Cifar10ResnetCigtConfigs.decision_dimensions = [128, 128]
     Cifar10ResnetCigtConfigs.apply_mask_to_batch_norm = False
-    Cifar10ResnetCigtConfigs.advanced_augmentation = False
+    Cifar10ResnetCigtConfigs.advanced_augmentation = True
     Cifar10ResnetCigtConfigs.use_focal_loss = False
     Cifar10ResnetCigtConfigs.focal_loss_gamma = 2.0
     Cifar10ResnetCigtConfigs.batch_norm_type = "BatchNorm"
