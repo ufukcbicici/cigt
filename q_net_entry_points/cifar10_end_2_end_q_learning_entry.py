@@ -49,7 +49,7 @@ def get_cifar_datasets():
     kwargs = {'num_workers': 0, 'pin_memory': True}
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=True, download=True, transform=transform_train),
-        batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
+        batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
     test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10('../data', train=False, transform=transform_test),
         batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=False, **kwargs)
