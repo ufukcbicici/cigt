@@ -26,8 +26,8 @@ def get_cifar_datasets():
     if not Cifar10ResnetCigtConfigs.advanced_augmentation:
         print("WILL BE USING ONLY CROP AND HORIZONTAL FLIP AUGMENTATION")
         transform_train = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
+            # transforms.RandomCrop(32, padding=4),
+            # transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
         ])
