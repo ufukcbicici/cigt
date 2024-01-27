@@ -20,6 +20,9 @@ from configs.cifar10_resnet_cigt_configs import Cifar10ResnetCigtConfigs, adjust
 
 def get_cifar_datasets():
     normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+    print("Cifar10ResnetCigtConfigs.advanced_augmentation:{0}".format(
+        Cifar10ResnetCigtConfigs.advanced_augmentation
+    ))
     if not Cifar10ResnetCigtConfigs.advanced_augmentation:
         print("WILL BE USING ONLY CROP AND HORIZONTAL FLIP AUGMENTATION")
         transform_train = transforms.Compose([
