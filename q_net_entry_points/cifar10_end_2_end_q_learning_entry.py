@@ -158,7 +158,8 @@ if __name__ == "__main__":
     # Skip already processed parameter combinations
     # get_parameters_histogram(parameters_used=["policyNetworksWd", "policyNetworksMacLambda"])
 
-    for params in param_grid:
+    for iteration_id, params in enumerate(param_grid):
+        print("Iteration:{0}".format(iteration_id))
         run_id = DbLogger.get_run_id()
         mac_lambda = params[0]
         wd_coeff = params[1]
