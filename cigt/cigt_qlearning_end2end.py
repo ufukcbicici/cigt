@@ -190,8 +190,12 @@ class CigtQlearningEnd2End(CigtQLearning):
                 action_indices.append(greedy_actions[:, idx])
             print("Test with {0} is complete! No errors found.".format(data_type))
             # Comparison 2: Accuracy
+            print("greedy_accuracy:{0}".format(greedy_accuracy))
+            print("expected_accuracy:{0}".format(expected_accuracy))
             assert np.allclose(greedy_accuracy, expected_accuracy)
             # Comparison 3: Mac
+            print("greedy_mac:{0}".format(greedy_mac))
+            print("expected_mac:{0}".format(expected_mac))
             assert np.allclose(greedy_mac, expected_mac)
 
             # assert results_dict["expected_accuracy"] == results_dict_greedy["accuracy"]
