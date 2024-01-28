@@ -235,7 +235,7 @@ class CigtQlearningEnd2End(CigtQLearning):
             expected_accuracy = results_dict["expected_accuracy"]
             expected_mac = results_dict["expected_mac"]
             predicted_q_tables_expectation = results_dict["predicted_q_tables_dataset"]
-            expected_mse_dict  = results_dict["mse_dict"]
+            expected_mse_dict = results_dict["mse_dict"]
             expected_r2_dict = results_dict["r2_dict"]
 
             # Compare results
