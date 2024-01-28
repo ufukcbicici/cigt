@@ -87,11 +87,14 @@ class CigtQlearningEnd2End(CigtQLearning):
     # Modify validate_with_single_action_trajectory
     # Modify evaluate_datasets
 
-    def evaluate_greedy(self, data_loader):
+    def evaluate_dataset(self, data_loader):
         self.eval()
         action_space = [1]
         action_space.extend(self.actionSpaces)
         all_trajectories = Utilities.create_route_combinations(shape_=action_space)
+        all_q_table_trajectories = []
+        for t_ in range(len(action_space) - 1):
+            all_q_table_trajectories.extend(list(set([tpl[:(t_ + 1)] for tpl in all_trajectories])))
         all_q_net_outputs = []
         for _ in range(len(self.actionSpaces)):
             all_q_net_outputs.append([])
@@ -100,6 +103,7 @@ class CigtQlearningEnd2End(CigtQLearning):
         all_total_mac_vectors = []
         optimal_q_tables_dataset = []
         predicted_q_tables_dataset = []
+        predicted_q_tables_dict = {}
         for _ in range(len(action_space)):
             optimal_q_tables_dataset.append([])
             predicted_q_tables_dataset.append([])
@@ -114,9 +118,14 @@ class CigtQlearningEnd2End(CigtQLearning):
             target_var = torch.autograd.Variable(batch[1]).to(self.device)
             cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var, temperature=1.0)
             actions_array = torch.zeros(size=(batch_size, len(self.pathCounts) - 1), dtype=torch.int64).to(self.device)
+
+            # ************ Calculate optimal Q-Tables ************
             optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
             for tt, optimal_q_table in enumerate(optimal_q_tables):
                 optimal_q_tables_dataset[tt].append(optimal_q_table.detach().cpu().numpy())
+            # ************ Calculate optimal Q-Tables ************
+
+            # ************ Calculate greedy action results ************
             # Call forward len(self.pathCounts) - 1 times. At each call, update the q-table.
             for t in range(len(self.pathCounts) - 1):
                 results_dict = self.forward_with_actions(cigt_outputs=cigt_outputs,
@@ -135,6 +144,22 @@ class CigtQlearningEnd2End(CigtQLearning):
             all_total_mac_vectors.append(results_dict["total_mac_vector"].detach().cpu().numpy())
             time_profiler.end_measurement()
             time_spent_arr.append(time_profiler.get_time())
+            # ************ Calculate greedy action results ************
+
+            # ************ Calculate all possible predicted Q-Tables ************
+            for t_, tpl in enumerate(all_q_table_trajectories):
+                actions_array = torch.zeros(size=(batch_size, len(self.pathCounts) - 1), dtype=torch.int64).to(
+                    self.device)
+                for tt_ in range(1, len(tpl)):
+                    actions_array[:, tt_ - 1] = tpl[tt_]
+                results_dict_2 = self.forward_with_actions(cigt_outputs=cigt_outputs,
+                                                           action_trajectories=actions_array,
+                                                           batch_size=batch_size)
+                q_nets = results_dict_2["q_net_outputs"]
+                if tpl not in predicted_q_tables_dict:
+                    predicted_q_tables_dict[tpl] = []
+                predicted_q_tables_dict[tpl].append(q_nets[len(tpl) - 1].detach().cpu().numpy())
+            # ************ Calculate all possible predicted Q-Tables ************
 
         # for idx in range(len(all_q_net_outputs)):
         #     all_q_net_outputs[idx] = torch.concat(all_q_net_outputs[idx], dim=0)
@@ -142,19 +167,39 @@ class CigtQlearningEnd2End(CigtQLearning):
         # all_expert_probs = torch.concat(all_expert_probs, dim=0)
         all_total_mac_vectors = np.concatenate(all_total_mac_vectors, axis=0)
         for idx in range(len(predicted_q_tables_dataset)):
-            if idx == 0:
-                continue
-            predicted_q_tables_dataset[idx] = np.concatenate(predicted_q_tables_dataset[idx], axis=0)
+            optimal_q_tables_dataset[idx] = np.concatenate(optimal_q_tables_dataset[idx], axis=0)
+            if idx > 0:
+                predicted_q_tables_dataset[idx] = np.concatenate(predicted_q_tables_dataset[idx], axis=0)
         greedy_actions = np.concatenate(greedy_actions, axis=0)
+
+        # MSE and R2 score calculations
+        r2_dict = {}
+        mse_dict = {}
+        for k in predicted_q_tables_dict.keys():
+            predicted_q_tables_dict[k] = np.concatenate(predicted_q_tables_dict[k], axis=0)
+            index_array = \
+                self.create_index_array_for_q_table(batch_size=predicted_q_tables_dict[k].shape[0], path_combination=k)
+            index_array = tuple([arr.detach().cpu().numpy() for arr in index_array])
+            q_pred = predicted_q_tables_dict[k]
+            q_truth = optimal_q_tables_dataset[len(k)][index_array]
+            mse_ = mean_squared_error(y_true=q_truth, y_pred=q_pred)
+            r2_ = r2_score(y_true=q_truth, y_pred=q_pred)
+            mse_dict[k] = mse_
+            r2_dict[k] = r2_
 
         accuracy = np.mean(all_correctness_vectors)
         mac_avg = np.mean(all_total_mac_vectors)
         time_avg = np.mean(np.array(time_spent_arr))
+
         return {"accuracy": accuracy,
                 "mac_avg": mac_avg,
                 "time_avg": time_avg,
                 "predicted_q_tables_dataset": predicted_q_tables_dataset,
-                "greedy_actions": greedy_actions}
+                "optimal_q_tables_dataset": optimal_q_tables_dataset,
+                "greedy_actions": greedy_actions,
+                "predicted_q_tables_dict": predicted_q_tables_dict,
+                "r2_dict": r2_dict,
+                "mse_dict": mse_dict}
 
     # TODO: Test and complete this
     def evaluate_datasets(self, train_loader, test_loader, epoch):
@@ -162,14 +207,26 @@ class CigtQlearningEnd2End(CigtQLearning):
         kv_rows = []
         results_summary = {"Train": {}, "Test": {}}
         for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
+            # results_dict_greedy = self.evaluate_dataset(data_loader=data_loader)
+            # greedy_actions = results_dict_greedy["greedy_actions"]
+            # optimal_q_tables_dataset = results_dict_greedy["optimal_q_tables_dataset"]
+            # predicted_q_tables_greedy = results_dict_greedy["predicted_q_tables_dataset"]
+            # greedy_accuracy = results_dict_greedy["accuracy"]
+            # greedy_mac = results_dict_greedy["mac_avg"]
+            # print("greedy_accuracy:{0}".format(greedy_accuracy))
+            # print("greedy_mac:{0}".format(greedy_mac))
+
+            # ***************** Greedy actions vs Expectation Tests *****************
             # Greedy action measurements
             random.seed(42)
             np.random.seed(42)
-            results_dict_greedy = self.evaluate_greedy(data_loader=data_loader)
+            results_dict_greedy = self.evaluate_dataset(data_loader=data_loader)
             greedy_actions = results_dict_greedy["greedy_actions"]
             predicted_q_tables_greedy = results_dict_greedy["predicted_q_tables_dataset"]
             greedy_accuracy = results_dict_greedy["accuracy"]
             greedy_mac = results_dict_greedy["mac_avg"]
+            greedy_r2_dict = results_dict_greedy["r2_dict"]
+            greedy_mse_dict = results_dict_greedy["mse_dict"]
 
             # Expectation measurements
             random.seed(42)
@@ -178,15 +235,17 @@ class CigtQlearningEnd2End(CigtQLearning):
             expected_accuracy = results_dict["expected_accuracy"]
             expected_mac = results_dict["expected_mac"]
             predicted_q_tables_expectation = results_dict["predicted_q_tables_dataset"]
+            expected_mse_dict  = results_dict["mse_dict"]
+            expected_r2_dict = results_dict["r2_dict"]
 
             # Compare results
             # Comparison 1: Predicted Q-Tables
             action_indices = [np.arange(greedy_actions.shape[0]),
                               np.zeros_like(greedy_actions[:, 0])]
             for idx in range(greedy_actions.shape[1]):
-                a_greedy = predicted_q_tables_greedy[idx + 1]
-                a_expected = predicted_q_tables_expectation[idx + 1][action_indices].detach().cpu().numpy()
-                assert np.allclose(a_greedy, a_expected)
+                q_greedy = predicted_q_tables_greedy[idx + 1]
+                q_expected = predicted_q_tables_expectation[idx + 1][action_indices].detach().cpu().numpy()
+                assert np.allclose(q_greedy, q_expected)
                 action_indices.append(greedy_actions[:, idx])
             print("Test with {0} is complete! No errors found.".format(data_type))
             # Comparison 2: Accuracy
@@ -197,6 +256,20 @@ class CigtQlearningEnd2End(CigtQLearning):
             print("greedy_mac:{0}".format(greedy_mac))
             print("expected_mac:{0}".format(expected_mac))
             assert np.allclose(greedy_mac, expected_mac)
+            # Comparison 4: MSE
+            assert set(greedy_mse_dict.keys()) == set(expected_mse_dict.keys())
+            for k in greedy_mse_dict.keys():
+                assert np.allclose(greedy_mse_dict[k], expected_mse_dict[k])
+                print("Greedy {0} MSE {1}:{2}".format(data_type, k, greedy_mse_dict[k]))
+                print("Expected {0} MSE {1}:{2}".format(data_type, k, expected_mse_dict[k]))
+            # Comparison 5: R2
+            assert set(greedy_r2_dict.keys()) == set(expected_r2_dict.keys())
+            for k in greedy_r2_dict.keys():
+                assert np.allclose(greedy_r2_dict[k], expected_r2_dict[k])
+                print("Greedy {0} R2 {1}:{2}".format(data_type, k, greedy_r2_dict[k]))
+                print("Expected {0} R2 {1}:{2}".format(data_type, k, expected_r2_dict[k]))
+
+            # ***************** Greedy actions vs Expectation Tests *****************
 
             # assert results_dict["expected_accuracy"] == results_dict_greedy["accuracy"]
             # assert results_dict["mac_avg"] == results_dict_greedy["mac_avg"]
@@ -385,15 +458,15 @@ class CigtQlearningEnd2End(CigtQLearning):
 
         print("X")
 
-        test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
-            loader=test_loader, action_trajectory=(0, 0))
-        print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
-            test_ig_accuracy, test_ig_mac, test_ig_time))
-
-        train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
-            loader=train_loader, action_trajectory=(0, 0))
-        print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
-            train_ig_accuracy, train_ig_mac, train_ig_time))
+        # test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
+        #     loader=test_loader, action_trajectory=(0, 0))
+        # print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
+        #     test_ig_accuracy, test_ig_mac, test_ig_time))
+        #
+        # train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
+        #     loader=train_loader, action_trajectory=(0, 0))
+        # print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
+        #     train_ig_accuracy, train_ig_mac, train_ig_time))
 
         self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
 
