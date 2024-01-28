@@ -162,11 +162,11 @@ class CigtQlearningEnd2End(CigtQLearning):
         kv_rows = []
         results_summary = {"Train": {}, "Test": {}}
         for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
-            # random.seed(42)
-            # np.random.seed(42)
+            random.seed(42)
+            np.random.seed(42)
             results_dict_greedy = self.evaluate_greedy(data_loader=data_loader)
-            # random.seed(42)
-            # np.random.seed(42)
+            random.seed(42)
+            np.random.seed(42)
             results_dict = self.validate_with_expectation(loader=data_loader, temperature=None)
             greedy_actions = results_dict_greedy["greedy_actions"]
             predicted_q_tables_greedy = results_dict_greedy["predicted_q_tables_dataset"]
