@@ -162,15 +162,25 @@ class CigtQlearningEnd2End(CigtQLearning):
         kv_rows = []
         results_summary = {"Train": {}, "Test": {}}
         for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
+            # Greedy action measurements
             random.seed(42)
             np.random.seed(42)
             results_dict_greedy = self.evaluate_greedy(data_loader=data_loader)
+            greedy_actions = results_dict_greedy["greedy_actions"]
+            predicted_q_tables_greedy = results_dict_greedy["predicted_q_tables_dataset"]
+            greedy_accuracy = results_dict_greedy["accuracy"]
+            greedy_mac = results_dict_greedy["mac_avg"]
+
+            # Expectation measurements
             random.seed(42)
             np.random.seed(42)
             results_dict = self.validate_with_expectation(loader=data_loader, temperature=None)
-            greedy_actions = results_dict_greedy["greedy_actions"]
-            predicted_q_tables_greedy = results_dict_greedy["predicted_q_tables_dataset"]
+            expected_accuracy = results_dict["expected_accuracy"]
+            expected_mac = results_dict["expected_mac"]
             predicted_q_tables_expectation = results_dict["predicted_q_tables_dataset"]
+
+            # Compare results
+            # Comparison 1: Predicted Q-Tables
             action_indices = [np.arange(greedy_actions.shape[0]),
                               np.zeros_like(greedy_actions[:, 0])]
             for idx in range(greedy_actions.shape[1]):
@@ -179,6 +189,10 @@ class CigtQlearningEnd2End(CigtQLearning):
                 assert np.allclose(a_greedy, a_expected)
                 action_indices.append(greedy_actions[:, idx])
             print("Test with {0} is complete! No errors found.".format(data_type))
+            # Comparison 2: Accuracy
+            assert np.allclose(greedy_accuracy, expected_accuracy)
+            # Comparison 3: Mac
+            assert np.allclose(greedy_mac, expected_mac)
 
             # assert results_dict["expected_accuracy"] == results_dict_greedy["accuracy"]
             # assert results_dict["mac_avg"] == results_dict_greedy["mac_avg"]
@@ -295,36 +309,28 @@ class CigtQlearningEnd2End(CigtQLearning):
         back_bone_parameters = []
         for idx in range(len(parameters_per_cigt_layers)):
             back_bone_parameters.extend(parameters_per_cigt_layers[idx])
+        print("Num of back bone parameters before:{0}".format(len(back_bone_parameters)))
         for name, param in self.named_parameters():
             if name in set(shared_parameter_names) and "blockEndLayers" not in name:
+                print("Backbone parameter:{0}".format(name))
                 back_bone_parameters.append(param)
+        print("Num of back bone parameters later:{0}".format(len(back_bone_parameters)))
         print("X")
 
-        # # Create a separate optimizer that only optimizes the policy networks.
-        # policy_networks_optimizer = optim.AdamW(
-        #     [{'params': policy_networks_parameters,
-        #       'lr': self.policyNetworkInitialLr,
-        #       'weight_decay': self.policyNetworksWd}])
-        #
-        # parameter_groups = []
-        # # Add parameter groups with respect to their cigt layers
-        # for layer_id in range(len(self.pathCounts)):
-        #     parameter_groups.append(
-        #         {'params': parameters_per_cigt_layers[layer_id],
-        #          # 'lr': self.initialLr * self.layerCoefficients[layer_id],
-        #          'lr': self.initialLr,
-        #          'weight_decay': self.classificationWd})
-        #
-        # # Shared parameters, always the group
-        # parameter_groups.append(
-        #     {'params': shared_parameters,
-        #      'lr': self.initialLr,
-        #      'weight_decay': self.classificationWd})
-        #
-        # if self.optimizerType == "SGD":
-        #     model_optimizer = optim.SGD(parameter_groups, momentum=0.9)
-
-        return policy_networks_optimizer
+        # Create separate parameter groups for the backbone and the policy network parameters.
+        parameter_groups = [{'params': back_bone_parameters,
+                             'lr': self.initialLr * self.policyNetworkBackboneLrCoefficient,
+                             'weight_decay': self.classificationWd},
+                            {'params': policy_networks_parameters,
+                             'lr': self.initialLr,
+                             'weight_decay': self.classificationWd}]
+        if self.optimizerType == "SGD":
+            model_optimizer = optim.SGD(parameter_groups, momentum=0.9)
+        elif self.optimizerType == "AdamW":
+            model_optimizer = optim.AdamW(parameter_groups)
+        else:
+            raise NotImplementedError()
+        return model_optimizer
 
     def adjust_learning_rate_stepwise(self, epoch):
         """Sets the learning rate to the initial LR decayed by 10 after 150 and 250 epochs"""
