@@ -548,7 +548,8 @@ class CigtQlearningEnd2End(CigtQLearning):
                     decision_loss_coeff = self.routingManager.adjust_decision_loss_coeff(model=self)
                     temperature = 0.1
                     cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var, temperature=temperature)
-                    zero_actions = torch.zeros(size=(batch_size, len(self.pathCounts) - 1), dtype=torch.int64)
+                    zero_actions = torch.zeros(size=(batch_size, len(self.pathCounts) - 1), dtype=torch.int64,
+                                               device=self.device)
                     executed_nodes = self.get_executed_nodes_wrt_trajectories(cigt_outputs=cigt_outputs,
                                                                               action_trajectories=zero_actions,
                                                                               batch_size=batch_size)

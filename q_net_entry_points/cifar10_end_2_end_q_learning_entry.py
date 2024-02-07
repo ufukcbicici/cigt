@@ -121,6 +121,7 @@ if __name__ == "__main__":
     QCigtCifar10Configs.focal_loss_gamma = 2.0
     QCigtCifar10Configs.batch_norm_type = "BatchNorm"
     QCigtCifar10Configs.data_parallelism = False
+    QCigtCifar10Configs.policy_networks_evaluation_period = 5
 
     QCigtCifar10Configs.softmax_decay_controller = StepWiseDecayAlgorithm(
         decay_name="Stepwise",
@@ -143,56 +144,93 @@ if __name__ == "__main__":
     model_mac = None
 
     print("Start!")
+    run_id = DbLogger.get_run_id()
 
-    mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15]
-    wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
-    mac_lambda_list = sorted(mac_lambda_list)
-    wd_list = sorted(wd_list)
-    param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list, wd_list])
-    QCigtCifar10Configs.policy_networks_evaluation_period = 5
+    print("Running run_id:{0}".format(run_id))
+    print("Writing into DB:{0}".format(DbLogger.log_db_path))
+    print("Running with mac_lambda:{0}".format(QCigtCifar10Configs.policy_networks_mac_lambda))
+    print("Running with wd_coeff:{0}".format(QCigtCifar10Configs.policy_networks_wd))
 
-    # Skip already processed parameter combinations
-    # get_parameters_histogram(parameters_used=["policyNetworksWd", "policyNetworksMacLambda"])
+    model = CigtQlearningEnd2End(
+        configs=QCigtCifar10Configs,
+        model_definition="Q Learning CIGT",
+        num_classes=10,
+        run_id=run_id,
+        model_mac_info=mac_counts_per_block,
+        is_debug_mode=False,
+        precalculated_datasets_dict=None)
+    chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
+                             "checkpoints/cigtlogger2_75_epoch1575.pth")
+    data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
+                             "cigtlogger2_75_epoch1575_data")
+    checkpoint = torch.load(chck_path, map_location=model.device)
+    model_load_results = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
+    assert all([elem.startswith("policyNetworks") for elem in model_load_results.missing_keys])
+    model.to(model.device)
 
-    for iteration_id, params in enumerate(param_grid):
-        print("Iteration:{0}".format(iteration_id))
-        run_id = DbLogger.get_run_id()
-        mac_lambda = params[0]
-        wd_coeff = params[1]
-        QCigtCifar10Configs.policy_networks_mac_lambda = mac_lambda
-        QCigtCifar10Configs.policy_networks_wd = wd_coeff
+    model.modelFilesRootPath = QCigtCifar10Configs.model_file_root_path_hpc_docker
+    explanation = model.get_explanation_string()
+    DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        print("Running run_id:{0}".format(run_id))
-        print("Writing into DB:{0}".format(DbLogger.log_db_path))
-        print("Running with mac_lambda:{0}".format(QCigtCifar10Configs.policy_networks_mac_lambda))
-        print("Running with wd_coeff:{0}".format(QCigtCifar10Configs.policy_networks_wd))
+    model.execute_forward_with_random_input()
+    model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
 
-        model = CigtQlearningEnd2End(
-            configs=QCigtCifar10Configs,
-            model_definition="Q Learning CIGT",
-            num_classes=10,
-            run_id=run_id,
-            model_mac_info=mac_counts_per_block,
-            is_debug_mode=False,
-            precalculated_datasets_dict=None)
-        chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
-                                 "checkpoints/cigtlogger2_75_epoch1575.pth")
-        data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
-                                 "cigtlogger2_75_epoch1575_data")
-        checkpoint = torch.load(chck_path, map_location=model.device)
-        model_load_results = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
-        assert all([elem.startswith("policyNetworks") for elem in model_load_results.missing_keys])
-        model.to(model.device)
+    kv_rows = [(run_id,
+                model.policyNetworkTotalNumOfEpochs,
+                "Training Status",
+                "Training Finished!!!")]
+    DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
 
-        model.modelFilesRootPath = QCigtCifar10Configs.model_file_root_path_hpc_docker
-        explanation = model.get_explanation_string()
-        DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
-        model.execute_forward_with_random_input()
-        model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
-
-        kv_rows = [(run_id,
-                    model.policyNetworkTotalNumOfEpochs,
-                    "Training Status",
-                    "Training Finished!!!")]
-        DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+    # # mac_lambda_list = [0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.15]
+    # # wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
+    # # mac_lambda_list = sorted(mac_lambda_list)
+    # # wd_list = sorted(wd_list)
+    # # param_grid = Utilities.get_cartesian_product(list_of_lists=[mac_lambda_list, wd_list])
+    #
+    #
+    # # Skip already processed parameter combinations
+    # # get_parameters_histogram(parameters_used=["policyNetworksWd", "policyNetworksMacLambda"])
+    #
+    # for iteration_id, params in enumerate(param_grid):
+    #     print("Iteration:{0}".format(iteration_id))
+    #     run_id = DbLogger.get_run_id()
+    #     # mac_lambda = params[0]
+    #     # wd_coeff = params[1]
+    #     # QCigtCifar10Configs.policy_networks_mac_lambda = mac_lambda
+    #     # QCigtCifar10Configs.policy_networks_wd = wd_coeff
+    #
+    #     print("Running run_id:{0}".format(run_id))
+    #     print("Writing into DB:{0}".format(DbLogger.log_db_path))
+    #     print("Running with mac_lambda:{0}".format(QCigtCifar10Configs.policy_networks_mac_lambda))
+    #     print("Running with wd_coeff:{0}".format(QCigtCifar10Configs.policy_networks_wd))
+    #
+    #     model = CigtQlearningEnd2End(
+    #         configs=QCigtCifar10Configs,
+    #         model_definition="Q Learning CIGT",
+    #         num_classes=10,
+    #         run_id=run_id,
+    #         model_mac_info=mac_counts_per_block,
+    #         is_debug_mode=False,
+    #         precalculated_datasets_dict=None)
+    #     chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
+    #                              "checkpoints/cigtlogger2_75_epoch1575.pth")
+    #     data_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "..",
+    #                              "cigtlogger2_75_epoch1575_data")
+    #     checkpoint = torch.load(chck_path, map_location=model.device)
+    #     model_load_results = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
+    #     assert all([elem.startswith("policyNetworks") for elem in model_load_results.missing_keys])
+    #     model.to(model.device)
+    #
+    #     model.modelFilesRootPath = QCigtCifar10Configs.model_file_root_path_hpc_docker
+    #     explanation = model.get_explanation_string()
+    #     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+    #
+    #     model.execute_forward_with_random_input()
+    #     model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
+    #
+    #     kv_rows = [(run_id,
+    #                 model.policyNetworkTotalNumOfEpochs,
+    #                 "Training Status",
+    #                 "Training Finished!!!")]
+    #     DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
