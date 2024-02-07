@@ -658,4 +658,14 @@ class CigtQlearningEnd2End(CigtQLearning):
 
             if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
                     epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
+                test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
+                    loader=test_loader, action_trajectory=(0, 0))
+                print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
+                    test_ig_accuracy, test_ig_mac, test_ig_time))
+
+                train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
+                    loader=train_loader, action_trajectory=(0, 0))
+                print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
+                    train_ig_accuracy, train_ig_mac, train_ig_time))
+
                 self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
