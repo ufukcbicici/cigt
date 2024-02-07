@@ -12,14 +12,14 @@ def adjust_to_batch_size(original_value, target_batch_size):
     return adjusted_value
 
 
-class Cifar10ResnetCigtConfigs:
+class QCigtCifar10Configs:
     # Standart Parameters
     backbone = "ResNet"
     input_dims = (3, 32, 32)
     class_count = 10
     batch_size = 1024
-    warm_up_period = adjust_to_batch_size(original_value=350, target_batch_size=batch_size)
-    epoch_count = adjust_to_batch_size(original_value=1400, target_batch_size=batch_size)
+    warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size)
+    epoch_count = adjust_to_batch_size(original_value=500, target_batch_size=batch_size)
     temperature_optimization_epoch_count = 1000
     data_parallelism = True
     classification_wd = 0.0
@@ -59,7 +59,7 @@ class Cifar10ResnetCigtConfigs:
     measurement_start = 11
     decision_dimensions = [128, 128]
     decision_average_pooling_strides = [4, 2]
-    initial_lr = 0.1
+    initial_lr = 0.01
     iteration_count_per_epoch = floor(50000 / batch_size) + 1 if 50000 % batch_size != 0 else 50000 / batch_size
 
     decision_loss_coeff = 1.0
@@ -73,8 +73,7 @@ class Cifar10ResnetCigtConfigs:
     first_conv_output_dim = 16
     first_conv_stride = 1
     learning_schedule = [
-        (adjust_to_batch_size(original_value=600, target_batch_size=batch_size) + warm_up_period, 0.1),
-        (adjust_to_batch_size(original_value=1000, target_batch_size=batch_size) + warm_up_period, 0.01)]
+        (adjust_to_batch_size(original_value=350, target_batch_size=batch_size) + warm_up_period, 0.1)]
     loss_calculation_kind = "MultipleLogitsMultipleLosses"
 
     model_file_root_path_hpc = "/clusterusers/can.bicici@boun.edu.tr/cigt"

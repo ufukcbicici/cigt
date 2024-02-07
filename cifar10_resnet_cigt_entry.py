@@ -158,7 +158,7 @@ if __name__ == "__main__":
         model.load_state_dict(state_dict=checkpoint["model_state_dict"])
         model.execute_forward_with_random_input()
         total_params = model.get_total_parameter_count()
-        mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
+        # mac_counts_per_block = CigtIgHardRoutingX.calculate_mac(model=model)
 
         # model = CigtIdealRouting()
 
@@ -167,5 +167,7 @@ if __name__ == "__main__":
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
         # model.validate(loader=train_loader, data_kind="train", epoch=0, temperature=0.1)
-        model.validate(loader=test_loader, data_kind="test", epoch=0, temperature=0.1)
-        # model.fit(train_loader=train_loader, test_loader=test_loader)
+        # model.validate(loader=test_loader, data_kind="test", epoch=0, temperature=0.1)
+        model.isInWarmUp = False
+        model.routingRandomizationRatio = -1.0
+        model.fit(train_loader=train_loader, test_loader=test_loader)

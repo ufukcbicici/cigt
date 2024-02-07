@@ -45,6 +45,8 @@ class CigtQlearningEnd2End(CigtQLearning):
                          precalculated_datasets_dict)
         self.policyNetworkInitialLr = configs.policy_networks_initial_lr
         self.policyNetworkBackboneLrCoefficient = configs.policy_networks_backbone_lr_coefficient
+        self.policyNetworkBackboneFreezeBnLayers = configs.policy_network_backbone_freeze_bn_layers
+        self.igClassificationLoss = nn.CrossEntropyLoss()
 
     def get_cigt_outputs(self, x, y, **kwargs):
         assert "temperature" in kwargs
@@ -86,6 +88,13 @@ class CigtQlearningEnd2End(CigtQLearning):
     # Modify validate_with_expectation
     # Modify validate_with_single_action_trajectory
     # Modify evaluate_datasets
+
+    def freeze_bn_layers(self):
+        for name, module in self.named_modules():
+            if hasattr(module, 'track_running_stats'):
+                assert isinstance(module, nn.BatchNorm1d) or isinstance(module, nn.BatchNorm2d)
+                if "policyNetworks" not in name:
+                    module.eval()
 
     def evaluate_dataset(self, data_loader):
         self.eval()
@@ -199,7 +208,8 @@ class CigtQlearningEnd2End(CigtQLearning):
                 "greedy_actions": greedy_actions,
                 "predicted_q_tables_dict": predicted_q_tables_dict,
                 "r2_dict": r2_dict,
-                "mse_dict": mse_dict}
+                "mse_dict": mse_dict,
+                "all_q_table_trajectories": all_q_table_trajectories}
 
     # TODO: Test and complete this
     def evaluate_datasets(self, train_loader, test_loader, epoch):
@@ -207,129 +217,51 @@ class CigtQlearningEnd2End(CigtQLearning):
         kv_rows = []
         results_summary = {"Train": {}, "Test": {}}
         for data_type, data_loader in [("Test", test_loader), ("Train", train_loader)]:
-            # results_dict_greedy = self.evaluate_dataset(data_loader=data_loader)
-            # greedy_actions = results_dict_greedy["greedy_actions"]
-            # optimal_q_tables_dataset = results_dict_greedy["optimal_q_tables_dataset"]
-            # predicted_q_tables_greedy = results_dict_greedy["predicted_q_tables_dataset"]
-            # greedy_accuracy = results_dict_greedy["accuracy"]
-            # greedy_mac = results_dict_greedy["mac_avg"]
-            # print("greedy_accuracy:{0}".format(greedy_accuracy))
-            # print("greedy_mac:{0}".format(greedy_mac))
-
-            # ***************** Greedy actions vs Expectation Tests *****************
-            # Greedy action measurements
-            random.seed(42)
-            np.random.seed(42)
             results_dict_greedy = self.evaluate_dataset(data_loader=data_loader)
             greedy_actions = results_dict_greedy["greedy_actions"]
+            optimal_q_tables_dataset = results_dict_greedy["optimal_q_tables_dataset"]
             predicted_q_tables_greedy = results_dict_greedy["predicted_q_tables_dataset"]
             greedy_accuracy = results_dict_greedy["accuracy"]
             greedy_mac = results_dict_greedy["mac_avg"]
+            all_q_table_trajectories = results_dict_greedy["all_q_table_trajectories"]
             greedy_r2_dict = results_dict_greedy["r2_dict"]
             greedy_mse_dict = results_dict_greedy["mse_dict"]
+            print("{0} greedy_accuracy:{1}".format(data_type, greedy_accuracy))
+            print("{0} greedy_mac:{1}".format(data_type, greedy_mac))
+            results_summary[data_type]["Accuracy"] = greedy_accuracy
+            results_summary[data_type]["Mac"] = greedy_mac
 
-            # Expectation measurements
-            random.seed(42)
-            np.random.seed(42)
-            results_dict = self.validate_with_expectation(loader=data_loader, temperature=None)
-            expected_accuracy = results_dict["expected_accuracy"]
-            expected_mac = results_dict["expected_mac"]
-            predicted_q_tables_expectation = results_dict["predicted_q_tables_dataset"]
-            expected_mse_dict = results_dict["mse_dict"]
-            expected_r2_dict = results_dict["r2_dict"]
+            for trajectory in all_q_table_trajectories:
+                # policy_distribution = policy_distributions_dict[trajectory]
+                mse_ = greedy_mse_dict[trajectory]
+                r2_ = greedy_r2_dict[trajectory]
+                # print("{0} Policy Distribution {1}:{2}".format(data_type, trajectory, policy_distribution))
+                print("{0} Q-Table MSE {1}:{2}".format(data_type, trajectory, mse_))
+                print("{0} Q-Table R2 {1}:{2}".format(data_type, trajectory, r2_))
 
-            # Compare results
-            # Comparison 1: Predicted Q-Tables
-            action_indices = [np.arange(greedy_actions.shape[0]),
-                              np.zeros_like(greedy_actions[:, 0])]
-            for idx in range(greedy_actions.shape[1]):
-                q_greedy = predicted_q_tables_greedy[idx + 1]
-                q_expected = predicted_q_tables_expectation[idx + 1][action_indices].detach().cpu().numpy()
-                assert np.allclose(q_greedy, q_expected)
-                action_indices.append(greedy_actions[:, idx])
-            print("Test with {0} is complete! No errors found.".format(data_type))
-            # Comparison 2: Accuracy
-            print("greedy_accuracy:{0}".format(greedy_accuracy))
-            print("expected_accuracy:{0}".format(expected_accuracy))
-            assert np.allclose(greedy_accuracy, expected_accuracy)
-            # Comparison 3: Mac
-            print("greedy_mac:{0}".format(greedy_mac))
-            print("expected_mac:{0}".format(expected_mac))
-            assert np.allclose(greedy_mac, expected_mac)
-            # Comparison 4: MSE
-            assert set(greedy_mse_dict.keys()) == set(expected_mse_dict.keys())
-            for k in greedy_mse_dict.keys():
-                assert np.allclose(greedy_mse_dict[k], expected_mse_dict[k])
-                print("Greedy {0} MSE {1}:{2}".format(data_type, k, greedy_mse_dict[k]))
-                print("Expected {0} MSE {1}:{2}".format(data_type, k, expected_mse_dict[k]))
-            # Comparison 5: R2
-            assert set(greedy_r2_dict.keys()) == set(expected_r2_dict.keys())
-            for k in greedy_r2_dict.keys():
-                assert np.allclose(greedy_r2_dict[k], expected_r2_dict[k])
-                print("Greedy {0} R2 {1}:{2}".format(data_type, k, greedy_r2_dict[k]))
-                print("Expected {0} R2 {1}:{2}".format(data_type, k, expected_r2_dict[k]))
+                # kv_rows.append((self.runId,
+                #                 epoch,
+                #                 "{0} Policy Distribution {1}".format(data_type, trajectory),
+                #                 "{0}".format(policy_distribution)))
+                kv_rows.append((self.runId,
+                                epoch,
+                                "{0} Q-Table MSE {1}".format(data_type, trajectory),
+                                "{0}".format(mse_)))
+                kv_rows.append((self.runId,
+                                epoch,
+                                "{0} Q-Table R2 {1}".format(data_type, trajectory),
+                                "{0}".format(r2_)))
 
-            # ***************** Greedy actions vs Expectation Tests *****************
-
-            # assert results_dict["expected_accuracy"] == results_dict_greedy["accuracy"]
-            # assert results_dict["mac_avg"] == results_dict_greedy["mac_avg"]
-            # print("X")
-
-        #     print("Expected {0} Accuracy:{1}".format(data_type, results_dict["expected_accuracy"]))
-        #     print("Expected {0} Mac:{1}".format(data_type, results_dict["expected_mac"]))
-        #     print("Expected {0} Mean Time:{1}".format(data_type, results_dict["expected_time"]))
-        #     print("Greedy {0} Accuracy:{1}".format(data_type, results_dict["greedy_accuracy"]))
-        #     print("Greedy {0} Mac:{1}".format(data_type, results_dict["greedy_mac"]))
-        #     policy_distributions_dict = results_dict["policy_distributions_dict"]
-        #     results_summary[data_type]["Accuracy"] = results_dict["expected_accuracy"]
-        #     results_summary[data_type]["Mac"] = results_dict["expected_mac"]
-        #     mse_dict = results_dict["mse_dict"]
-        #     r2_dict = results_dict["r2_dict"]
-        #     trajectories = set(policy_distributions_dict.keys())
-        #     assert trajectories == set(mse_dict.keys()) and trajectories == set(r2_dict.keys())
-        #     for trajectory in trajectories:
-        #         policy_distribution = policy_distributions_dict[trajectory]
-        #         mse_ = mse_dict[trajectory]
-        #         r2_ = r2_dict[trajectory]
-        #         print("{0} Policy Distribution {1}:{2}".format(data_type, trajectory, policy_distribution))
-        #         print("{0} Q-Table MSE {1}:{2}".format(data_type, trajectory, mse_))
-        #         print("{0} Q-Table R2 {1}:{2}".format(data_type, trajectory, r2_))
-        #
-        #         kv_rows.append((self.runId,
-        #                         epoch,
-        #                         "{0} Policy Distribution {1}".format(data_type, trajectory),
-        #                         "{0}".format(policy_distribution)))
-        #         kv_rows.append((self.runId,
-        #                         epoch,
-        #                         "{0} Q-Table MSE {1}".format(data_type, trajectory),
-        #                         "{0}".format(mse_)))
-        #         kv_rows.append((self.runId,
-        #                         epoch,
-        #                         "{0} Q-Table R2 {1}".format(data_type, trajectory),
-        #                         "{0}".format(r2_)))
-        #
-        # DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
-        #
-        # DbLogger.write_into_table(
-        #     rows=[(self.runId,
-        #            self.iteration_id,
-        #            epoch,
-        #            results_summary["Train"]["Accuracy"].item(),
-        #            results_summary["Train"]["Mac"].item(),
-        #            results_summary["Test"]["Accuracy"].item(),
-        #            results_summary["Test"]["Mac"].item(),
-        #            0.0)], table=DbLogger.logsTableQCigt)
-        #
-        # print("************** Epoch:{0} **************".format(epoch))
-        # results = {
-        #     "train_accuracy": results_summary["Train"]["Accuracy"].item(),
-        #     "train_mac": results_summary["Train"]["Mac"].item(),
-        #     "test_accuracy": results_summary["Test"]["Accuracy"].item(),
-        #     "test_mac": results_summary["Test"]["Mac"].item(),
-        #     "greedy_accuracy": results_dict["greedy_accuracy"],
-        #     "greedy_mac": results_dict["greedy_mac"]
-        # }
-        # return results
+        DbLogger.write_into_table(rows=kv_rows, table=DbLogger.runKvStore)
+        DbLogger.write_into_table(
+            rows=[(self.runId,
+                   self.iteration_id,
+                   epoch,
+                   results_summary["Train"]["Accuracy"].item(),
+                   results_summary["Train"]["Mac"].item(),
+                   results_summary["Test"]["Accuracy"].item(),
+                   results_summary["Test"]["Mac"].item(),
+                   0.0)], table=DbLogger.logsTableQCigt)
 
     def create_optimizer(self):
         paths = []
@@ -409,8 +341,122 @@ class CigtQlearningEnd2End(CigtQLearning):
             raise NotImplementedError()
         return model_optimizer
 
+    def get_ig_based_losses(self, cigt_outputs, batch_size, executed_nodes):
+        merged_arrays_dict = {}
+        routing_matrices_soft = []
+        logits_array = None
+        labels = []
+        for lid in range(len(self.pathCounts)):
+            if lid < len(self.pathCounts) - 1:
+                output_name = "routing_matrices_soft_dict"
+            else:
+                output_name = "logits_dict"
+            trajectories = Utilities.create_route_combinations(shape_=self.pathCounts[:(lid + 1)])
+            arrays_merged = torch.stack([cigt_outputs[output_name][tpl] for tpl in trajectories], dim=1)
+            arrays_merged = torch.reshape(arrays_merged, shape=(batch_size,
+                                                                *self.pathCounts[:(lid + 1)],
+                                                                *arrays_merged.shape[2:]))
+            arrays_merged_sparse = arrays_merged * torch.unsqueeze(executed_nodes[lid], dim=-1)
+            reduce_dimensions = tuple([idx + 1 for idx in range(len(self.pathCounts[:(lid + 1)]))])
+            final_array = torch.sum(arrays_merged_sparse, dim=reduce_dimensions)
+            merged_arrays_dict[(output_name, lid)] = final_array
+            if output_name == "routing_matrices_soft_dict":
+                routing_matrices_soft.append(final_array)
+                labels.append(cigt_outputs["labels_dict"][()])
+            else:
+                logits_array = final_array
+
+        # Test code
+        # merged_arrays_dict_v2 = {}
+        # for sample_id in range(batch_size):
+        #     curr_node_id = [0, ]
+        #     while True:
+        #         assert tuple(curr_node_id) in cigt_outputs["routing_matrices_soft_dict"] \
+        #                or tuple(curr_node_id) in cigt_outputs["logits_dict"]
+        #         if tuple(curr_node_id) in cigt_outputs["routing_matrices_soft_dict"]:
+        #             if ("routing_matrices_soft_dict", len(curr_node_id) - 1) not in merged_arrays_dict_v2:
+        #                 merged_arrays_dict_v2[("routing_matrices_soft_dict", len(curr_node_id) - 1)] = []
+        #             next_probs = cigt_outputs["routing_matrices_soft_dict"][tuple(curr_node_id)][sample_id]
+        #             merged_arrays_dict_v2[("routing_matrices_soft_dict", len(curr_node_id) - 1)].append(next_probs)
+        #             next_level_id = torch.argmax(next_probs).detach().cpu().numpy().item()
+        #             curr_node_id.append(next_level_id)
+        #         else:
+        #             logits = cigt_outputs["logits_dict"][tuple(curr_node_id)][sample_id]
+        #             if ("logits_dict", len(curr_node_id) - 1) not in merged_arrays_dict_v2:
+        #                 merged_arrays_dict_v2[("logits_dict", len(curr_node_id) - 1)] = []
+        #             merged_arrays_dict_v2[("logits_dict", len(curr_node_id) - 1)].append(logits)
+        #             break
+        # for tpl in merged_arrays_dict_v2.keys():
+        #     merged_arrays_dict_v2[tpl] = torch.stack(merged_arrays_dict_v2[tpl], dim=0)
+        #
+        # assert set(merged_arrays_dict.keys()) == set(merged_arrays_dict_v2.keys())
+        # for k in merged_arrays_dict.keys():
+        #     assert np.array_equal(merged_arrays_dict[k].detach().cpu().numpy(),
+        #                           merged_arrays_dict_v2[k].detach().cpu().numpy())
+        # print("Correct!!!!!")
+
+        # Calculate information gain
+        information_gain_losses = self.calculate_information_gain_losses(
+            routing_matrices=routing_matrices_soft, labels=labels,
+            balance_coefficient_list=self.informationGainBalanceCoeffList)
+        # Calculate accuracy
+        reduce_dimensions = tuple([idx + 1 for idx in range(len(self.pathCounts) - 1)])
+        last_layer_routing_matrix = torch.sum(executed_nodes[-1], dim=reduce_dimensions)
+        logits_masked = self.divide_tensor_wrt_routing_matrix(
+            tens=logits_array,
+            routing_matrix=last_layer_routing_matrix)
+        labels_masked = self.divide_tensor_wrt_routing_matrix(
+            tens=cigt_outputs["labels_dict"][()],
+            routing_matrix=last_layer_routing_matrix)
+        classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
+            list_of_logits=logits_masked,
+            routing_matrices=None,
+            target_var=labels_masked)
+        losses_dict = {
+            "information_gain_losses": information_gain_losses,
+            "classification_loss": classification_loss,
+            "batch_accuracy": batch_accuracy
+        }
+        return losses_dict
+
+    def calculate_losses_standard_way(self, input_var, target_var, temperature):
+        layer_outputs = self(input_var, target_var, temperature)
+        if self.lossCalculationKind == "SingleLogitSingleLoss":
+            classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
+                list_of_logits=layer_outputs[-1]["list_of_logits"],
+                routing_matrices=None,
+                target_var=[layer_outputs[-1]["labels"]])
+        # Calculate logits with all block separately
+        elif self.lossCalculationKind == "MultipleLogitsMultipleLosses" \
+                or self.lossCalculationKind == "MultipleLogitsMultipleLossesAveraged":
+            classification_loss, batch_accuracy = self.calculate_classification_loss_and_accuracy(
+                list_of_logits=layer_outputs[-1]["list_of_logits"],
+                routing_matrices=None,
+                target_var=layer_outputs[-1]["labels_masked"])
+        else:
+            raise ValueError("Unknown logit calculation method: {0}".format(self.lossCalculationKind))
+        # Calculate the information gain losses, with respect to each routing layer
+        routing_matrices_soft = [od["routing_matrices_soft"] for od in layer_outputs[1:-1]]
+        labels_per_routing_layer = [od["labels"] for od in layer_outputs[1:-1]]
+        information_gain_losses = self.calculate_information_gain_losses(
+            routing_matrices=routing_matrices_soft, labels=labels_per_routing_layer,
+            balance_coefficient_list=self.informationGainBalanceCoeffList)
+        losses_dict = {
+            "information_gain_losses": information_gain_losses,
+            "classification_loss": classification_loss,
+            "batch_accuracy": batch_accuracy
+        }
+        return losses_dict
+
     def adjust_learning_rate_stepwise(self, epoch):
         """Sets the learning rate to the initial LR decayed by 10 after 150 and 250 epochs"""
+        lr = self.initialLr
+        # if epoch >= 150:
+        #     lr = 0.1 * lr
+        # if epoch >= 250:
+        #     lr = 0.1 * lr
+        # learning_schedule = [(150, 0.1), (250, 0.01)]
+
         # Calculate base learning rate
         lower_bounds = [0]
         lower_bounds.extend([tpl[0] for tpl in self.learningRateSchedule])
@@ -425,26 +471,12 @@ class CigtQlearningEnd2End(CigtQLearning):
         res = np.all(bounds_binary, axis=1)
         idx = np.argmax(res)
         lr_coeff = lr_coeffs[idx]
+        base_lr = lr * lr_coeff
 
-        # Update learning rates for the backbone and the policy networks accordingly
-
-        # base_lr = lr * lr_coeff
-        #
-        # assert len(self.modelOptimizer.param_groups) == len(self.pathCounts) + 1
-        #
-        # # Cigt layers with boosted lrs.
-        # for layer_id in range(len(self.pathCounts)):
-        #     if self.boostLearningRatesLayerWise:
-        #         self.modelOptimizer.param_groups[layer_id]['lr'] = self.layerCoefficients[layer_id] * base_lr
-        #     else:
-        #         self.modelOptimizer.param_groups[layer_id]['lr'] = base_lr
-        # assert len(self.pathCounts) == len(self.modelOptimizer.param_groups) - 1
-        # # Shared parameters
-        # self.modelOptimizer.param_groups[-1]['lr'] = base_lr
-        #
-        # if not self.boostLearningRatesLayerWise:
-        #     for p_group in self.modelOptimizer.param_groups:
-        #         assert p_group["lr"] == base_lr
+        # Backbone
+        self.modelOptimizer.param_groups[0]['lr'] = base_lr * self.policyNetworkBackboneLrCoefficient
+        # Policy network
+        self.modelOptimizer.param_groups[1]['lr'] = base_lr
 
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
@@ -455,86 +487,174 @@ class CigtQlearningEnd2End(CigtQLearning):
 
         # Run a forward pass first to initialize each LazyXXX layer.
         self.execute_forward_with_random_input()
+        test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
+            loader=test_loader, action_trajectory=(0, 0))
+        print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
+            test_ig_accuracy, test_ig_mac, test_ig_time))
 
-        print("X")
-
-        # test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
-        #     loader=test_loader, action_trajectory=(0, 0))
-        # print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
-        #     test_ig_accuracy, test_ig_mac, test_ig_time))
-        #
-        # train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
-        #     loader=train_loader, action_trajectory=(0, 0))
-        # print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
-        #     train_ig_accuracy, train_ig_mac, train_ig_time))
+        train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
+            loader=train_loader, action_trajectory=(0, 0))
+        print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
+            train_ig_accuracy, train_ig_mac, train_ig_time))
 
         self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
 
         # Create the model optimizer, we should have every parameter initialized right now.
-        # self.qNetOptimizer = self.create_optimizer()
-        #
-        # self.isInWarmUp = False
-        # self.routingRandomizationRatio = -1.0
-        #
-        # loss_buffer = []
-        # best_accuracy = 0.0
-        # best_mac = 0.0
-        # epochs_without_improvement = 0
-        #
-        # print("Device:{0}".format(self.device))
-        # for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
-        #     for i__, batch in enumerate(train_loader):
-        #         self.train()
-        #         print("*************CIGT Q-Net Training Epoch:{0} Iteration:{1}*************".format(
-        #             epoch_id, self.iteration_id))
-        #         if self.usingPrecalculatedDatasets:
-        #             cigt_outputs, batch_size = self.get_cigt_outputs(x=batch, y=None)
-        #             cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
-        #         else:
-        #             input_var = torch.autograd.Variable(batch[0]).to(self.device)
-        #             target_var = torch.autograd.Variable(batch[1]).to(self.device)
-        #             cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
-        #
-        #         # Adjust the learning rate
-        #         self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
-        #                                              num_of_total_iterations=num_of_total_iterations)
-        #         # Print learning rates
-        #         self.qNetOptimizer.zero_grad()
-        #         with torch.set_grad_enabled(True):
-        #             optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
-        #             action_trajectories = self.sample_action_trajectories(q_tables=optimal_q_tables,
-        #                                                                   batch_size=batch_size)
-        #             result_dict = self.forward_with_actions(cigt_outputs=cigt_outputs, batch_size=batch_size,
-        #                                                     action_trajectories=action_trajectories[:, 1:])
-        #             regression_loss = self.calculate_regression_loss(batch_size=batch_size,
-        #                                                              optimal_q_tables=optimal_q_tables,
-        #                                                              q_net_outputs=result_dict["q_net_outputs"],
-        #                                                              action_trajectories=action_trajectories[:, 1:])
-        #             regression_loss.backward()
-        #             self.qNetOptimizer.step()
-        #             self.epsilonValue = self.epsilonValue * self.policyNetworksEpsilonDecayCoeff
-        #             loss_buffer.append(regression_loss.detach().cpu().numpy())
-        #             if len(loss_buffer) >= 10:
-        #                 print("Policy Network Lr:{0}".format(self.qNetOptimizer.param_groups[0]["lr"]))
-        #                 print("Epoch:{0} Iteration:{1} MSE:{2}".format(
-        #                     epoch_id,
-        #                     self.iteration_id,
-        #                     np.mean(np.array(loss_buffer))))
-        #                 loss_buffer = []
-        #         self.iteration_id += 1
-        #     # Validation
-        #     if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
-        #             epoch_id >= (self.policyNetworkTotalNumOfEpochs - self.policyNetworksLastEvalStart):
-        #         results_dict = \
-        #             self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=epoch_id)
-        #         if results_dict["test_accuracy"] > best_accuracy:
-        #             best_accuracy = results_dict["test_accuracy"]
-        #             best_mac = results_dict["test_mac"]
-        #             epochs_without_improvement = 0
-        #             print("BEST ACCURACY SO FAR: {0} MAC: {1}".format(best_accuracy, best_mac))
-        #         else:
-        #             epochs_without_improvement += 1
-        #         if epochs_without_improvement >= self.policyNetworksNoImprovementStopCount:
-        #             print("NO IMPROVEMENTS FOR {0} EPOCHS, STOPPING.".format(epochs_without_improvement))
-        #             break
-        #
+        self.modelOptimizer = self.create_optimizer()
+
+        self.isInWarmUp = False
+        self.routingRandomizationRatio = -1.0
+
+        loss_buffer = []
+        best_accuracy = 0.0
+        best_mac = 0.0
+        epochs_without_improvement = 0
+
+        # self.eval_ig_based(data_loader=test_loader)
+
+        print("Device:{0}".format(self.device))
+        for epoch_id in range(0, self.policyNetworkTotalNumOfEpochs):
+            batch_time = AverageMeter()
+            losses = AverageMeter()
+            losses_c = AverageMeter()
+            losses_t = AverageMeter()
+            losses_t_layer_wise = [AverageMeter() for _ in range(len(self.pathCounts) - 1)]
+            grad_magnitude = AverageMeter()
+            accuracy_avg = AverageMeter()
+
+            print("*************Epoch:{0} Starts*************".format(epoch_id))
+            self.train()
+            if self.policyNetworkBackboneFreezeBnLayers:
+                self.freeze_bn_layers()
+            self.adjust_learning_rate_stepwise(epoch_id)
+            # Print learning rates
+            print("Back bone learning rate:{0}".format(self.modelOptimizer.param_groups[0]['lr']))
+            print("Policy learning rate:{0}".format(self.modelOptimizer.param_groups[1]['lr']))
+
+            for i__, batch in enumerate(train_loader):
+                print("*************CIGT Q-Net Training Epoch:{0} Iteration:{1}*************".format(
+                    epoch_id, self.iteration_id))
+
+                self.modelOptimizer.zero_grad()
+                with torch.set_grad_enabled(True):
+                    input_var = torch.autograd.Variable(batch[0]).to(self.device)
+                    target_var = torch.autograd.Variable(batch[1]).to(self.device)
+
+                    # Open for test purposes
+                    # losses_dict_v1 = self.calculate_losses_standard_way(input_var=input_var,
+                    #                                                     target_var=target_var,
+                    #                                                     temperature=1.0)
+
+                    decision_loss_coeff = self.routingManager.adjust_decision_loss_coeff(model=self)
+                    temperature = 0.1
+                    cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var, temperature=temperature)
+                    zero_actions = torch.zeros(size=(batch_size, len(self.pathCounts) - 1), dtype=torch.int64)
+                    executed_nodes = self.get_executed_nodes_wrt_trajectories(cigt_outputs=cigt_outputs,
+                                                                              action_trajectories=zero_actions,
+                                                                              batch_size=batch_size)
+                    # Calculate ig based loss function
+                    losses_dict = self.get_ig_based_losses(cigt_outputs=cigt_outputs,
+                                                           batch_size=batch_size,
+                                                           executed_nodes=executed_nodes)
+                    information_gain_losses = losses_dict["information_gain_losses"]
+                    classification_loss = losses_dict["classification_loss"]
+                    batch_accuracy = losses_dict["batch_accuracy"]
+                    # Calculate the total backbone loss
+                    total_routing_loss = 0.0
+                    for t_loss in information_gain_losses:
+                        total_routing_loss += t_loss
+                    total_routing_loss = -1.0 * decision_loss_coeff * total_routing_loss
+                    total_backbone_loss = classification_loss + total_routing_loss
+
+                    # Calculate Q-Learning loss
+
+                    total_backbone_loss.backward()
+                    self.modelOptimizer.step()
+
+                losses.update(total_backbone_loss.detach().cpu().numpy().item(), 1)
+                losses_c.update(classification_loss.detach().cpu().numpy().item(), 1)
+                accuracy_avg.update(batch_accuracy, batch_size)
+                losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
+                for lid in range(len(self.pathCounts) - 1):
+                    losses_t_layer_wise[lid].update(information_gain_losses[lid].detach().cpu().numpy().item(), 1)
+
+                print("batch_accuracy:{0}".format(batch_accuracy))
+                print("decision_loss_coeff:{0}".format(decision_loss_coeff))
+                print("total_loss:{0}".format(losses.avg))
+                print("classification_loss:{0}".format(losses_c.avg))
+                print("routing_loss:{0}".format(losses_t.avg))
+                for lid in range(len(self.pathCounts) - 1):
+                    print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
+                print("accuracy_avg:{0}".format(accuracy_avg.avg))
+                print("batch_time:{0}".format(batch_time.avg))
+                print("grad_magnitude:{0}".format(grad_magnitude.avg))
+
+                self.iteration_id += 1
+
+                #     if self.usingPrecalculatedDatasets:
+                #         cigt_outputs, batch_size = self.get_cigt_outputs(x=batch, y=None)
+                #         cigt_outputs = self.move_cigt_outputs_to_device(cigt_outputs=cigt_outputs)
+                #     else:
+                #         input_var = torch.autograd.Variable(batch[0]).to(self.device)
+                #         target_var = torch.autograd.Variable(batch[1]).to(self.device)
+                #         cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var)
+                #
+                #     # Adjust the learning rate
+                #     self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
+                #                                          num_of_total_iterations=num_of_total_iterations)
+                #     # Print learning rates
+                #     self.qNetOptimizer.zero_grad()
+                #     with torch.set_grad_enabled(True):
+                #         optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs, batch_size=batch_size)
+                #         action_trajectories = self.sample_action_trajectories(q_tables=optimal_q_tables,
+                #                                                               batch_size=batch_size)
+                #         result_dict = self.forward_with_actions(cigt_outputs=cigt_outputs, batch_size=batch_size,
+                #                                                 action_trajectories=action_trajectories[:, 1:])
+                #         regression_loss = self.calculate_regression_loss(batch_size=batch_size,
+                #                                                          optimal_q_tables=optimal_q_tables,
+                #                                                          q_net_outputs=result_dict["q_net_outputs"],
+                #                                                          action_trajectories=action_trajectories[:, 1:])
+                #         regression_loss.backward()
+                #         self.qNetOptimizer.step()
+                #         self.epsilonValue = self.epsilonValue * self.policyNetworksEpsilonDecayCoeff
+                #         loss_buffer.append(regression_loss.detach().cpu().numpy())
+                #         if len(loss_buffer) >= 10:
+                #             print("Policy Network Lr:{0}".format(self.qNetOptimizer.param_groups[0]["lr"]))
+                #             print("Epoch:{0} Iteration:{1} MSE:{2}".format(
+                #                 epoch_id,
+                #                 self.iteration_id,
+                #                 np.mean(np.array(loss_buffer))))
+                #             loss_buffer = []
+                #     self.iteration_id += 1
+                # # Validation
+                # if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
+                #         epoch_id >= (self.policyNetworkTotalNumOfEpochs - self.policyNetworksLastEvalStart):
+                #     results_dict = \
+                #         self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=epoch_id)
+                #     if results_dict["test_accuracy"] > best_accuracy:
+                #         best_accuracy = results_dict["test_accuracy"]
+                #         best_mac = results_dict["test_mac"]
+                #         epochs_without_improvement = 0
+                #         print("BEST ACCURACY SO FAR: {0} MAC: {1}".format(best_accuracy, best_mac))
+                #     else:
+                #         epochs_without_improvement += 1
+                #     if epochs_without_improvement >= self.policyNetworksNoImprovementStopCount:
+                #         print("NO IMPROVEMENTS FOR {0} EPOCHS, STOPPING.".format(epochs_without_improvement))
+                #         break
+                #
+
+            print("*************Epoch:{0} Ending Measurements*************".format(epoch_id))
+            print("decision_loss_coeff:{0}".format(decision_loss_coeff))
+            print("total_loss:{0}".format(losses.avg))
+            print("classification_loss:{0}".format(losses_c.avg))
+            print("routing_loss:{0}".format(losses_t.avg))
+            for lid in range(len(self.pathCounts) - 1):
+                print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
+            print("accuracy_avg:{0}".format(accuracy_avg.avg))
+            print("batch_time:{0}".format(batch_time.avg))
+            print("grad_magnitude:{0}".format(grad_magnitude.avg))
+            print("*************Epoch:{0} Ending Measurements*************".format(epoch_id))
+
+            if epoch_id % self.policyNetworksEvaluationPeriod == 0 or \
+                    epoch_id >= (self.policyNetworkTotalNumOfEpochs - 10):
+                self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)

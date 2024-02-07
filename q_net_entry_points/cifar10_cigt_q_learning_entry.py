@@ -76,7 +76,7 @@ if __name__ == "__main__":
     #                          {"layer_count": 18, "feature_map_count": 32},
     #                          {"layer_count": 18, "feature_map_count": 64}]}]
 
-    Cifar10ResnetCigtConfigs.classification_wd = 0.0005
+    Cifar10ResnetCigtConfigs.classification_wd = 0.0004
     Cifar10ResnetCigtConfigs.information_gain_balance_coeff_list = [5.0, 5.0]
     Cifar10ResnetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
     Cifar10ResnetCigtConfigs.enable_information_gain_during_warm_up = True
