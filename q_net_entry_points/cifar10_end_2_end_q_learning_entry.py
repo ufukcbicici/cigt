@@ -62,6 +62,22 @@ def get_cifar_datasets():
 
 if __name__ == "__main__":
     print("X")
+
+    # target = 0.6
+    # x = torch.tensor([1.], requires_grad=True)
+    # y = torch.tensor([1.], requires_grad=True)
+    # target_proxy = torch.zeros(size=x.shape, dtype=x.dtype)
+    # with torch.set_grad_enabled(True):
+    #     fx = torch.sin(x)
+    #     fy = torch.cos(y)
+    #     # with torch.set_grad_enabled(False):
+    #     #     target_proxy[0] = 0.3 * x + 0.3 * y
+    #     s = fx + fy
+    #     s = torch.max(s)
+    #     a = torch.argmax(s)
+    #     loss = torch.pow(a - target, 2.0)
+    # loss.backward()
+    # print("")
     # 5e-4,
     # 0.0005
     QCigtCifar10Configs.layer_config_list = [

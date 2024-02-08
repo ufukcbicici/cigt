@@ -487,17 +487,17 @@ class CigtQlearningEnd2End(CigtQLearning):
 
         # Run a forward pass first to initialize each LazyXXX layer.
         self.execute_forward_with_random_input()
-        test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
-            loader=test_loader, action_trajectory=(0, 0))
-        print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
-            test_ig_accuracy, test_ig_mac, test_ig_time))
-
-        train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
-            loader=train_loader, action_trajectory=(0, 0))
-        print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
-            train_ig_accuracy, train_ig_mac, train_ig_time))
-
-        self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
+        # test_ig_accuracy, test_ig_mac, test_ig_time = self.validate_with_single_action_trajectory(
+        #     loader=test_loader, action_trajectory=(0, 0))
+        # print("Test Ig Accuracy:{0} Test Ig Mac:{1} Test Ig Mean Validation Time:{2}".format(
+        #     test_ig_accuracy, test_ig_mac, test_ig_time))
+        #
+        # train_ig_accuracy, train_ig_mac, train_ig_time = self.validate_with_single_action_trajectory(
+        #     loader=train_loader, action_trajectory=(0, 0))
+        # print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
+        #     train_ig_accuracy, train_ig_mac, train_ig_time))
+        #
+        # self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
 
         # Create the model optimizer, we should have every parameter initialized right now.
         self.modelOptimizer = self.create_optimizer()
@@ -518,6 +518,7 @@ class CigtQlearningEnd2End(CigtQLearning):
             losses = AverageMeter()
             losses_c = AverageMeter()
             losses_t = AverageMeter()
+            losses_r = AverageMeter()
             losses_t_layer_wise = [AverageMeter() for _ in range(len(self.pathCounts) - 1)]
             grad_magnitude = AverageMeter()
             accuracy_avg = AverageMeter()
@@ -550,6 +551,7 @@ class CigtQlearningEnd2End(CigtQLearning):
                     cigt_outputs, batch_size = self.get_cigt_outputs(x=input_var, y=target_var, temperature=temperature)
                     zero_actions = torch.zeros(size=(batch_size, len(self.pathCounts) - 1), dtype=torch.int64,
                                                device=self.device)
+                    # with torch.set_grad_enabled(False):
                     executed_nodes = self.get_executed_nodes_wrt_trajectories(cigt_outputs=cigt_outputs,
                                                                               action_trajectories=zero_actions,
                                                                               batch_size=batch_size)
@@ -568,12 +570,36 @@ class CigtQlearningEnd2End(CigtQLearning):
                     total_backbone_loss = classification_loss + total_routing_loss
 
                     # Calculate Q-Learning loss
+                    # with torch.set_grad_enabled(False):
+                    optimal_q_tables = self.calculate_optimal_q_tables(cigt_outputs=cigt_outputs,
+                                                                       batch_size=batch_size)
+                    sampled_action_trajectories = self.sample_action_trajectories(q_tables=optimal_q_tables,
+                                                                                  batch_size=batch_size)
+                    sampled_action_trajectories = sampled_action_trajectories[:, 1:]
+                    sampled_executed_nodes_array = self.get_executed_nodes_wrt_trajectories(
+                        cigt_outputs=cigt_outputs,
+                        batch_size=batch_size,
+                        action_trajectories=sampled_action_trajectories)
+                    # Prepare the (possibly) sparse inputs for the q networks, for every layer.
+                    sparse_inputs_array = self.prepare_q_net_inputs(cigt_outputs=cigt_outputs,
+                                                                    batch_size=batch_size,
+                                                                    executed_nodes_array=sampled_executed_nodes_array)
+                    # Execute the Q-Nets. Obtain the regression outputs for every Q-Net layer.
+                    q_net_outputs = self.execute_q_networks(sparse_inputs_array=sparse_inputs_array)
 
-                    total_backbone_loss.backward()
+                    regression_loss = self.calculate_regression_loss(
+                        batch_size=batch_size,
+                        optimal_q_tables=optimal_q_tables,
+                        q_net_outputs=q_net_outputs,
+                        action_trajectories=sampled_action_trajectories)
+
+                    total_model_loss = total_backbone_loss + regression_loss
+                    total_model_loss.backward()
                     self.modelOptimizer.step()
 
                 losses.update(total_backbone_loss.detach().cpu().numpy().item(), 1)
                 losses_c.update(classification_loss.detach().cpu().numpy().item(), 1)
+                losses_r.update(regression_loss.detach().cpu().numpy().item(), 1)
                 accuracy_avg.update(batch_accuracy, batch_size)
                 losses_t.update(total_routing_loss.detach().cpu().numpy().item(), 1)
                 for lid in range(len(self.pathCounts) - 1):
@@ -584,6 +610,7 @@ class CigtQlearningEnd2End(CigtQLearning):
                 print("total_loss:{0}".format(losses.avg))
                 print("classification_loss:{0}".format(losses_c.avg))
                 print("routing_loss:{0}".format(losses_t.avg))
+                print("regression loss:{0}".format(losses_r.avg))
                 for lid in range(len(self.pathCounts) - 1):
                     print("Layer {0} routing loss:{1}".format(lid, losses_t_layer_wise[lid].avg))
                 print("accuracy_avg:{0}".format(accuracy_avg.avg))
@@ -668,4 +695,4 @@ class CigtQlearningEnd2End(CigtQLearning):
                 print("Train Ig Accuracy:{0} Train Ig Mac:{1} Train Ig Mean Validation Time:{2}".format(
                     train_ig_accuracy, train_ig_mac, train_ig_time))
 
-                self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=-1)
+                self.evaluate_datasets(train_loader=train_loader, test_loader=test_loader, epoch=epoch_id)
