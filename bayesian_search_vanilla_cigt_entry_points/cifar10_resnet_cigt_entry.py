@@ -153,7 +153,7 @@ if __name__ == "__main__":
         model.to(model.device)
         model.execute_forward_with_random_input()
         chck_path = os.path.join(os.path.split(os.path.abspath(__file__))[0],
-                                 "checkpoints/cigtlogger2_75_epoch1575.pth")
+                                 "../checkpoints/cigtlogger2_75_epoch1575.pth")
         checkpoint = torch.load(chck_path, map_location=model.device)
         model.load_state_dict(state_dict=checkpoint["model_state_dict"])
         model.execute_forward_with_random_input()
