@@ -53,18 +53,18 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         FashionLenetCigtConfigs.layer_config_list = [
             {"path_count": 1,
              "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
-                                  "use_max_pool": True, "use_batch_normalization": False}]},
+                                  "use_max_pool": True, "use_batch_normalization": True}]},
             {"path_count": 2,
              "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
-                                  "use_max_pool": True, "use_batch_normalization": False}]},
+                                  "use_max_pool": True, "use_batch_normalization": True}]},
             {"path_count": 4,
              "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
-                                  "use_max_pool": True, "use_batch_normalization": False},
+                                  "use_max_pool": True, "use_batch_normalization": True},
                                  {"layer_type": "flatten"},
                                  {"layer_type": "fc", "dimension": 128, "use_dropout": True,
-                                  "use_batch_normalization": False},
+                                  "use_batch_normalization": True},
                                  {"layer_type": "fc", "dimension": 64, "use_dropout": True,
-                                  "use_batch_normalization": False}]}]
+                                  "use_batch_normalization": True}]}]
 
         # These are especially important for the LeNet-CIGT
         FashionLenetCigtConfigs.classification_drop_probability = X
@@ -105,7 +105,7 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         FashionLenetCigtConfigs.batch_norm_type = "BatchNorm"
         FashionLenetCigtConfigs.data_parallelism = False
 
-        kwargs = {'num_workers': 2, 'pin_memory': True}
+        kwargs = {'num_workers': 0, 'pin_memory': True}
         heavyweight_augmentation = transforms.Compose([
             # transforms.Resize((32, 32)),
             CutoutPIL(cutout_factor=0.5),
@@ -123,13 +123,20 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             datasets.FashionMNIST('../data', download=True, train=False, transform=lightweight_augmentation),
             batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
+        model_definition = "Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = {0} - " \
+                           "enable_strict_routing_randomization = {1} - warm_up_kind = {2}".format(
+            FashionLenetCigtConfigs.enable_information_gain_during_warm_up,
+            FashionLenetCigtConfigs.enable_strict_routing_randomization,
+            FashionLenetCigtConfigs.warm_up_kind
+        )
+
         run_id = DbLogger.get_run_id()
         model = CigtIgGatherScatterImplementation(
             configs=FashionLenetCigtConfigs,
             run_id=run_id,
-            model_definition="Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = False - warm_up_kind = FullRouting",
+            model_definition=model_definition,
             num_classes=10)
-        model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_tetam
+        model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_hpc_docker
 
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
@@ -138,8 +145,11 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         return best_performance
 
 
+# --SELECT RunID FROM run_meta_data WHERE Explanation LIKE "%Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = False - enable_strict_routing_randomization = False - warm_up_kind = FullRouting%";
+
+
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.tetam_cigt_db2
+    DbLogger.log_db_path = DbLogger.hpc_docker2
     bayesian_optimizer = FashionMnistLenetCigtBayesianOptimizer(init_points=50, n_iter=150)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
                            log_file_name="FFF_fashion_lenet_0")
