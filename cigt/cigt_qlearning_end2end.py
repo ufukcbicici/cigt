@@ -543,17 +543,20 @@ class CigtQlearningEnd2End(CigtQLearning):
 
             if self.optimizerType == "SGD":
                 self.adjust_learning_rate_stepwise(epoch_id)
-            elif self.optimizerType == "AdamW":
-                self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
-                                                     num_of_total_iterations=num_of_total_iterations)
-
-            # Print learning rates
-            print("Back bone learning rate:{0}".format(self.modelOptimizer.param_groups[0]['lr']))
-            print("Policy learning rate:{0}".format(self.modelOptimizer.param_groups[1]['lr']))
+                # Print learning rates
+                print("Back bone learning rate:{0}".format(self.modelOptimizer.param_groups[0]['lr']))
+                print("Policy learning rate:{0}".format(self.modelOptimizer.param_groups[1]['lr']))
 
             for i__, batch in enumerate(train_loader):
                 print("*************CIGT Q-Net Training Epoch:{0} Iteration:{1}*************".format(
                     epoch_id, self.iteration_id))
+
+                if self.optimizerType == "AdamW":
+                    self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
+                                                         num_of_total_iterations=num_of_total_iterations)
+                    # Print learning rates
+                    print("Back bone learning rate:{0}".format(self.modelOptimizer.param_groups[0]['lr']))
+                    print("Policy learning rate:{0}".format(self.modelOptimizer.param_groups[1]['lr']))
 
                 self.modelOptimizer.zero_grad()
                 with torch.set_grad_enabled(True):
