@@ -478,6 +478,16 @@ class CigtQlearningEnd2End(CigtQLearning):
         # Policy network
         self.modelOptimizer.param_groups[1]['lr'] = base_lr
 
+    def adjust_learning_rate_polynomial(self, iteration, num_of_total_iterations):
+        lr = self.initialLr
+        where = np.clip(iteration / num_of_total_iterations, a_min=0.0, a_max=1.0)
+        modified_lr = lr * (1 - where) ** self.policyNetworkPolynomialSchedulerPower
+
+        # Backbone
+        self.modelOptimizer.param_groups[0]['lr'] = modified_lr * self.policyNetworkBackboneLrCoefficient
+        # Policy network
+        self.modelOptimizer.param_groups[1]['lr'] = modified_lr
+
     def fit_policy_network(self, train_loader, test_loader):
         self.to(self.device)
         print("Device:{0}".format(self.device))
@@ -527,7 +537,13 @@ class CigtQlearningEnd2End(CigtQLearning):
             self.train()
             if self.policyNetworkBackboneFreezeBnLayers:
                 self.freeze_bn_layers()
-            self.adjust_learning_rate_stepwise(epoch_id)
+
+            if self.optimizerType == "SGD":
+                self.adjust_learning_rate_stepwise(epoch_id)
+            elif self.optimizerType == "AdamW":
+                self.adjust_learning_rate_polynomial(iteration=self.iteration_id,
+                                                     num_of_total_iterations=num_of_total_iterations)
+
             # Print learning rates
             print("Back bone learning rate:{0}".format(self.modelOptimizer.param_groups[0]['lr']))
             print("Policy learning rate:{0}".format(self.modelOptimizer.param_groups[1]['lr']))

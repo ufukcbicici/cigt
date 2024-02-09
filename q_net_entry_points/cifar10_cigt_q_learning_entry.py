@@ -116,7 +116,7 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_cigt_output_dataset,
                                                batch_size=Cifar10ResnetCigtConfigs.batch_size, shuffle=True, **kwargs)
 
-    DbLogger.log_db_path = DbLogger.hpc_docker2
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,

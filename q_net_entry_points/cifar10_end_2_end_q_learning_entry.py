@@ -103,7 +103,7 @@ if __name__ == "__main__":
     QCigtCifar10Configs.policy_networks_backbone_lr_coefficient = 0.1
     QCigtCifar10Configs.policy_networks_polynomial_scheduler_power = 1.0
     QCigtCifar10Configs.policy_networks_wd = 0.0001
-    QCigtCifar10Configs.policy_networks_mac_lambda = 0.05
+    QCigtCifar10Configs.policy_networks_mac_lambda = 0.0
     QCigtCifar10Configs.policy_networks_discount_factor = 0.99
     QCigtCifar10Configs.policy_networks_logit_temperature = 1.0
     QCigtCifar10Configs.policy_networks_apply_reward_whitening = False
@@ -116,9 +116,9 @@ if __name__ == "__main__":
     QCigtCifar10Configs.policy_networks_train_only_action_heads = False
     QCigtCifar10Configs.policy_networks_no_improvement_stop_count = 20
     QCigtCifar10Configs.policy_networks_initial_lr = 0.0001
-    QCigtCifar10Configs.policy_networks_backbone_lr_coefficient = 0.1
+    QCigtCifar10Configs.policy_networks_backbone_lr_coefficient = 0.0
 
-    QCigtCifar10Configs.classification_wd = 0.0004
+    QCigtCifar10Configs.classification_wd = 0.0
     QCigtCifar10Configs.information_gain_balance_coeff_list = [5.0, 5.0]
     QCigtCifar10Configs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
     QCigtCifar10Configs.enable_information_gain_during_warm_up = True
