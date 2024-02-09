@@ -59,7 +59,7 @@ class QCigtCifar10Configs:
     measurement_start = 11
     decision_dimensions = [128, 128]
     decision_average_pooling_strides = [4, 2]
-    initial_lr = 0.0001
+    initial_lr = 0.001
     iteration_count_per_epoch = floor(50000 / batch_size) + 1 if 50000 % batch_size != 0 else 50000 / batch_size
 
     decision_loss_coeff = 1.0
