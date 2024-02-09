@@ -19,7 +19,7 @@ class QCigtCifar10Configs:
     class_count = 10
     batch_size = 1024
     warm_up_period = adjust_to_batch_size(original_value=0, target_batch_size=batch_size)
-    epoch_count = adjust_to_batch_size(original_value=500, target_batch_size=batch_size)
+    epoch_count = adjust_to_batch_size(original_value=1000, target_batch_size=batch_size)
     temperature_optimization_epoch_count = 1000
     data_parallelism = True
     classification_wd = 0.0
@@ -73,7 +73,8 @@ class QCigtCifar10Configs:
     first_conv_output_dim = 16
     first_conv_stride = 1
     learning_schedule = [
-        (adjust_to_batch_size(original_value=350, target_batch_size=batch_size) + warm_up_period, 0.1)]
+        (adjust_to_batch_size(original_value=500, target_batch_size=batch_size) + warm_up_period, 0.1),
+        (adjust_to_batch_size(original_value=750, target_batch_size=batch_size) + warm_up_period, 0.01)]
     loss_calculation_kind = "MultipleLogitsMultipleLosses"
 
     model_file_root_path_hpc = "/clusterusers/can.bicici@boun.edu.tr/cigt"
@@ -153,7 +154,7 @@ class QCigtCifar10Configs:
     policy_networks_last_eval_start = 5
     policy_networks_train_only_action_heads = False
     policy_networks_no_improvement_stop_count = 20
-    policy_network_backbone_freeze_bn_layers = False
+    policy_network_backbone_freeze_bn_layers = True
 
 
 

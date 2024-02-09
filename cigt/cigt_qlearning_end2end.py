@@ -593,7 +593,7 @@ class CigtQlearningEnd2End(CigtQLearning):
                         q_net_outputs=q_net_outputs,
                         action_trajectories=sampled_action_trajectories)
 
-                    total_model_loss = total_backbone_loss + regression_loss
+                    total_model_loss = (0.0 * total_backbone_loss) + regression_loss
                     total_model_loss.backward()
                     self.modelOptimizer.step()
 
