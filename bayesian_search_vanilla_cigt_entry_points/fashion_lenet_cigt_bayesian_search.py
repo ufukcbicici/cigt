@@ -136,7 +136,7 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             run_id=run_id,
             model_definition=model_definition,
             num_classes=10)
-        model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_hpc_docker
+        model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_jr
 
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
@@ -149,7 +149,7 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.hpc_docker2
+    DbLogger.log_db_path = DbLogger.jr_cigt
     bayesian_optimizer = FashionMnistLenetCigtBayesianOptimizer(init_points=50, n_iter=150)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
                            log_file_name="FFF_fashion_lenet_0")

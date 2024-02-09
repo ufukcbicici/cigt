@@ -536,7 +536,10 @@ class CigtQlearningEnd2End(CigtQLearning):
             print("*************Epoch:{0} Starts*************".format(epoch_id))
             self.train()
             if self.policyNetworkBackboneFreezeBnLayers:
+                print("Freezing Back bone batch norm layers!")
                 self.freeze_bn_layers()
+            else:
+                print("NOT Freezing Back bone batch norm layers!")
 
             if self.optimizerType == "SGD":
                 self.adjust_learning_rate_stepwise(epoch_id)
