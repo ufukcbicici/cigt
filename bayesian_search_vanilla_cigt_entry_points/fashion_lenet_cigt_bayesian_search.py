@@ -89,7 +89,7 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         FashionLenetCigtConfigs.decision_drop_probability = 0.0
         FashionLenetCigtConfigs.decision_dimensions = [128, 128]
 
-        FashionLenetCigtConfigs.enable_information_gain_during_warm_up = True
+        FashionLenetCigtConfigs.enable_information_gain_during_warm_up = False
         FashionLenetCigtConfigs.enable_strict_routing_randomization = False
         FashionLenetCigtConfigs.warm_up_kind = "FullRouting"
 
@@ -149,7 +149,7 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.hpc_docker3
+    DbLogger.log_db_path = DbLogger.hpc_docker2
     bayesian_optimizer = FashionMnistLenetCigtBayesianOptimizer(init_points=50, n_iter=150)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-                           log_file_name="TFF_fashion_lenet_0")
+                           log_file_name="FFF_fashion_lenet_0")
