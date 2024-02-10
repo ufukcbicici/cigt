@@ -61,6 +61,7 @@ class DbLogger:
     jr_paperspace_cigt = "C://Users//ufuk.bicici//PycharmProjects//cigt//paperspace_dblogger.db"
     hpc_docker1 = "/home/cigt/dblogger.db"
     hpc_docker2 = "/home/cigt/dblogger_2.db"
+    hpc_docker3 = "/home/cigt/dblogger_3.db"
 
     log_db_path = None
 
