@@ -152,4 +152,4 @@ if __name__ == "__main__":
     DbLogger.log_db_path = DbLogger.hpc_docker3
     bayesian_optimizer = FashionMnistLenetCigtBayesianOptimizer(init_points=50, n_iter=150)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-                           log_file_name="RFF_fashion_lenet_0")
+                           log_file_name="TFF_fashion_lenet_0")
