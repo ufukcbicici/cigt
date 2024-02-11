@@ -89,7 +89,7 @@ if __name__ == "__main__":
         {"path_count": 4,
          "layer_structure": [{"layer_count": 18, "feature_map_count": 16}]}]
 
-    QCigtCifar10Configs.policy_networks_cbam_layer_count = 12
+    QCigtCifar10Configs.policy_networks_cbam_layer_count = 3
     QCigtCifar10Configs.policy_networks_cbam_feature_map_count = 32
     QCigtCifar10Configs.policy_networks_cbam_reduction_ratio = 4
     QCigtCifar10Configs.policy_networks_cbam_layer_input_reduction_ratio = 4
