@@ -1092,8 +1092,11 @@ class CigtIgHardRoutingX(nn.Module):
         total_size = 0
         for k, v in self.named_parameters():
             if v.requires_grad:
-                total_size += np.prod(v.shape)
                 print("{0} is trainable.".format(k))
+                total_size += np.prod(v.shape)
+                print("Param Count:{0} for {1}, shape:{2}".format(np.prod(v.shape), k, v.shape))
+                # if "policy" in k:
+                #     print("Param Count:{0} for {1}".format(np.prod(v.shape), k))
             else:
                 print("{0} is not trainable.".format(k))
         return total_size

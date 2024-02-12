@@ -53,13 +53,14 @@ class CigtQLearning(CigtReinforceV2):
         self.policyNetworksLstmBidirectional = configs.policy_networks_lstm_bidirectional
         self.policyNetworksEpsilonDecayCoeff = configs.policy_networks_epsilon_decay_coeff
         self.policyNetworksTrainOnlyActionHeads = configs.policy_networks_train_only_action_heads
+        self.policyNetworksDecisionDimensions = configs.policy_networks_decision_dimensions
 
         super().__init__(configs, run_id, model_definition, num_classes, model_mac_info, is_debug_mode)
         self.policyNetworksQNetRegressionLayers = nn.ModuleList()
 
         if self.policyGradientsUseLstm:
-            assert len(set([dim for dim in self.decisionDimensions])) == 1
-            self.lstmInputDimension = self.decisionDimensions[0]
+            assert len(set([dim for dim in self.policyNetworksDecisionDimensions])) == 1
+            self.lstmInputDimension = self.policyNetworksDecisionDimensions[0]
             self.policyNetworksLstm = nn.LSTM(input_size=self.lstmInputDimension,
                                               hidden_size=self.policyNetworksLstmDimension,
                                               num_layers=self.policyNetworksLstmNumLayers,
@@ -67,7 +68,7 @@ class CigtQLearning(CigtReinforceV2):
                                               bidirectional=self.policyNetworksLstmBidirectional)
             for layer_id, path_count in enumerate(self.pathCounts[1:]):
                 action_space_size = path_count
-                loss_layer = nn.Linear(in_features=self.decisionDimensions[layer_id],
+                loss_layer = nn.Linear(in_features=self.policyNetworksDecisionDimensions[layer_id],
                                        out_features=action_space_size)
                 self.policyNetworksQNetRegressionLayers.append(loss_layer)
         else:
@@ -113,10 +114,11 @@ class CigtQLearning(CigtReinforceV2):
             layers["policy_gradients_block_{0}_flatten".format(layer_id)] = nn.Flatten()
             layers["policy_gradients_block_{0}_relu".format(layer_id)] = nn.ReLU()
             layers["policy_gradients_block_{0}_feature_fc".format(layer_id)] = nn.LazyLinear(
-                out_features=self.decisionDimensions[layer_id])
+                out_features=self.policyNetworksDecisionDimensions[layer_id])
 
             if not self.policyGradientsUseLstm:
-                loss_layer = nn.Linear(in_features=self.decisionDimensions[layer_id], out_features=action_space_size)
+                loss_layer = nn.Linear(in_features=self.policyNetworksDecisionDimensions[layer_id],
+                                       out_features=action_space_size)
                 layers["policy_gradients_block_{0}_action_space_fc".format(layer_id)] = loss_layer
 
             policy_gradient_network_backbone = nn.Sequential(layers)

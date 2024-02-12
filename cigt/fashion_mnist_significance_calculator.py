@@ -137,6 +137,15 @@ fashion_net_smoe_cign_v3 = 100.0 * np.array(
 
 fashion_cigj_results = np.array([92.624, 92.52, 92.43, 92.66, 92.52])
 
+fashion_q_cigt_results = np.array([
+    0.9276999985694885,
+    0.928199997729063,
+    0.9271999994397163,
+    0.9261000011265278,
+    0.926199998909235,
+    0.9272999994874
+])
+
 print(np.mean(fashion_net_thin_baseline))
 print(np.mean(fashion_net_thick_baseline))
 print(np.mean(fashion_net_random_routing_baseline))
@@ -148,6 +157,7 @@ print(np.mean(fashion_net_smoe_cign_v2))
 print(np.mean(fashion_net_smoe_cign_v3))
 print(np.mean(fashion_net_cigj_random))
 print(np.mean(fashion_cigj_results))
+print(np.mean(fashion_q_cigt_results))
 
 data_samples = {"fashion_net_thin_baseline": fashion_net_thin_baseline,
                 "fashion_net_thick_baseline": fashion_net_thick_baseline,
@@ -159,16 +169,17 @@ data_samples = {"fashion_net_thin_baseline": fashion_net_thin_baseline,
                 "fashion_net_smoe_cign_v2": fashion_net_smoe_cign_v2,
                 "fashion_net_smoe_cign_v3": fashion_net_smoe_cign_v3,
                 "fashion_cigj_results": fashion_cigj_results,
-                "fashion_net_cigj_random": fashion_net_cigj_random}
+                "fashion_net_cigj_random": fashion_net_cigj_random,
+                "fashion_q_cigt_results": fashion_q_cigt_results}
 
 # baselines = ["fashion_net_thin_baseline", "fashion_net_thick_baseline", "fashion_net_random_routing_baseline",
 #              "fashion_net_cign_all_paths_baseline"]
-baselines = ["fashion_net_with_annealing"]
+baselines = ["fashion_net_with_annealing", "fashion_cigj_results"]
 # cigns = ["fashion_net_with_no_annealing", "fashion_net_with_annealing",
 #          "fashion_net_smoe_cign_v1", "fashion_net_smoe_cign_v2", "fashion_net_smoe_cign_v3",
 #          "fashion_cigj_results"]
 
-cigns = ["fashion_cigj_results"]
+cigns = ["fashion_cigj_results", "fashion_q_cigt_results"]
 for cign_method in cigns:
     print("**********CIGN method:{0}**********".format(cign_method))
     for baseline_method in baselines:

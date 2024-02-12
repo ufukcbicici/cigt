@@ -88,7 +88,8 @@ if __name__ == "__main__":
     FashionLenetCigtConfigs.policy_networks_initial_lr = 0.0001
     FashionLenetCigtConfigs.policy_networks_evaluation_period = 1
     FashionLenetCigtConfigs.policy_networks_cbam_layer_count = 1
-    FashionLenetCigtConfigs.policy_networks_lstm_dimension = 128
+    FashionLenetCigtConfigs.policy_networks_decision_dimensions = [32, 32]
+    FashionLenetCigtConfigs.policy_networks_lstm_dimension = 32
 
     for params in param_grid:
         run_id = DbLogger.get_run_id()
@@ -110,6 +111,11 @@ if __name__ == "__main__":
             model_mac_info=mac_counts_per_block,
             is_debug_mode=False,
             precalculated_datasets_dict={"train_dataset": train_loader, "test_dataset": test_loader})
+        model.to(model.device)
+
+        checkpoint = torch.load(chck_path, map_location=model.device)
+        model_load_results = model.load_state_dict(state_dict=checkpoint["model_state_dict"], strict=False)
+        assert all([elem.startswith("policyNetworks") for elem in model_load_results.missing_keys])
         model.to(model.device)
 
         model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_hpc_docker

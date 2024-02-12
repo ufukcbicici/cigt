@@ -95,7 +95,8 @@ if __name__ == "__main__":
     QCigtCifar10Configs.policy_networks_cbam_layer_input_reduction_ratio = 4
     QCigtCifar10Configs.policy_networks_cbam_end_avg_pool_strode = 2
     QCigtCifar10Configs.policy_networks_use_lstm = True
-    QCigtCifar10Configs.policy_networks_lstm_dimension = 128
+    QCigtCifar10Configs.policy_networks_decision_dimensions = [32, 32]
+    QCigtCifar10Configs.policy_networks_lstm_dimension = 32
     QCigtCifar10Configs.policy_networks_lstm_num_layers = 1
     QCigtCifar10Configs.policy_networks_lstm_bidirectional = False
     QCigtCifar10Configs.policy_networks_total_num_of_epochs = 250
@@ -147,7 +148,7 @@ if __name__ == "__main__":
         decay_min_limit=QCigtCifar10Configs.softmax_decay_min_limit)
 
     train_loader, test_loader = get_cifar_datasets()
-    DbLogger.log_db_path = DbLogger.hpc_docker1
+    DbLogger.log_db_path = DbLogger.jr_cigt
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
@@ -189,6 +190,7 @@ if __name__ == "__main__":
     DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
 
     model.execute_forward_with_random_input()
+    param_count = model.get_total_parameter_count()
     model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
 
     kv_rows = [(run_id,
