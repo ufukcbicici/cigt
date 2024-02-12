@@ -175,7 +175,7 @@ if __name__ == "__main__":
             decay_min_limit=QCigtCifar10Configs.softmax_decay_min_limit)
 
         train_loader, test_loader = get_cifar_datasets()
-        DbLogger.log_db_path = DbLogger.hpc_docker1
+        DbLogger.log_db_path = DbLogger.hpc_docker2
         run_id = DbLogger.get_run_id()
 
         print("Start!")
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
         model = CigtQlearningEnd2End(
             configs=QCigtCifar10Configs,
-            model_definition="Q Learning CIGT - LSTM 32 Lr {0}".format(QCigtCifar10Configs.initial_lr),
+            model_definition="Q Learning CIGT - LSTM 128 Lr {0}".format(QCigtCifar10Configs.initial_lr),
             num_classes=10,
             run_id=run_id,
             model_mac_info=mac_counts_per_block,
