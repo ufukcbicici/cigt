@@ -148,7 +148,7 @@ if __name__ == "__main__":
         decay_min_limit=QCigtCifar10Configs.softmax_decay_min_limit)
 
     train_loader, test_loader = get_cifar_datasets()
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.hpc_docker1
 
     model_mac = CigtIgGatherScatterImplementation(
         run_id=-1,
