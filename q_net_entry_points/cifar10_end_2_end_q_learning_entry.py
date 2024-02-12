@@ -170,7 +170,7 @@ if __name__ == "__main__":
 
     model = CigtQlearningEnd2End(
         configs=QCigtCifar10Configs,
-        model_definition="Q Learning CIGT",
+        model_definition="Q Learning CIGT - LSTM 32",
         num_classes=10,
         run_id=run_id,
         model_mac_info=mac_counts_per_block,
@@ -191,6 +191,7 @@ if __name__ == "__main__":
 
     model.execute_forward_with_random_input()
     param_count = model.get_total_parameter_count()
+    print("Model param count:{0}".format(param_count))
     model.fit_policy_network(train_loader=train_loader, test_loader=test_loader)
 
     kv_rows = [(run_id,
