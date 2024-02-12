@@ -183,6 +183,7 @@ if __name__ == "__main__":
         print("Writing into DB:{0}".format(DbLogger.log_db_path))
         print("Running with mac_lambda:{0}".format(QCigtCifar10Configs.policy_networks_mac_lambda))
         print("Running with wd_coeff:{0}".format(QCigtCifar10Configs.policy_networks_wd))
+        print("Grid Search parameters:{0}".format(params))
 
         # Grid search params
         QCigtCifar10Configs.initial_lr = params[0]
