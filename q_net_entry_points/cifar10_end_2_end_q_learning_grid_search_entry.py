@@ -123,8 +123,8 @@ if __name__ == "__main__":
         QCigtCifar10Configs.policy_networks_cbam_layer_input_reduction_ratio = 4
         QCigtCifar10Configs.policy_networks_cbam_end_avg_pool_strode = 2
         QCigtCifar10Configs.policy_networks_use_lstm = True
-        QCigtCifar10Configs.policy_networks_decision_dimensions = [32, 32]
-        QCigtCifar10Configs.policy_networks_lstm_dimension = 32
+        QCigtCifar10Configs.policy_networks_decision_dimensions = [128, 128]
+        QCigtCifar10Configs.policy_networks_lstm_dimension = 128
         QCigtCifar10Configs.policy_networks_lstm_num_layers = 1
         QCigtCifar10Configs.policy_networks_lstm_bidirectional = False
         QCigtCifar10Configs.policy_networks_total_num_of_epochs = 250
