@@ -104,7 +104,7 @@ if __name__ == "__main__":
     # wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
     # mac_lambda_list = sorted(mac_lambda_list)
     # wd_list = sorted(wd_list)
-    lr_list = sorted([0.0001, 0.001, 0.01, 0.1] * 5)
+    lr_list = sorted([0.001, 0.01, 0.1] * 5)
     param_grid = Utilities.get_cartesian_product(list_of_lists=[lr_list])
     for iteration_id, params in enumerate(param_grid):
         print("Iteration:{0}".format(iteration_id))
@@ -123,8 +123,8 @@ if __name__ == "__main__":
         QCigtCifar10Configs.policy_networks_cbam_layer_input_reduction_ratio = 4
         QCigtCifar10Configs.policy_networks_cbam_end_avg_pool_strode = 2
         QCigtCifar10Configs.policy_networks_use_lstm = True
-        QCigtCifar10Configs.policy_networks_decision_dimensions = [128, 128]
-        QCigtCifar10Configs.policy_networks_lstm_dimension = 128
+        QCigtCifar10Configs.policy_networks_decision_dimensions = [32, 32]
+        QCigtCifar10Configs.policy_networks_lstm_dimension = 32
         QCigtCifar10Configs.policy_networks_lstm_num_layers = 1
         QCigtCifar10Configs.policy_networks_lstm_bidirectional = False
         QCigtCifar10Configs.policy_networks_total_num_of_epochs = 250
@@ -175,7 +175,7 @@ if __name__ == "__main__":
             decay_min_limit=QCigtCifar10Configs.softmax_decay_min_limit)
 
         train_loader, test_loader = get_cifar_datasets()
-        DbLogger.log_db_path = DbLogger.hpc_docker2
+        DbLogger.log_db_path = DbLogger.hpc_docker1
         run_id = DbLogger.get_run_id()
 
         print("Start!")
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
         model = CigtQlearningEnd2End(
             configs=QCigtCifar10Configs,
-            model_definition="Q Learning CIGT - LSTM 128 Lr {0}".format(QCigtCifar10Configs.initial_lr),
+            model_definition="Q Learning CIGT - LSTM 32 Lr {0}".format(QCigtCifar10Configs.initial_lr),
             num_classes=10,
             run_id=run_id,
             model_mac_info=mac_counts_per_block,
