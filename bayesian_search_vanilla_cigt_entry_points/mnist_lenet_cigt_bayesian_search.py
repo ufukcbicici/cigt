@@ -13,11 +13,11 @@ from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 from configs.fashion_lenet_cigt_configs import adjust_to_batch_size
 
 
-class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
+class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
     def __init__(self, init_points, n_iter):
         super().__init__(init_points, n_iter)
         self.optimization_bounds_continuous = {
-            "classification_dropout_probability": (0.0, 1.0),
+            "classification_wd": (0.0, 0.001),
             "information_gain_balance_coefficient": (1.0, 10.0),
             "decision_loss_coefficient": (0.01, 1.0),
             "lr_initial_rate": (0.0, 0.05),
@@ -33,14 +33,14 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
     def cost_function(self, **kwargs):
         # lr_initial_rate,
         # hyperbolic_exponent):
-        X = kwargs["classification_dropout_probability"]
+        X = kwargs["classification_wd"]
         Y = kwargs["information_gain_balance_coefficient"]
         Z = kwargs["decision_loss_coefficient"]
         W = kwargs["lr_initial_rate"]
         U = kwargs["temperature_decay_rate"]
         V = kwargs["random_routing_ratio"]
 
-        print("classification_dropout_probability={0}".format(kwargs["classification_dropout_probability"]))
+        print("classification_wd={0}".format(kwargs["classification_wd"]))
         print("information_gain_balance_coefficient={0}".format(kwargs["information_gain_balance_coefficient"]))
         print("decision_loss_coefficient={0}".format(kwargs["decision_loss_coefficient"]))
         print("lr_initial_rate={0}".format(kwargs["lr_initial_rate"]))
@@ -52,22 +52,18 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         # CIGT-[1,2,4]
         FashionLenetCigtConfigs.layer_config_list = [
             {"path_count": 1,
-             "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+             "layer_structure": [{"layer_type": "conv", "feature_map_count": 20, "strides": 1, "kernel_size": 5,
                                   "use_max_pool": True, "use_batch_normalization": True}]},
             {"path_count": 2,
-             "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
+             "layer_structure": [{"layer_type": "conv", "feature_map_count": 15, "strides": 1, "kernel_size": 5,
                                   "use_max_pool": True, "use_batch_normalization": True}]},
             {"path_count": 4,
-             "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
-                                  "use_max_pool": True, "use_batch_normalization": True},
-                                 {"layer_type": "flatten"},
-                                 {"layer_type": "fc", "dimension": 128, "use_dropout": True,
-                                  "use_batch_normalization": True},
-                                 {"layer_type": "fc", "dimension": 64, "use_dropout": True,
+             "layer_structure": [{"layer_type": "flatten"},
+                                 {"layer_type": "fc", "dimension": 25, "use_dropout": False,
                                   "use_batch_normalization": True}]}]
 
         # These are especially important for the LeNet-CIGT
-        FashionLenetCigtConfigs.classification_drop_probability = X
+        FashionLenetCigtConfigs.classification_drop_probability = 0.0
         FashionLenetCigtConfigs.information_gain_balance_coeff_list = [Y] * (
                 len(FashionLenetCigtConfigs.layer_config_list) - 1)
         FashionLenetCigtConfigs.decision_loss_coeff = Z
@@ -84,11 +80,10 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             decay_min_limit=FashionLenetCigtConfigs.softmax_decay_min_limit)
         FashionLenetCigtConfigs.routing_randomization_ratio = V
 
-        FashionLenetCigtConfigs.classification_wd = 0.0
+        FashionLenetCigtConfigs.classification_wd = X
         FashionLenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
         FashionLenetCigtConfigs.decision_drop_probability = 0.0
         FashionLenetCigtConfigs.decision_dimensions = [128, 128]
-        FashionLenetCigtConfigs.decision_average_pooling_strides = [14, 7]
 
         FashionLenetCigtConfigs.enable_information_gain_during_warm_up = True
         FashionLenetCigtConfigs.enable_strict_routing_randomization = False
@@ -118,14 +113,14 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             transforms.ToTensor(),
         ])
         train_loader = torch.utils.data.DataLoader(
-            datasets.FashionMNIST('../data', download=True, train=True, transform=lightweight_augmentation),
+            datasets.MNIST('../data', download=True, train=True, transform=lightweight_augmentation),
             batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
         test_loader = torch.utils.data.DataLoader(
-            datasets.FashionMNIST('../data', download=True, train=False, transform=lightweight_augmentation),
+            datasets.MNIST('../data', download=True, train=False, transform=lightweight_augmentation),
             batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
         model_definition = "Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = {0} - " \
-                           "enable_strict_routing_randomization = {1} - warm_up_kind = {2} FLATTENED IG".format(
+                           "enable_strict_routing_randomization = {1} - warm_up_kind = {2}".format(
             FashionLenetCigtConfigs.enable_information_gain_during_warm_up,
             FashionLenetCigtConfigs.enable_strict_routing_randomization,
             FashionLenetCigtConfigs.warm_up_kind
@@ -137,8 +132,6 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             run_id=run_id,
             model_definition=model_definition,
             num_classes=10)
-        # model.execute_forward_with_random_input()
-        #
         model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_hpc_docker
 
         explanation = model.get_explanation_string()
@@ -153,6 +146,6 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
 
 if __name__ == "__main__":
     DbLogger.log_db_path = DbLogger.hpc_docker3
-    bayesian_optimizer = FashionMnistLenetCigtBayesianOptimizer(init_points=50, n_iter=200)
+    bayesian_optimizer = MnistLenetCigtBayesianOptimizer(init_points=50, n_iter=200)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-                           log_file_name="TFF_flattened_ig_fashion_lenet_0")
+                           log_file_name="TFF_fashion_lenet_0")

@@ -790,6 +790,7 @@ class CigtIgHardRoutingX(nn.Module):
 
         # Run a forward pass first to initialize each LazyXXX layer.
         self.execute_forward_with_random_input()
+        print("Total Parameter Count:{0}".format(self.get_total_parameter_count()))
 
         # Create the model optimizer, we should have every parameter initialized right now.
         self.modelOptimizer = self.create_optimizer()
