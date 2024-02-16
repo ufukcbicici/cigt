@@ -104,7 +104,7 @@ if __name__ == "__main__":
     # wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
     # mac_lambda_list = sorted(mac_lambda_list)
     # wd_list = sorted(wd_list)
-    lr_list = sorted([0.001, 0.01, 0.1] * 5)
+    lr_list = sorted([0.01, 0.1] * 5)
     param_grid = Utilities.get_cartesian_product(list_of_lists=[lr_list])
     for iteration_id, params in enumerate(param_grid):
         print("Iteration:{0}".format(iteration_id))
