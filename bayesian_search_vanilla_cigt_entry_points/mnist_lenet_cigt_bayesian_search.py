@@ -9,8 +9,8 @@ from auxillary.parameters import DiscreteParameter
 from cigt.cigt_ig_gather_scatter_implementation import CigtIgGatherScatterImplementation
 from cigt.cutout_augmentation import CutoutPIL
 from cigt.softmax_decay_algorithms.step_wise_decay_algorithm import StepWiseDecayAlgorithm
-from configs.fashion_lenet_cigt_configs import FashionLenetCigtConfigs
 from configs.fashion_lenet_cigt_configs import adjust_to_batch_size
+from configs.mnist_lenet_cigt_configs import MnistLenetCigtConfigs
 
 
 class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
@@ -47,10 +47,10 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         print("temperature_decay_rate={0}".format(kwargs["temperature_decay_rate"]))
         print("random_routing_ratio={0}".format(kwargs["random_routing_ratio"]))
 
-        FashionLenetCigtConfigs.backbone = "LeNet"
-        FashionLenetCigtConfigs.input_dims = (1, 28, 28)
+        MnistLenetCigtConfigs.backbone = "LeNet"
+        MnistLenetCigtConfigs.input_dims = (1, 28, 28)
         # CIGT-[1,2,4]
-        FashionLenetCigtConfigs.layer_config_list = [
+        MnistLenetCigtConfigs.layer_config_list = [
             {"path_count": 1,
              "layer_structure": [{"layer_type": "conv", "feature_map_count": 20, "strides": 1, "kernel_size": 5,
                                   "use_max_pool": True, "use_batch_normalization": True}]},
@@ -63,43 +63,43 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
                                   "use_batch_normalization": True}]}]
 
         # These are especially important for the LeNet-CIGT
-        FashionLenetCigtConfigs.classification_drop_probability = 0.0
-        FashionLenetCigtConfigs.information_gain_balance_coeff_list = [Y] * (
-                len(FashionLenetCigtConfigs.layer_config_list) - 1)
-        FashionLenetCigtConfigs.decision_loss_coeff = Z
-        FashionLenetCigtConfigs.initial_lr = W
-        FashionLenetCigtConfigs.softmax_decay_initial = 25.0
-        FashionLenetCigtConfigs.softmax_decay_coefficient = U
-        FashionLenetCigtConfigs.softmax_decay_period = 1
-        FashionLenetCigtConfigs.softmax_decay_min_limit = 0.01
-        FashionLenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
+        MnistLenetCigtConfigs.classification_drop_probability = 0.0
+        MnistLenetCigtConfigs.information_gain_balance_coeff_list = [Y] * (
+                len(MnistLenetCigtConfigs.layer_config_list) - 1)
+        MnistLenetCigtConfigs.decision_loss_coeff = Z
+        MnistLenetCigtConfigs.initial_lr = W
+        MnistLenetCigtConfigs.softmax_decay_initial = 25.0
+        MnistLenetCigtConfigs.softmax_decay_coefficient = U
+        MnistLenetCigtConfigs.softmax_decay_period = 1
+        MnistLenetCigtConfigs.softmax_decay_min_limit = 0.01
+        MnistLenetCigtConfigs.softmax_decay_controller = StepWiseDecayAlgorithm(
             decay_name="Stepwise",
-            initial_value=FashionLenetCigtConfigs.softmax_decay_initial,
-            decay_coefficient=FashionLenetCigtConfigs.softmax_decay_coefficient,
-            decay_period=FashionLenetCigtConfigs.softmax_decay_period,
-            decay_min_limit=FashionLenetCigtConfigs.softmax_decay_min_limit)
-        FashionLenetCigtConfigs.routing_randomization_ratio = V
+            initial_value=MnistLenetCigtConfigs.softmax_decay_initial,
+            decay_coefficient=MnistLenetCigtConfigs.softmax_decay_coefficient,
+            decay_period=MnistLenetCigtConfigs.softmax_decay_period,
+            decay_min_limit=MnistLenetCigtConfigs.softmax_decay_min_limit)
+        MnistLenetCigtConfigs.routing_randomization_ratio = V
 
-        FashionLenetCigtConfigs.classification_wd = X
-        FashionLenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
-        FashionLenetCigtConfigs.decision_drop_probability = 0.0
-        FashionLenetCigtConfigs.decision_dimensions = [128, 128]
+        MnistLenetCigtConfigs.classification_wd = X
+        MnistLenetCigtConfigs.apply_relu_dropout_to_decision_layer = False
+        MnistLenetCigtConfigs.decision_drop_probability = 0.0
+        MnistLenetCigtConfigs.decision_dimensions = [128, 128]
 
-        FashionLenetCigtConfigs.enable_information_gain_during_warm_up = True
-        FashionLenetCigtConfigs.enable_strict_routing_randomization = False
-        FashionLenetCigtConfigs.warm_up_kind = "FullRouting"
+        MnistLenetCigtConfigs.enable_information_gain_during_warm_up = True
+        MnistLenetCigtConfigs.enable_strict_routing_randomization = False
+        MnistLenetCigtConfigs.warm_up_kind = "FullRouting"
 
         # The rest can be left like they are
-        FashionLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
-        FashionLenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 0
-        FashionLenetCigtConfigs.cbam_reduction_ratio = 4
-        FashionLenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
-        FashionLenetCigtConfigs.apply_mask_to_batch_norm = False
-        FashionLenetCigtConfigs.advanced_augmentation = False
-        FashionLenetCigtConfigs.use_focal_loss = False
-        FashionLenetCigtConfigs.focal_loss_gamma = 2.0
-        FashionLenetCigtConfigs.batch_norm_type = "BatchNorm"
-        FashionLenetCigtConfigs.data_parallelism = False
+        MnistLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
+        MnistLenetCigtConfigs.number_of_cbam_layers_in_routing_layers = 0
+        MnistLenetCigtConfigs.cbam_reduction_ratio = 4
+        MnistLenetCigtConfigs.cbam_layer_input_reduction_ratio = 4
+        MnistLenetCigtConfigs.apply_mask_to_batch_norm = False
+        MnistLenetCigtConfigs.advanced_augmentation = False
+        MnistLenetCigtConfigs.use_focal_loss = False
+        MnistLenetCigtConfigs.focal_loss_gamma = 2.0
+        MnistLenetCigtConfigs.batch_norm_type = "BatchNorm"
+        MnistLenetCigtConfigs.data_parallelism = False
 
         kwargs = {'num_workers': 0, 'pin_memory': True}
         heavyweight_augmentation = transforms.Compose([
@@ -114,25 +114,25 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         ])
         train_loader = torch.utils.data.DataLoader(
             datasets.MNIST('../data', download=True, train=True, transform=lightweight_augmentation),
-            batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+            batch_size=MnistLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
         test_loader = torch.utils.data.DataLoader(
             datasets.MNIST('../data', download=True, train=False, transform=lightweight_augmentation),
-            batch_size=FashionLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
+            batch_size=MnistLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
-        model_definition = "Fashion MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = {0} - " \
+        model_definition = "MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = {0} - " \
                            "enable_strict_routing_randomization = {1} - warm_up_kind = {2}".format(
-            FashionLenetCigtConfigs.enable_information_gain_during_warm_up,
-            FashionLenetCigtConfigs.enable_strict_routing_randomization,
-            FashionLenetCigtConfigs.warm_up_kind
+            MnistLenetCigtConfigs.enable_information_gain_during_warm_up,
+            MnistLenetCigtConfigs.enable_strict_routing_randomization,
+            MnistLenetCigtConfigs.warm_up_kind
         )
 
         run_id = DbLogger.get_run_id()
         model = CigtIgGatherScatterImplementation(
-            configs=FashionLenetCigtConfigs,
+            configs=MnistLenetCigtConfigs,
             run_id=run_id,
             model_definition=model_definition,
             num_classes=10)
-        model.modelFilesRootPath = FashionLenetCigtConfigs.model_file_root_path_hpc_docker
+        model.modelFilesRootPath = MnistLenetCigtConfigs.model_file_root_path_hpc_docker
 
         explanation = model.get_explanation_string()
         DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
@@ -145,7 +145,7 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.hpc_docker3
+    DbLogger.log_db_path = DbLogger.hpc_docker2
     bayesian_optimizer = MnistLenetCigtBayesianOptimizer(init_points=50, n_iter=200)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-                           log_file_name="TFF_fashion_lenet_0")
+                           log_file_name="TFF_mnist_lenet_0")

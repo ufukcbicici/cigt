@@ -58,7 +58,7 @@ class MnistLenetCigtConfigs:
     evaluation_period = adjust_to_batch_size(original_value=5, target_batch_size=batch_size)
     measurement_start = 11
     decision_dimensions = [128, 128]
-    decision_average_pooling_strides = [2, 1]
+    decision_average_pooling_strides = [14, 7]
     initial_lr = 0.01
 
     decision_loss_coeff = 1.0
@@ -117,17 +117,16 @@ class MnistLenetCigtConfigs:
 
     random_classification_loss_weight = 1.0
     layer_config_list = [
-        {"path_count": 1,
-         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
-                              "use_max_pool": True, "use_batch_normalization": False}]},
-        {"path_count": 2,
-         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 5,
-                              "use_max_pool": True, "use_batch_normalization": False}]},
-        {"path_count": 4,
-         "layer_structure": [{"layer_type": "conv", "feature_map_count": 32, "strides": 1, "kernel_size": 1,
-                              "use_max_pool": True, "use_batch_normalization": False},
-                             {"layer_type": "fc", "dimension": 128, "use_batch_normalization": False},
-                             {"layer_type": "fc", "dimension": 64, "use_batch_normalization": False}]}]
+            {"path_count": 1,
+             "layer_structure": [{"layer_type": "conv", "feature_map_count": 20, "strides": 1, "kernel_size": 5,
+                                  "use_max_pool": True, "use_batch_normalization": True}]},
+            {"path_count": 2,
+             "layer_structure": [{"layer_type": "conv", "feature_map_count": 15, "strides": 1, "kernel_size": 5,
+                                  "use_max_pool": True, "use_batch_normalization": True}]},
+            {"path_count": 4,
+             "layer_structure": [{"layer_type": "flatten"},
+                                 {"layer_type": "fc", "dimension": 25, "use_dropout": False,
+                                  "use_batch_normalization": True}]}]
 
     double_stride_layers = {18, 36}
 
