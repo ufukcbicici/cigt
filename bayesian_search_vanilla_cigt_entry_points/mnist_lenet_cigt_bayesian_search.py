@@ -53,14 +53,14 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         MnistLenetCigtConfigs.layer_config_list = [
             {"path_count": 1,
              "layer_structure": [{"layer_type": "conv", "feature_map_count": 20, "strides": 1, "kernel_size": 5,
-                                  "use_max_pool": True, "use_batch_normalization": False}]},
+                                  "use_max_pool": True, "use_batch_normalization": True}]},
             {"path_count": 2,
              "layer_structure": [{"layer_type": "conv", "feature_map_count": 15, "strides": 1, "kernel_size": 5,
-                                  "use_max_pool": True, "use_batch_normalization": False}]},
+                                  "use_max_pool": True, "use_batch_normalization": True}]},
             {"path_count": 4,
              "layer_structure": [{"layer_type": "flatten"},
                                  {"layer_type": "fc", "dimension": 25, "use_dropout": False,
-                                  "use_batch_normalization": False}]}]
+                                  "use_batch_normalization": True}]}]
 
         # These are especially important for the LeNet-CIGT
         MnistLenetCigtConfigs.classification_drop_probability = 0.0
@@ -120,7 +120,7 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             batch_size=MnistLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
         model_definition = "MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = {0} - " \
-                           "enable_strict_routing_randomization = {1} - warm_up_kind = {2} NO BN".format(
+                           "enable_strict_routing_randomization = {1} - warm_up_kind = {2}".format(
             MnistLenetCigtConfigs.enable_information_gain_during_warm_up,
             MnistLenetCigtConfigs.enable_strict_routing_randomization,
             MnistLenetCigtConfigs.warm_up_kind
@@ -145,7 +145,7 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.hpc_docker2
+    DbLogger.log_db_path = DbLogger.hpc_docker4
     bayesian_optimizer = MnistLenetCigtBayesianOptimizer(init_points=50, n_iter=200)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-                           log_file_name="TFF_mnist_no_bn_lenet_0")
+                           log_file_name="TFF_mnist_lenet_0")

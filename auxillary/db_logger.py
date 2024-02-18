@@ -62,6 +62,7 @@ class DbLogger:
     hpc_docker1 = "/home/cigt/dblogger.db"
     hpc_docker2 = "/home/cigt/dblogger_2.db"
     hpc_docker3 = "/home/cigt/dblogger_3.db"
+    hpc_docker4 = "/home/cigt/dblogger_4.db"
 
     log_db_path = None
 
