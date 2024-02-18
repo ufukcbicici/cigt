@@ -104,8 +104,9 @@ if __name__ == "__main__":
     # wd_list = [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01] * 5
     # mac_lambda_list = sorted(mac_lambda_list)
     # wd_list = sorted(wd_list)
-    lr_list = sorted([0.01, 0.1] * 5)
-    param_grid = Utilities.get_cartesian_product(list_of_lists=[lr_list])
+    lr_list = [0.01]
+    mac_lambda_list = sorted([0.01, 0.1] * 5)
+    param_grid = Utilities.get_cartesian_product(list_of_lists=[lr_list, mac_lambda_list])
     for iteration_id, params in enumerate(param_grid):
         print("Iteration:{0}".format(iteration_id))
         QCigtCifar10Configs.layer_config_list = [
@@ -131,7 +132,7 @@ if __name__ == "__main__":
         QCigtCifar10Configs.policy_networks_initial_lr = 0.0001
         QCigtCifar10Configs.policy_networks_polynomial_scheduler_power = 1.0
         QCigtCifar10Configs.policy_networks_wd = 0.0001
-        QCigtCifar10Configs.policy_networks_mac_lambda = 0.0
+        # QCigtCifar10Configs.policy_networks_mac_lambda = 0.0
         QCigtCifar10Configs.policy_networks_discount_factor = 0.99
         QCigtCifar10Configs.policy_networks_logit_temperature = 1.0
         QCigtCifar10Configs.policy_networks_apply_reward_whitening = False
@@ -187,10 +188,12 @@ if __name__ == "__main__":
 
         # Grid search params
         QCigtCifar10Configs.initial_lr = params[0]
+        QCigtCifar10Configs.policy_networks_mac_lambda = params[1]
 
         model = CigtQlearningEnd2End(
             configs=QCigtCifar10Configs,
-            model_definition="Q Learning CIGT - LSTM 32 Lr {0}".format(QCigtCifar10Configs.initial_lr),
+            model_definition="Q Learning CIGT - LSTM 32 Lr {0} Mac Lambda:{1}".format(
+                QCigtCifar10Configs.initial_lr, QCigtCifar10Configs.policy_networks_mac_lambda),
             num_classes=10,
             run_id=run_id,
             model_mac_info=mac_counts_per_block,
