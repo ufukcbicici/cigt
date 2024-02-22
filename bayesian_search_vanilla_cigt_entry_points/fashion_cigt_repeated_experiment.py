@@ -17,13 +17,22 @@ class FashionMnistLenetCigtBayesianOptimizer(BayesianOptimizer):
     def __init__(self, init_points, n_iter):
         super().__init__(init_points, n_iter)
         self.optimization_bounds_continuous = {
-            "classification_dropout_probability": (0.18, 0.22),
-            "information_gain_balance_coefficient": (2.0, 2.5),
-            "decision_loss_coefficient": (0.05, 0.1),
-            "lr_initial_rate": (0.025, 0.03),
-            "temperature_decay_rate": (0.9998, 0.9999),
-            "random_routing_ratio": (0.45, 0.55)
+            "classification_dropout_probability": (0.345, 0.355),
+            "information_gain_balance_coefficient": (6.9, 7.0),
+            "decision_loss_coefficient": (0.55, 0.56),
+            "lr_initial_rate": (0.035, 0.037),
+            "temperature_decay_rate": (0.99983, 0.99985),
+            "random_routing_ratio": (0.425, 0.43)
         }
+        #{'target': 0.9294999982774258,
+        # 'params': {
+        # 'classification_dropout_probability': 0.35082479093507624,
+        # 'decision_loss_coefficient': 0.5554596972993359,
+        # 'information_gain_balance_coefficient': 6.962892211963472,
+        # 'lr_initial_rate': 0.03662264043867232,
+        # 'random_routing_ratio': 0.42835031269978324,
+        # 'temperature_decay_rate': 0.9998399655756647}}
+
         # {"target": 0.9295999992787838,
         # "params": {"classification_dropout_probability": 0.19052055941962132,
         # "decision_loss_coefficient": 0.0752245053291701,
@@ -160,4 +169,4 @@ if __name__ == "__main__":
     DbLogger.log_db_path = DbLogger.hpc_docker3
     bayesian_optimizer = FashionMnistLenetCigtBayesianOptimizer(init_points=100, n_iter=0)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-                           log_file_name="TFF_fixed_fashion_lenet_0")
+                           log_file_name="TFF_flat_fixed_fashion_lenet_0")
