@@ -17,13 +17,21 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
     def __init__(self, init_points, n_iter):
         super().__init__(init_points, n_iter)
         self.optimization_bounds_continuous = {
-            "classification_wd": (0.0, 0.001),
-            "information_gain_balance_coefficient": (1.0, 10.0),
-            "decision_loss_coefficient": (0.01, 1.0),
-            "lr_initial_rate": (0.0, 0.05),
-            "temperature_decay_rate": (0.9998, 0.99995),
-            "random_routing_ratio": (0.0, 1.0)
+            "classification_wd": (0.00024, 0.00026),
+            "information_gain_balance_coefficient": (6.4, 6.6),
+            "decision_loss_coefficient": (0.28, 0.32),
+            "lr_initial_rate": (0.035, 0.037),
+            "temperature_decay_rate": (0.99987, 0.99989),
+            "random_routing_ratio": (0.35, 0.37)
         }
+
+        # # {'target': 0.9952999992370606,
+        # 'params': {'classification_wd': 0.00024123052823835444,
+        # 'decision_loss_coefficient': 0.2881152745917274,
+        # 'information_gain_balance_coefficient': 6.421065456312262,
+        # 'lr_initial_rate': 0.0362708036650588,
+        # 'random_routing_ratio': 0.35999676967359384,
+        # 'temperature_decay_rate': 0.9998790454901518}}
 
         # enable_information_gain_during_warm_up = True
         # enable_strict_routing_randomization = False
@@ -53,14 +61,14 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         MnistLenetCigtConfigs.layer_config_list = [
             {"path_count": 1,
              "layer_structure": [{"layer_type": "conv", "feature_map_count": 20, "strides": 1, "kernel_size": 5,
-                                  "use_max_pool": True, "use_batch_normalization": True}]},
+                                  "use_max_pool": True, "use_batch_normalization": False}]},
             {"path_count": 2,
              "layer_structure": [{"layer_type": "conv", "feature_map_count": 15, "strides": 1, "kernel_size": 5,
-                                  "use_max_pool": True, "use_batch_normalization": True}]},
+                                  "use_max_pool": True, "use_batch_normalization": False}]},
             {"path_count": 4,
              "layer_structure": [{"layer_type": "flatten"},
                                  {"layer_type": "fc", "dimension": 25, "use_dropout": False,
-                                  "use_batch_normalization": True}]}]
+                                  "use_batch_normalization": False}]}]
 
         # These are especially important for the LeNet-CIGT
         MnistLenetCigtConfigs.classification_drop_probability = 0.0
@@ -146,6 +154,6 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
 
 if __name__ == "__main__":
     DbLogger.log_db_path = DbLogger.hpc_docker4
-    bayesian_optimizer = MnistLenetCigtBayesianOptimizer(init_points=50, n_iter=200)
+    bayesian_optimizer = MnistLenetCigtBayesianOptimizer(init_points=100, n_iter=0)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-                           log_file_name="TFF_mnist_no_bn_lenet_0")
+                           log_file_name="TFF_flat_fixed_mnist_lenet_0")
