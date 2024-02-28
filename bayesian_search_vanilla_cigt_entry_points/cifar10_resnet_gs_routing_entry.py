@@ -153,6 +153,7 @@ if __name__ == "__main__":
             configs=Cifar10GsResnetCigtConfigs)
         model.to(model.device)
         model.execute_forward_with_random_input()
+        model.validate(loader=train_loader, epoch=-1, data_kind="train")
         model.fit(train_loader=train_loader, test_loader=test_loader)
 
 
