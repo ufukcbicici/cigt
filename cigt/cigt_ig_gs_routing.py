@@ -70,7 +70,7 @@ class CigtIgGsRouting(CigtIgGatherScatterImplementation):
         logits = torch.softmax(routing_activations, dim=1)
         eps = 1e-20
         samples_shape = [logits.shape[0], logits.shape[1], z_sample_count]
-        U_ = torch.rand(size=samples_shape)
+        U_ = torch.rand(size=samples_shape, device=self.device)
         G_ = -torch.log(-torch.log(U_ + eps) + eps)
         log_logits = torch.log(logits + eps)
         log_logits = torch.unsqueeze(log_logits, dim=-1)
