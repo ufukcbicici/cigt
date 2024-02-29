@@ -12,6 +12,7 @@ class CigtIgGsRouting(CigtIgGatherScatterImplementation):
     def __init__(self, configs, run_id, model_definition, num_classes):
         super().__init__(configs, run_id, model_definition, num_classes)
 
+    # OK
     def warm_up_optimization_step(self, layer_outputs, decision_loss_coeff):
         # Cigt Classification Loss and Accuracy Calculation
         if self.lossCalculationKind == "SingleLogitSingleLoss":
@@ -43,6 +44,7 @@ class CigtIgGsRouting(CigtIgGatherScatterImplementation):
         # print("multipleCeLosses:{0}".format(self.multipleCeLosses))
         return total_loss, classification_loss, total_routing_loss, batch_accuracy, information_gain_losses
 
+    # OK
     def gs_optimization_step(self,
                              target_var,
                              decision_loss_coeff,
@@ -66,6 +68,7 @@ class CigtIgGsRouting(CigtIgGatherScatterImplementation):
         total_loss = classification_loss + total_routing_loss
         return total_loss, classification_loss, total_routing_loss, batch_accuracy, information_gain_losses
 
+    # OK
     def gs_routing(self, routing_activations, temperature, z_sample_count):
         logits = torch.softmax(routing_activations, dim=1)
         eps = 1e-20
@@ -84,6 +87,7 @@ class CigtIgGsRouting(CigtIgGatherScatterImplementation):
         # return z_expected
         return z_samples
 
+    # OK
     def forward_gs(self, x, labels, temperature):
         balance_coefficient_list = self.informationGainBalanceCoeffList
         # Routing Matrices
@@ -140,6 +144,7 @@ class CigtIgGsRouting(CigtIgGatherScatterImplementation):
 
         return routing_matrices_hard, routing_matrices_soft, block_outputs, list_of_logits, routing_activations_list
 
+    # OK
     def train_single_epoch(self, epoch_id, train_loader):
         """Train for one epoch on the training set"""
         batch_time = AverageMeter()
@@ -243,6 +248,7 @@ class CigtIgGsRouting(CigtIgGatherScatterImplementation):
         print("*************Epoch:{0} Ending Measurements*************".format(epoch_id))
         return batch_time.avg
 
+    # OK
     def validate(self, loader, epoch, data_kind, temperature=None, print_avg_measurements=False,
                  return_network_outputs=False,
                  verbose=False):
