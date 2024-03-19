@@ -62,7 +62,6 @@ if __name__ == "__main__":
             decay_coefficient=Cifar10GsResnetCigtConfigs.softmax_decay_coefficient,
             decay_period=Cifar10GsResnetCigtConfigs.softmax_decay_period,
             decay_min_limit=Cifar10GsResnetCigtConfigs.softmax_decay_min_limit)
-
         run_id = DbLogger.get_run_id()
         normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
         if not Cifar10GsResnetCigtConfigs.advanced_augmentation:
@@ -145,13 +144,17 @@ if __name__ == "__main__":
         #                                  "checkpoints/dblogger_141_epoch1370.pth")
         # _141_checkpoint = torch.load(chck_path, map_location="cpu")
         # model.load_state_dict(state_dict=_141_checkpoint["model_state_dict"])
-
         model = CigtIgGsRouting(
             run_id=run_id,
             model_definition="CIFAR 10 CIGT With GS Routing",
             num_classes=10,
             configs=Cifar10GsResnetCigtConfigs)
         model.to(model.device)
+        model.modelFilesRootPath = Cifar10GsResnetCigtConfigs.model_file_root_path_hpc_docker
+
+        explanation = model.get_explanation_string()
+        DbLogger.write_into_table(rows=[(run_id, explanation)], table=DbLogger.runMetaData)
+
         model.execute_forward_with_random_input()
         # model.validate(loader=train_loader, epoch=-1, data_kind="train")
         model.fit(train_loader=train_loader, test_loader=test_loader)
