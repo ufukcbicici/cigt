@@ -17,7 +17,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.jr_cigt
+    DbLogger.log_db_path = DbLogger.hpc_docker1
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 10 * [0.0004]
     weight_decay = sorted(weight_decay)
@@ -148,12 +148,12 @@ if __name__ == "__main__":
 
         model = CigtIgGsRouting(
             run_id=run_id,
-            model_definition="Vanilla With CBAM Routers With Random Augmentation - cbam_layer_input_reduction_ratio:0  - [1,2,4] - [5.0, 5.0] - number_of_cbam_layers_in_routing_layers:6 - MultipleLogitsMultipleLosses - Wd:0.0005 - 350 Epoch Warm up with: RandomRoutingButInformationGainOptimizationEnabled - InformationGainRoutingWithRandomization",
+            model_definition="CIFAR 10 CIGT With GS Routing",
             num_classes=10,
             configs=Cifar10GsResnetCigtConfigs)
         model.to(model.device)
         model.execute_forward_with_random_input()
-        model.validate(loader=train_loader, epoch=-1, data_kind="train")
+        # model.validate(loader=train_loader, epoch=-1, data_kind="train")
         model.fit(train_loader=train_loader, test_loader=test_loader)
 
 

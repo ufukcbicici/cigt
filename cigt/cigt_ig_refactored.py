@@ -146,9 +146,6 @@ class CigtIgHardRoutingX(nn.Module):
             self.in_planes = self.firstConvOutputDim
             self.conv1 = conv3x3(3, self.firstConvOutputDim, self.firstConvStride)
             self.bn1 = nn.BatchNorm2d(self.firstConvOutputDim)
-            if self.useDataParallelism:
-                self.conv1 = nn.DataParallel(self.conv1)
-                self.bn1 = nn.DataParallel(self.bn1)
 
         # Build Cigt Blocks
         self.cigtLayers = nn.ModuleList()

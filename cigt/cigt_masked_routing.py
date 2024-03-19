@@ -143,8 +143,6 @@ class CigtMaskedRouting(CigtIgHardRoutingX):
                                          mask_batch_norm_layers=self.applyMaskToBatchNorm)
                 layers.append(block)
             block_obj = MaskedSequential(*layers)
-            if self.useDataParallelism:
-                block_obj = nn.DataParallel(block_obj)
             self.cigtLayers.append(block_obj)
 
             # Block end layers: Routing layers for inner layers, loss layer for the last one.
@@ -155,8 +153,6 @@ class CigtMaskedRouting(CigtIgHardRoutingX):
                     cigt_layer_id=cigt_layer_id,
                     input_feature_map_size=feature_edge_size,
                     input_feature_map_count=self.pathCounts[cigt_layer_id] * cigt_layer_info[-1]["out_dimension"])
-                if self.useDataParallelism:
-                    routing_layer = nn.DataParallel(routing_layer)
                 self.blockEndLayers.append(routing_layer)
 
         self.get_loss_layer(final_layer_dimension_multiplier=self.pathCounts[-1])

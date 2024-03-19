@@ -121,8 +121,6 @@ class ResnetConfigInterpreter:
                                        norm_type=model.batchNormType)
                     layers.append(block)
                 block_obj = Sequential_ext(*layers)
-                if model.useDataParallelism:
-                    block_obj = nn.DataParallel(block_obj)
                 # block_obj.name = "block_{0}_{1}".format(cigt_layer_id, path_id)
                 cigt_layer_blocks.append(block_obj)
             model.cigtLayers.append(cigt_layer_blocks)
@@ -130,8 +128,6 @@ class ResnetConfigInterpreter:
             if cigt_layer_id < len(model.blockParametersList) - 1:
                 routing_layer = model.get_routing_layer(cigt_layer_id=cigt_layer_id,
                                                         input_feature_map_count=cigt_layer_info[-1]["out_dimension"])
-                if model.useDataParallelism:
-                    routing_layer = nn.DataParallel(routing_layer)
                 model.blockEndLayers.append(routing_layer)
         # if cigt_layer_id == len(self.blockParametersList) - 1:
         ResnetConfigInterpreter.get_loss_layer(model=model)
