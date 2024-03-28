@@ -11,6 +11,7 @@ from collections import Counter
 class CigtIgGsRouting(CigtIgGatherScatterImplementation):
     def __init__(self, configs, run_id, model_definition, num_classes):
         super().__init__(configs, run_id, model_definition, num_classes)
+        self.zSampleCount = configs.z_sample_count
 
     # OK
     def warm_up_optimization_step(self, layer_outputs, decision_loss_coeff):
@@ -70,6 +71,7 @@ class CigtIgGsRouting(CigtIgGatherScatterImplementation):
 
     # OK
     def gs_routing(self, routing_activations, temperature, z_sample_count):
+        print("z_sample_count={0}".format(z_sample_count))
         logits = torch.softmax(routing_activations, dim=1)
         eps = 1e-20
         samples_shape = [logits.shape[0], logits.shape[1], z_sample_count]
@@ -120,7 +122,7 @@ class CigtIgGsRouting(CigtIgGatherScatterImplementation):
                                                                            layer_id])
                 z_samples = self.gs_routing(routing_activations=routing_activations,
                                             temperature=temperature,
-                                            z_sample_count=1000)
+                                            z_sample_count=self.zSampleCount)
                 z_expected = torch.mean(z_samples, dim=-1)
                 # Straight through trick
                 _, ind = z_expected.max(dim=-1)

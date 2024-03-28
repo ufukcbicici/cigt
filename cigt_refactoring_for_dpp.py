@@ -29,7 +29,7 @@ class CigtClean(nn.Module):
         super().__init__()
         self.runId = run_id
         self.modelBackbone = configs.backbone
-        assert self.modelBackbone in {"ResNet110", "Resnet50", "LeNet"}
+        assert self.modelBackbone in {"ResNet", "LeNet"}
         self.configInterpreter = None
         if self.modelBackbone == "ResNet":
             self.configInterpreter = ResnetConfigInterpreter
@@ -39,5 +39,8 @@ class CigtClean(nn.Module):
             raise NotImplementedError()
 
         self.modelDefinition = model_definition
+
+    def forward(self, x, labels, temperature):
+        pass
 
 
