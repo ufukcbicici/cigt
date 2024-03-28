@@ -40,6 +40,7 @@ if __name__ == "__main__":
         Cifar10GsResnetCigtConfigs.enable_strict_routing_randomization = False
         Cifar10GsResnetCigtConfigs.routing_randomization_ratio = 0.5
         Cifar10GsResnetCigtConfigs.warm_up_kind = "FullRouting"
+        Cifar10GsResnetCigtConfigs.z_sample_count = 1000
         Cifar10GsResnetCigtConfigs.decision_drop_probability = 0.5
         Cifar10GsResnetCigtConfigs.number_of_cbam_layers_in_routing_layers = 3
         Cifar10GsResnetCigtConfigs.cbam_reduction_ratio = 4
