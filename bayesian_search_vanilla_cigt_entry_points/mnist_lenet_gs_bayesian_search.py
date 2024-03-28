@@ -89,6 +89,7 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
         MnistLenetCigtConfigs.enable_information_gain_during_warm_up = True
         MnistLenetCigtConfigs.enable_strict_routing_randomization = False
         MnistLenetCigtConfigs.warm_up_kind = "FullRouting"
+        MnistLenetCigtConfigs.z_sample_count = 100
 
         # The rest can be left like they are
         MnistLenetCigtConfigs.loss_calculation_kind = "MultipleLogitsMultipleLosses"
@@ -121,10 +122,11 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
             batch_size=MnistLenetCigtConfigs.batch_size, shuffle=False, **kwargs)
 
         model_definition = "MNIST LeNet Bayesian Search enable_information_gain_during_warm_up = {0} - " \
-                           "enable_strict_routing_randomization = {1} - warm_up_kind = {2}".format(
+                           "enable_strict_routing_randomization = {1} - warm_up_kind = {2} z_sample_count:{3}".format(
             MnistLenetCigtConfigs.enable_information_gain_during_warm_up,
             MnistLenetCigtConfigs.enable_strict_routing_randomization,
-            MnistLenetCigtConfigs.warm_up_kind
+            MnistLenetCigtConfigs.warm_up_kind,
+            MnistLenetCigtConfigs.z_sample_count
         )
 
         run_id = DbLogger.get_run_id()
@@ -146,7 +148,9 @@ class MnistLenetCigtBayesianOptimizer(BayesianOptimizer):
 
 
 if __name__ == "__main__":
-    DbLogger.log_db_path = DbLogger.hpc_docker4
+    DbLogger.log_db_path = DbLogger.hpc_docker3
     bayesian_optimizer = MnistLenetCigtBayesianOptimizer(init_points=50, n_iter=200)
     bayesian_optimizer.fit(log_file_root_path=os.path.split(os.path.abspath(__file__))[0],
-                           log_file_name="TFF_GS_flattened_ig_mnist_lenet_0")
+                           log_file_name="TFF_GS_flattened_ig_mnist_lenet_z_{0}_0".format(
+                               MnistLenetCigtConfigs.z_sample_count
+                           ))
