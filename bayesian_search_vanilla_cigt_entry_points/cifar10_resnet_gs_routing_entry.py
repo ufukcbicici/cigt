@@ -17,7 +17,7 @@ if __name__ == "__main__":
     print("X")
     # 5e-4,
     # 0.0005
-    DbLogger.log_db_path = DbLogger.hpc_docker1
+    DbLogger.log_db_path = DbLogger.hpc_docker4
     # weight_decay = 5 * [0.0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005]
     weight_decay = 10 * [0.0004]
     weight_decay = sorted(weight_decay)
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         Cifar10GsResnetCigtConfigs.layer_config_list = [
             {"path_count": 1,
              "layer_structure": [{"layer_count": 9, "feature_map_count": 16}]},
-            {"path_count": 2,
+            {"path_count": 4,
              "layer_structure": [{"layer_count": 9, "feature_map_count": 12},
                                  {"layer_count": 18, "feature_map_count": 16}]},
             {"path_count": 4,
@@ -146,7 +146,7 @@ if __name__ == "__main__":
         # model.load_state_dict(state_dict=_141_checkpoint["model_state_dict"])
         model = CigtIgGsRouting(
             run_id=run_id,
-            model_definition="CIFAR 10 CIGT With GS Routing",
+            model_definition="CIFAR 10 CIGT With GS Routing - [1,4,4]",
             num_classes=10,
             configs=Cifar10GsResnetCigtConfigs)
         model.to(model.device)
